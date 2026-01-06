@@ -133,7 +133,7 @@ Once activated, install your project dependencies:
 ```bash
 pip install pandas numpy pytest  
 ```
-> Replace the package list with what your project requires.
+
 
 <!--4️⃣ Save Dependencies (Optional but Recommended)  
 
@@ -190,3 +190,4 @@ Tests use temporary SQLite databases and do not affect production data.
 - Refactor complete
 - Tests added
 - Stable baseline for further enhancements (e.g., decorators, generators)
+
