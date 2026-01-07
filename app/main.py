@@ -31,37 +31,45 @@ class SplashScreen:
         self.root = root
         self.root.overrideredirect(True)  # remove title bar
         self.root.geometry("450x300")
-        self.root.configure(bg="#F5F7FA")
+        
+        # Default to light theme for splash or load from config (simple way: hardcode safe default or import config)
+        from app import config
+        theme = config.THEME
+        # Mini-theme map just for splash or duplicate logic
+        bg = "#1a1a1a" if theme == "dark" else "#F5F7FA"
+        fg = "#ffffff" if theme == "dark" else "#2C3E50"
+        
+        self.root.configure(bg=bg)
 
         # Center window
         x = (self.root.winfo_screenwidth() // 2) - 225
         y = (self.root.winfo_screenheight() // 2) - 150
         self.root.geometry(f"+{x}+{y}")
 
-        container = tk.Frame(self.root, bg="#F5F7FA")
+        container = tk.Frame(self.root, bg=bg)
         container.pack(expand=True)
 
         tk.Label(
             container,
             text="🧠",
             font=("Arial", 40),
-            bg="#F5F7FA"
+            bg=bg
         ).pack(pady=(10, 5))
 
         tk.Label(
             container,
             text="Soul Sense EQ Test",
             font=("Arial", 20, "bold"),
-            fg="#2C3E50",
-            bg="#F5F7FA"
+            fg=fg,
+            bg=bg
         ).pack(pady=5)
 
         tk.Label(
             container,
             text="Understanding emotions, one step at a time",
             font=("Arial", 10),
-            fg="#7F8C8D",
-            bg="#F5F7FA"
+            fg="#7F8C8D", # Keep neutral
+            bg=bg
         ).pack(pady=5)
 
         # Simple loading text (safe default)
@@ -70,11 +78,47 @@ class SplashScreen:
             text="Loading...",
             font=("Arial", 10),
             fg="#555",
-            bg="#F5F7FA"
+            bg=bg
         )
         self.loading_label.pack(pady=15)
     def close_after_delay(self, delay_ms, callback):
         self.root.after(delay_ms, callback)
+
+from app import config
+
+# ---------------- THEMES ----------------
+THEMES = {
+    "light": {
+        "bg_primary": "#F5F7FA",
+        "bg_secondary": "white",
+        "text_primary": "#2C3E50",
+        "text_secondary": "#7F8C8D",
+        "text_input": "#34495E",
+        "accent": "#3498DB",
+        "success": "#4CAF50",
+        "danger": "#E74C3C",
+        "card_bg": "white",
+        "input_bg": "white",
+        "input_fg": "black",
+        "tooltip_bg": "#FFFFE0",
+        "tooltip_fg": "black"
+    },
+    "dark": {
+        "bg_primary": "#1a1a1a",
+        "bg_secondary": "#2d2d2d",
+        "text_primary": "#ffffff",
+        "text_secondary": "#b0b0b0",
+        "text_input": "#e0e0e0",
+        "accent": "#5DADE2",
+        "success": "#58D68D",
+        "danger": "#EC7063",
+        "card_bg": "#2d2d2d",
+        "input_bg": "#3d3d3d",
+        "input_fg": "white",
+        "tooltip_bg": "#333333",
+        "tooltip_fg": "white"
+    }
+}
 
 # ---------------- GUI ----------------
 class SoulSenseApp:
@@ -87,7 +131,7 @@ class SoulSenseApp:
         if not confirm:
             return
 
-    # ---- RESET TEST STATE ----
+        # ---- RESET TEST STATE ----
         self.current_question = 0
         self.responses = [] 
         self.answer_var = None
@@ -108,8 +152,13 @@ class SoulSenseApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Soul Sense EQ Test")
-        self.root.geometry("600x500")   # Same GUI window dimensions
-        self.root.configure(bg="#F5F7FA")
+        self.root.geometry("600x500")
+        
+        # Load Theme
+        self.current_theme_name = config.THEME
+        self.colors = THEMES.get(self.current_theme_name, THEMES["light"])
+        
+        self.root.configure(bg=self.colors["bg_primary"])
         self.username = ""
         self.age = None
         self.education = None
@@ -122,40 +171,69 @@ class SoulSenseApp:
 
         self.create_login_screen()
 
+    # ---------- HELPERS ----------
+    def toggle_theme(self):
+        new_theme = "dark" if self.current_theme_name == "light" else "light"
+        
+        # Load current config, update, and save
+        try:
+            current_config = config.load_config()
+            current_config["ui"]["theme"] = new_theme
+            if config.save_config(current_config):
+                messagebox.showinfo("Theme Changed", "Theme changed! Please restart the application to apply changes.")
+                # Optional: self.force_exit() 
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save theme: {e}")
+
     # ---------- SCREENS ----------
     def create_login_screen(self):
         self.clear_screen()
         
         card = tk.Frame(
             self.root,
-            bg="white",
+            bg=self.colors["card_bg"],
             padx=30,
             pady=25
         )
         card.pack(pady=50)
         
+        # Header with Theme Toggle
+        header_frame = tk.Frame(card, bg=self.colors["card_bg"])
+        header_frame.pack(fill="x", pady=(0, 8))
+        
         tk.Label(
-            card,
+            header_frame,
             text="🧠 Soul Sense EQ Test",
             font=("Arial", 22, "bold"),
-            bg="white",
-            fg="#2C3E50"
-        ).pack(pady=(0, 8))
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_primary"]
+        ).pack(side="left")
+        
+        tk.Button(
+            header_frame,
+            text="🌓",
+            command=self.toggle_theme,
+            font=("Arial", 12),
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_primary"],
+            relief="flat",
+            cursor="hand2"
+        ).pack(side="right")
         
         tk.Label(
             card,
             text="Please login to continue",
             font=("Arial", 11),
-            bg="white",
-            fg="#7F8C8D"
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_secondary"]
         ).pack(pady=(0, 20))
         
         # Username
         tk.Label(
             card,
             text="Username",
-            bg="white",
-            fg="#34495E",
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_input"],
             font=("Arial", 11, "bold")
         ).pack(anchor="w", pady=(5, 2))
         
@@ -166,8 +244,8 @@ class SoulSenseApp:
         tk.Label(
             card,
             text="Password",
-            bg="white",
-            fg="#34495E",
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_input"],
             font=("Arial", 11, "bold")
         ).pack(anchor="w", pady=(5, 2))
         
@@ -175,7 +253,7 @@ class SoulSenseApp:
         self.login_password_entry.pack(pady=5)
         
         # Buttons
-        button_frame = tk.Frame(card, bg="white")
+        button_frame = tk.Frame(card, bg=self.colors["card_bg"])
         button_frame.pack(pady=20)
         
         tk.Button(
@@ -183,10 +261,8 @@ class SoulSenseApp:
             text="Login",
             command=self.handle_login,
             font=("Arial", 12, "bold"),
-            bg="#4CAF50",
+            bg=self.colors["success"],
             fg="white",
-            activebackground="#43A047",
-            activeforeground="white",
             relief="flat",
             padx=20,
             pady=8
@@ -197,10 +273,8 @@ class SoulSenseApp:
             text="Sign Up",
             command=self.create_signup_screen,
             font=("Arial", 12),
-            bg="#2196F3",
+            bg=self.colors["accent"],
             fg="white",
-            activebackground="#1976D2",
-            activeforeground="white",
             relief="flat",
             padx=20,
             pady=8
@@ -211,7 +285,7 @@ class SoulSenseApp:
         
         card = tk.Frame(
             self.root,
-            bg="white",
+            bg=self.colors["card_bg"],
             padx=30,
             pady=25
         )
@@ -221,24 +295,24 @@ class SoulSenseApp:
             card,
             text="🧠 Create Account",
             font=("Arial", 22, "bold"),
-            bg="white",
-            fg="#2C3E50"
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_primary"]
         ).pack(pady=(0, 8))
         
         tk.Label(
             card,
             text="Join Soul Sense EQ Test",
             font=("Arial", 11),
-            bg="white",
-            fg="#7F8C8D"
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_secondary"]
         ).pack(pady=(0, 20))
         
         # Username
         tk.Label(
             card,
             text="Username",
-            bg="white",
-            fg="#34495E",
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_input"],
             font=("Arial", 11, "bold")
         ).pack(anchor="w", pady=(5, 2))
         
@@ -249,8 +323,8 @@ class SoulSenseApp:
         tk.Label(
             card,
             text="Password",
-            bg="white",
-            fg="#34495E",
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_input"],
             font=("Arial", 11, "bold")
         ).pack(anchor="w", pady=(5, 2))
         
@@ -261,8 +335,8 @@ class SoulSenseApp:
         tk.Label(
             card,
             text="Confirm Password",
-            bg="white",
-            fg="#34495E",
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_input"],
             font=("Arial", 11, "bold")
         ).pack(anchor="w", pady=(5, 2))
         
@@ -270,7 +344,7 @@ class SoulSenseApp:
         self.signup_confirm_entry.pack(pady=5)
         
         # Buttons
-        button_frame = tk.Frame(card, bg="white")
+        button_frame = tk.Frame(card, bg=self.colors["card_bg"])
         button_frame.pack(pady=20)
         
         tk.Button(
@@ -278,10 +352,8 @@ class SoulSenseApp:
             text="Create Account",
             command=self.handle_signup,
             font=("Arial", 12, "bold"),
-            bg="#4CAF50",
+            bg=self.colors["success"],
             fg="white",
-            activebackground="#43A047",
-            activeforeground="white",
             relief="flat",
             padx=20,
             pady=8
@@ -294,8 +366,6 @@ class SoulSenseApp:
             font=("Arial", 12),
             bg="#757575",
             fg="white",
-            activebackground="#616161",
-            activeforeground="white",
             relief="flat",
             padx=20,
             pady=8
@@ -356,7 +426,7 @@ class SoulSenseApp:
 
         card = tk.Frame(
             self.root,
-            bg="white",
+            bg=self.colors["card_bg"],
             padx=30,
             pady=25
         )
@@ -366,8 +436,8 @@ class SoulSenseApp:
             card,
             text="🧠 Soul Sense EQ Test",
             font=("Arial", 22, "bold"),
-            bg="white",
-            fg="#2C3E50"
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_primary"]
         ).pack(pady=(0, 8))
 
 
@@ -375,19 +445,19 @@ class SoulSenseApp:
             card,
             text="Answer honestly to understand your emotional intelligence",
             font=("Arial", 11),
-            bg="white",
-            fg="#7F8C8D"
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_secondary"]
         ).pack(pady=(0, 20))
 
         # Logout button
-        logout_frame = tk.Frame(card, bg="white")
+        logout_frame = tk.Frame(card, bg=self.colors["card_bg"])
         logout_frame.pack(fill="x", pady=(0, 10))
         
         tk.Label(
             logout_frame,
             text=f"Logged in as: {self.auth_manager.current_user}",
-            bg="white",
-            fg="#7F8C8D",
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_secondary"],
             font=("Arial", 10)
         ).pack(side="left")
         
@@ -396,10 +466,8 @@ class SoulSenseApp:
             text="Logout",
             command=self.handle_logout,
             font=("Arial", 10),
-            bg="#E74C3C",
+            bg=self.colors["danger"],
             fg="white",
-            activebackground="#C0392B",
-            activeforeground="white",
             relief="flat",
             padx=15,
             pady=5
@@ -410,8 +478,8 @@ class SoulSenseApp:
         tk.Label(
             card,
             text="Enter Name",
-            bg="white",
-            fg="#34495E",
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_input"],
             font=("Arial", 11, "bold")
         ).pack(anchor="w", pady=(5, 2))
 
@@ -424,8 +492,8 @@ class SoulSenseApp:
         tk.Label(
             card,
             text="Enter Age",
-            bg="white",
-            fg="#34495E",
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_input"],
             font=("Arial", 11, "bold")
         ).pack(anchor="w", pady=(5, 2))
         self.age_entry = ttk.Entry(card, font=("Arial", 12), width=30)
@@ -435,8 +503,8 @@ class SoulSenseApp:
         tk.Label(
             card,
             text="Education",
-            bg="white",
-            fg="#34495E",
+            bg=self.colors["card_bg"],
+            fg=self.colors["text_input"],
             font=("Arial", 11, "bold")
         ).pack(anchor="w", pady=(5, 2))
         self.education_combo = ttk.Combobox(
@@ -459,10 +527,8 @@ class SoulSenseApp:
             text="Start EQ Test →",
             command=self.start_test,
             font=("Arial", 12, "bold"),
-            bg="#4CAF50",
+            bg=self.colors["success"],
             fg="white",
-            activebackground="#43A047",
-            activeforeground="white",
             relief="flat",
             padx=20,
             pady=8
@@ -597,7 +663,7 @@ class SoulSenseApp:
 
         q_text, q_tooltip = self.questions[self.current_question]
         
-        question_frame = tk.Frame(self.root, bg="#F5F7FA")
+        question_frame = tk.Frame(self.root, bg=self.colors["bg_primary"])
         question_frame.pack(pady=20)
 
         tk.Label(
@@ -605,7 +671,8 @@ class SoulSenseApp:
             text=f"Q{self.current_question + 1}: {q_text}",
             wraplength=400,
             font=("Arial", 12),
-            bg="#F5F7FA"
+            bg=self.colors["bg_primary"],
+            fg=self.colors["text_primary"]
         ).pack(side="left")
         
         if q_tooltip:
@@ -613,8 +680,8 @@ class SoulSenseApp:
                 question_frame,
                 text="ℹ️",
                 font=("Arial", 12),
-                fg="#3498DB",
-                bg="#F5F7FA",
+                fg=self.colors["accent"],
+                bg=self.colors["bg_primary"],
                 cursor="hand2"
             )
             tooltip_btn.pack(side="left", padx=5)
@@ -626,7 +693,16 @@ class SoulSenseApp:
                 x = e.widget.winfo_rootx() + 20
                 y = e.widget.winfo_rooty() + 20
                 self.tooltip_w.wm_geometry(f"+{x}+{y}")
-                label = tk.Label(self.tooltip_w, text=q_tooltip, bg="#FFFFE0", relief="solid", borderwidth=1, padx=5, pady=3)
+                label = tk.Label(
+                    self.tooltip_w, 
+                    text=q_tooltip, 
+                    bg=self.colors["tooltip_bg"], 
+                    fg=self.colors["tooltip_fg"],
+                    relief="solid", 
+                    borderwidth=1, 
+                    padx=5, 
+                    pady=3
+                )
                 label.pack()
                 
             def on_leave(e):
@@ -643,7 +719,10 @@ class SoulSenseApp:
                 self.root,
                 text=f"{txt} ({val})",
                 variable=self.answer_var,
-                value=val
+                value=val,
+                bg=self.colors["bg_primary"],
+                fg=self.colors["text_primary"],
+                selectcolor=self.colors["bg_secondary"]
             ).pack(anchor="w", padx=100)
 
         tk.Button(self.root, text="Next", command=self.save_answer).pack(pady=15)
@@ -746,25 +825,28 @@ class SoulSenseApp:
         # --- UPDATED: Build Result Screen ---
         self.clear_screen()
         self.root.geometry("800x600") # Resize for results
+        self.root.configure(bg=self.colors["bg_primary"])
 
         # Left Side: Text Results
-        left_frame = tk.Frame(self.root)
+        left_frame = tk.Frame(self.root, bg=self.colors["bg_primary"])
         left_frame.pack(side=tk.LEFT, padx=20, fill=tk.Y)
 
-        tk.Label(left_frame, text=f"Results for {self.username}", font=("Arial", 18, "bold")).pack(pady=20)
+        tk.Label(left_frame, text=f"Results for {self.username}", font=("Arial", 18, "bold"), bg=self.colors["bg_primary"], fg=self.colors["text_primary"]).pack(pady=20)
         tk.Label(
             left_frame,
             text=f"Total Score: {total_score}",
-            font=("Arial", 16)
+            font=("Arial", 16),
+            bg=self.colors["bg_primary"],
+            fg=self.colors["text_primary"]
         ).pack(pady=10)
-        tk.Label(left_frame, text=interpretation, font=("Arial", 14), fg="blue", wraplength=250).pack(pady=10)
+        tk.Label(left_frame, text=interpretation, font=("Arial", 14), fg=self.colors["accent"], bg=self.colors["bg_primary"], wraplength=250).pack(pady=10)
 
-        tk.Label(left_frame, text="Breakdown:", font=("Arial", 12, "bold")).pack(pady=(20,5))
-        tk.Label(left_frame, text=f"Self-Awareness: {cat1_score}/12").pack()
-        tk.Label(left_frame, text=f"Empathy: {cat2_score}/12").pack()
-        tk.Label(left_frame, text=f"Social Skills: {cat3_score}/16").pack()
+        tk.Label(left_frame, text="Breakdown:", font=("Arial", 12, "bold"), bg=self.colors["bg_primary"], fg=self.colors["text_primary"]).pack(pady=(20,5))
+        tk.Label(left_frame, text=f"Self-Awareness: {cat1_score}/12", bg=self.colors["bg_primary"], fg=self.colors["text_secondary"]).pack()
+        tk.Label(left_frame, text=f"Empathy: {cat2_score}/12", bg=self.colors["bg_primary"], fg=self.colors["text_secondary"]).pack()
+        tk.Label(left_frame, text=f"Social Skills: {cat3_score}/16", bg=self.colors["bg_primary"], fg=self.colors["text_secondary"]).pack()
 
-        button_frame = tk.Frame(left_frame)
+        button_frame = tk.Frame(left_frame, bg=self.colors["bg_primary"])
         button_frame.pack(pady=40)
         
         tk.Button(
@@ -772,7 +854,7 @@ class SoulSenseApp:
             text="Logout",
             command=self.handle_logout,
             font=("Arial", 12),
-            bg="#E74C3C",
+            bg=self.colors["danger"],
             fg="white",
             relief="flat",
             padx=20,
@@ -784,17 +866,17 @@ class SoulSenseApp:
             text="Exit",
             command=self.force_exit,
             font=("Arial", 12),
-            bg="#ffcccc",
+            bg="#ffcccc", # Keep this or verify lighter accent
             relief="flat",
             padx=20,
             pady=8
         ).pack(side="left")
 
         # Right Side: Graph
-        right_frame = tk.Frame(self.root, bg="white")
+        right_frame = tk.Frame(self.root, bg=self.colors["card_bg"])
         right_frame.pack(side=tk.RIGHT, expand=True, fill=tk.BOTH, padx=20, pady=20)
 
-        tk.Label(right_frame, text="Visual Analysis", bg="white", font=("Arial", 12)).pack(pady=5)
+        tk.Label(right_frame, text="Visual Analysis", bg=self.colors["card_bg"], fg=self.colors["text_primary"], font=("Arial", 12)).pack(pady=5)
         
         # Embed the chart
         chart_widget = self.create_radar_chart(right_frame, categories, vals_normalized)
