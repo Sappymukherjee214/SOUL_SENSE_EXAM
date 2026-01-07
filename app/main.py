@@ -6,11 +6,56 @@ from datetime import datetime
 import json
 import os
 import random
+import traceback
 from bias_checker import SimpleBiasChecker
 from app.db import get_connection
+from app.exceptions import SoulSenseError, DatabaseError, ConfigurationError, ResourceError
+from app.logger import setup_logging
 
 from app.questions import load_questions
 from app.utils import compute_age_group
+
+# ---------------- LOGGING SETUP ----------------
+setup_logging()
+
+def show_error(title, message, error_obj=None):
+    """
+    Display a friendly error message to the user and ensure it's logged.
+    """
+    if error_obj:
+        logging.error(f"{title}: {message} | Error: {error_obj}", exc_info=(type(error_obj), error_obj, error_obj.__traceback__) if hasattr(error_obj, '__traceback__') else True)
+    else:
+        logging.error(f"{title}: {message}")
+    
+    # Show UI dialog
+    try:
+        messagebox.showerror(title, f"{message}\n\nDetails have been logged." if error_obj else message)
+    except Exception:
+        # Fallback if UI fails
+        print(f"CRITICAL UI ERROR: {title} - {message}", file=sys.stderr)
+
+def global_exception_handler(self, exc, val, tb):
+    """
+    Global exception handler for Tkinter callbacks.
+    Catches unhandled errors, logs them, and shows a friendly dialog.
+    """
+    logging.critical("Unhandled exception in GUI", exc_info=(exc, val, tb))
+    
+    title = "Unexpected Error"
+    message = "An unexpected error occurred."
+    
+    # Handle custom exceptions nicely
+    if isinstance(val, SoulSenseError):
+        title = "Application Error"
+        message = str(val)
+    elif isinstance(val, tk.TclError):
+        title = "Interface Error"
+        message = "A graphical interface error occurred."
+    
+    show_error(title, message)
+
+# Hook into Tkinter's exception reporting
+tk.Tk.report_callback_exception = global_exception_handler
 
 # ---------------- SETTINGS ----------------
 SETTINGS_FILE = "settings.json"
@@ -110,13 +155,12 @@ try:
     all_questions = [q[1] for q in rows]   # preserve text only
     
     if not all_questions:
-        raise RuntimeError("Question bank empty")
+        raise ResourceError("Question bank empty: No questions found in database.")
 
     logging.info("Loaded %s total questions from DB", len(all_questions))
 
-except Exception:
-    logging.critical("Failed to load questions from DB", exc_info=True)
-    messagebox.showerror("Fatal Error", "Question bank could not be loaded.")
+except Exception as e:
+    show_error("Fatal Error", "Question bank could not be loaded.\nThe application cannot start.", e)
     sys.exit(1)
 
 # ---------------- GUI ----------------
