@@ -3,6 +3,8 @@
 Soul Sense EQ Test is a desktop-based Emotional Intelligence (EQ) assessment application built using Python, Tkinter, and SQLite.
 It provides an interactive self-reflection test, persists results locally, and is designed with maintainability, testability, and extensibility in mind.
 
+The application is grounded in established emotional intelligence theory (Salovey & Mayer, 1990; Goleman, 1995) and incorporates evidence-based approaches for self-report EI assessment (Petrides & Furnham, 2001). For comprehensive academic references, see [RESEARCH_REFERENCES.md](RESEARCH_REFERENCES.md).
+
 ---
 
 ## ✨ Features
@@ -44,6 +46,8 @@ The journal feature allows users to:
 - **Sentiment Scoring:** Analyzes positive/negative emotional tone
 - **Pattern Detection:** Identifies stress indicators, relationship focus, growth mindset, and self-reflection
 - **Emotional Tracking:** Monitors emotional trends over time
+
+The journal feature is informed by research on expressive writing and emotional processing (Pennebaker, 1997; Smyth, 1998), which demonstrates the therapeutic benefits of written emotional expression. The AI sentiment analysis uses natural language processing techniques validated in computational psychology research (Calvo & D'Mello, 2010).
 
 ---
 

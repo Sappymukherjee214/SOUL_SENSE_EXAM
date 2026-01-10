@@ -1,5 +1,7 @@
 # Model Card: Depression Risk Predictor
 
+This model card follows the framework proposed by Mitchell et al. (2019) for transparent machine learning documentation. For additional references on ML in mental health assessment, see [RESEARCH_REFERENCES.md](../RESEARCH_REFERENCES.md).
+
 ## Model Details
 
 ### Basic Information
@@ -47,11 +49,13 @@
 
 ### Out-of-Scope Use Cases
 
-❌ **NOT for clinical diagnosis** - This model does NOT diagnose depression or any mental health condition  
+❌ **NOT for clinical diagnosis** - This model does NOT diagnose depression or any mental health condition (see APA, 2013; WHO, 2017)  
 ❌ **NOT a replacement for professional assessment** - Should not replace licensed mental health professionals  
 ❌ **NOT for high-stakes decisions** - Should not be sole basis for treatment decisions  
 ❌ **NOT for different age groups without validation** - Currently trained on ages 12-50  
 ❌ **NOT for populations outside training distribution** - May not generalize to significantly different populations
+
+**Note**: Research has shown associations between emotional intelligence and mental health outcomes (Martins et al., 2010; Ciarrochi et al., 2002), but this model provides screening indicators only, not clinical assessments.
 
 ## Training Data
 

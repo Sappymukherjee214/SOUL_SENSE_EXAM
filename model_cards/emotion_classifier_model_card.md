@@ -1,5 +1,7 @@
 # Model Card: Emotion Classification Model
 
+This model card follows the framework proposed by Mitchell et al. (2019) for transparent machine learning documentation. For additional references on sentiment analysis and emotion detection from text, see [RESEARCH_REFERENCES.md](../RESEARCH_REFERENCES.md).
+
 ## Model Details
 
 ### Basic Information
@@ -96,6 +98,9 @@ The model classifies text into **3 emotion categories**:
 - **TF**: How often a word appears in a document
 - **IDF**: How unique a word is across all documents
 - **N-grams**: Captures both individual words and word pairs
+
+This approach is based on established information retrieval methods (Ramos, 2003) and has been widely validated for sentiment analysis tasks (Pang & Lee, 2008; Mohammad, 2016).
+
 - **Stop words**: Common words (the, is, and, etc.) removed
 - **Vocabulary**: Limited to 3000 most important features
 
