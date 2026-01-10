@@ -8,6 +8,8 @@ import argparse
 from admin_interface import QuestionDatabase
 import getpass
 from tabulate import tabulate
+import numpy as np
+from app.db import get_connection
 
 
 class AdminCLI:
@@ -222,11 +224,53 @@ class AdminCLI:
         else:
             print(f"\n✗ Username already exists\n")
 
+    def show_stats(self):
+        """Show descriptive statistics for emotional scores"""
+        print("\n" + "="*50)
+        print("  Descriptive Statistics (Admin Only)")
+        print("="*50 + "\n")
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("SELECT sentiment_score FROM scores WHERE sentiment_score IS NOT NULL")
+            scores = [row[0] for row in cursor.fetchall()]
+            
+            if not scores:
+                print("No sentiment scores available.\n")
+                return
+
+            scores_arr = np.array(scores)
+            
+            mean_val = np.mean(scores_arr)
+            median_val = np.median(scores_arr)
+            variance_val = np.var(scores_arr)
+            min_val = np.min(scores_arr)
+            max_val = np.max(scores_arr)
+
+            data = [
+                ["Count", len(scores)],
+                ["Mean", f"{mean_val:.2f}"],
+                ["Median", f"{median_val:.2f}"],
+                ["Variance", f"{variance_val:.2f}"],
+                ["Min", f"{min_val:.2f}"],
+                ["Max", f"{max_val:.2f}"]
+            ]
+            
+            print(tabulate(data, headers=["Metric", "Value"], tablefmt="grid"))
+            print("\n")
+            
+        except Exception as e:
+            print(f"✗ Error calculating statistics: {e}\n")
+        finally:
+            conn.close()
+
 
 def main():
     """Main CLI function"""
     parser = argparse.ArgumentParser(description="SoulSense Admin CLI")
-    parser.add_argument('command', choices=['list', 'add', 'view', 'update', 'delete', 'categories', 'create-admin'],
+    parser.add_argument('command', choices=['list', 'add', 'view', 'update', 'delete', 'categories', 'create-admin','stats'],
                        help='Command to execute')
     parser.add_argument('--id', type=int, help='Question ID (for view, update, delete)')
     parser.add_argument('--category', help='Filter by category (for list)')
@@ -276,6 +320,8 @@ def main():
     elif args.command == 'create-admin':
         cli.create_admin_user()
 
-
+    elif args.command == 'stats':
+        cli.show_stats()
+        
 if __name__ == "__main__":
     main()
