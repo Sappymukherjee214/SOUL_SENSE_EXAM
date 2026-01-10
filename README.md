@@ -1,12 +1,87 @@
 # 🧠 Soul Sense EQ Test
 
 Soul Sense EQ Test is a desktop-based Emotional Intelligence (EQ) assessment application built using Python, Tkinter, and SQLite.
-It provides an interactive self-reflection test, persists results locally, and is designed with maintainability, testability, and extensibility in mind.
+It provides a✅ Tip: If you see `ModuleNotFoundError`, it usually means your virtual environment is **not active** or the package isn't installed inside it.
+
+---
+
+## 🌍 Multi-language Support
+
+SoulSense now supports multiple languages with easy switching!
+
+### Supported Languages
+- **English** (default)
+- **हिंदी (Hindi)**
+- **Español (Spanish)**
+
+### Quick Start
+1. Launch the application
+2. Select your language from the dropdown at the top of the main screen
+3. All UI elements update instantly
+4. Your preference is saved automatically
+
+### For Contributors
+Want to add your language? See our [I18N Guide](I18N_GUIDE.md) for:
+- Step-by-step instructions
+- Translation template
+- Testing guidelines
+
+---
+
+## 🔐 Admin Interface
+
+SoulSense includes a powerful admin interface for managing questions and categories.
+
+### Features
+- **GUI Admin Panel** - User-friendly graphical interface
+- **CLI Tool** - Command-line interface for automation
+- **Secure Access** - Password-protected admin accounts
+- **CRUD Operations** - Create, Read, Update, Delete questions
+- **Category Management** - Organize questions by category
+- **Metadata Support** - Age range, difficulty, weight customization
+
+### Quick Start
+
+**Create Admin Account:**
+```bash
+python admin_cli.py create-admin --no-auth
+```
+
+**Launch GUI:**
+```bash
+python admin_interface.py
+```
+
+**CLI Commands:**
+```bash
+python admin_cli.py list                    # List all questions
+python admin_cli.py add                     # Add new question
+python admin_cli.py view --id 1             # View question
+python admin_cli.py update --id 1           # Update question
+python admin_cli.py delete --id 1           # Delete question
+python admin_cli.py categories              # View statistics
+```
+
+### Documentation
+See [ADMIN_GUIDE.md](ADMIN_GUIDE.md) for comprehensive documentation.
+
+---
+
+## ▶️ How to Runeractive self-reflection test, persists results locally, and is designed with maintainability, testability, and extensibility in mind.
+
+**🌍 Now available in multiple languages: English, Hindi (हिंदी), and Spanish (Español)!**
+
+The application is grounded in established emotional intelligence theory (Salovey & Mayer, 1990; Goleman, 1995) and incorporates evidence-based approaches for self-report EI assessment (Petrides & Furnham, 2001). For comprehensive academic references, see [RESEARCH_REFERENCES.md](RESEARCH_REFERENCES.md).
 
 ---
 
 ## ✨ Features
 
+- **🌐 Multi-language Support (NEW!)**
+  - English, Hindi, and Spanish translations
+  - Easy language switching from the UI
+  - Persistent language preferences
+  - Simple framework for adding more languages
 - **User Authentication System**
   - Secure user registration and login
   - Password hashing with SHA-256
@@ -50,6 +125,8 @@ The journal feature allows users to:
 - **Sentiment Scoring:** Analyzes positive/negative emotional tone using NLTK's VADER
 - **Pattern Detection:** Identifies stress indicators, relationship focus, growth mindset, and self-reflection
 - **Emotional Tracking:** Monitors emotional trends over time
+
+The journal feature is informed by research on expressive writing and emotional processing (Pennebaker, 1997; Smyth, 1998), which demonstrates the therapeutic benefits of written emotional expression. The AI sentiment analysis uses natural language processing techniques validated in computational psychology research (Calvo & D'Mello, 2010).
 
 ---
 

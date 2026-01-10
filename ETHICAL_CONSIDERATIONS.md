@@ -4,6 +4,8 @@
 
 This document outlines the ethical principles followed in the SOUL_SENSE_EXAM project when collecting, processing, storing, and analyzing emotional data. Since emotional and mental well-being data is sensitive, special care is taken to ensure responsible use, transparency, and user protection.
 
+These considerations are informed by professional ethical standards (APA, 2017), data protection regulations (GDPR, 2016), and best practices in responsible AI development (Mitchell et al., 2019; Raji et al., 2020). For comprehensive references on AI ethics and digital mental health standards, see [RESEARCH_REFERENCES.md](RESEARCH_REFERENCES.md).
+
 ---
 
 ## 2. Nature of Emotional Data
@@ -36,6 +38,7 @@ Emotional data is used only for:
 - Improving user understanding of emotional patterns
 
 The data is **not** used for:
+
 - Medical diagnosis
 - Automated decision-making with legal or personal consequences
 - Commercial profiling or targeted advertising
@@ -87,6 +90,7 @@ The data is **not** used for:
 ## 10. User Control and Data Rights
 
 Users should have the ability to:
+
 - View their stored emotional data
 - Request deletion of their data
 - Stop using the application without penalty
@@ -98,6 +102,7 @@ Clear instructions for data deletion should be documented in the repository.
 ## 11. Responsible Development Practices
 
 Developers contributing to this project should:
+
 - Treat emotional data with confidentiality and respect
 - Avoid experimenting with user data without consent
 - Follow ethical AI and data protection best practices

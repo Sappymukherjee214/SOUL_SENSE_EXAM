@@ -12,15 +12,35 @@ import matplotlib.dates as mdates
 import json
 import os
 import sqlite3
+
+from i18n_manager import get_i18n
+
+# REMOVE THIS LINE - it's causing the error
+# from app.models import get_session, Score, JournalEntry
 from app.models import Score, JournalEntry
 from app.db import get_session, get_connection
 from app.time_based_analysis import time_analyzer
+
+# Import emotional profile clustering
+try:
+    from emotional_profile_clustering import (
+        EmotionalProfileClusterer,
+        ClusteringVisualizer,
+        EMOTIONAL_PROFILES,
+        create_profile_clusterer,
+        get_user_emotional_profile
+    )
+    CLUSTERING_AVAILABLE = True
+except ImportError:
+    CLUSTERING_AVAILABLE = False
+
 
 class AnalyticsDashboard:
     def __init__(self, parent_root, username):
         self.parent_root = parent_root
         self.username = username
         self.benchmarks = self.load_benchmarks()
+        self.i18n = get_i18n()
 
     def load_benchmarks(self):
         """Load population benchmarks from JSON"""
@@ -33,10 +53,10 @@ class AnalyticsDashboard:
     def open_dashboard(self):
         """Open analytics dashboard"""
         dashboard = tk.Toplevel(self.parent_root)
-        dashboard.title("📊 Emotional Health Dashboard")
+        dashboard.title(self.i18n.get("dashboard.title"))
         dashboard.geometry("900x700")  # Increased size for new tab
         
-        tk.Label(dashboard, text="📊 Emotional Health Analytics", 
+        tk.Label(dashboard, text=self.i18n.get("dashboard.analytics"), 
                 font=("Arial", 16, "bold")).pack(pady=10)
         
         notebook = ttk.Notebook(dashboard)
@@ -44,46 +64,57 @@ class AnalyticsDashboard:
         
         # Correlation Analysis Tab (NEW from Upstream)
         correlation_frame = ttk.Frame(notebook)
+
+        notebook.add(correlation_frame, text=self.i18n.get("dashboard.correlation_tab"))
+        self.show_correlation_analysis(correlation_frame)  # NEW METHOD
+
         notebook.add(correlation_frame, text="🔗 Correlation")
         self.show_correlation_analysis(correlation_frame)
+
             
         # EQ Trends
         eq_frame = ttk.Frame(notebook)
-        notebook.add(eq_frame, text="📈 EQ Trends")
+        notebook.add(eq_frame, text=self.i18n.get("dashboard.eq_trends_tab"))
         self.show_eq_trends(eq_frame)
         
         # Time-Based Analysis
         time_frame = ttk.Frame(notebook)
-        notebook.add(time_frame, text="Time-Based Analysis")
+        notebook.add(time_frame, text=self.i18n.get("dashboard.time_based_tab"))
         self.show_time_based_analysis(time_frame)
         
         # Journal Analytics
         journal_frame = ttk.Frame(notebook)
-        notebook.add(journal_frame, text="📝 Journal Analytics")
+        notebook.add(journal_frame, text=self.i18n.get("dashboard.journal_tab"))
         self.show_journal_analytics(journal_frame)
         
         # Insights
         insights_frame = ttk.Frame(notebook)
-        notebook.add(insights_frame, text="🔍 Insights")
+        notebook.add(insights_frame, text=self.i18n.get("dashboard.insights_tab"))
         self.show_insights(insights_frame)
+        
+        # Emotional Profile Clustering Tab (NEW)
+        if CLUSTERING_AVAILABLE:
+            clustering_frame = ttk.Frame(notebook)
+            notebook.add(clustering_frame, text="🧬 Emotional Profile")
+            self.show_emotional_profile(clustering_frame)
         
     # ========== NEW CORRELATION ANALYSIS METHOD ==========
     def show_correlation_analysis(self, parent):
         """Show correlation analysis between EQ scores"""
         # Title
-        tk.Label(parent, text="🔗 Correlation Analysis", 
+        tk.Label(parent, text=self.i18n.get("dashboard.correlation_title"), 
                 font=("Arial", 16, "bold")).pack(pady=10)
         
         # Description
         tk.Label(parent, 
-                text="Analyze patterns and relationships in your EQ scores",
+                text=self.i18n.get("dashboard.correlation_desc"),
                 font=("Arial", 11), wraplength=550).pack(pady=5)
         
         # Button to run analysis
         button_frame = tk.Frame(parent)
         button_frame.pack(pady=10)
         
-        tk.Button(button_frame, text="Run Correlation Analysis", 
+        tk.Button(button_frame, text=self.i18n.get("dashboard.run_analysis"), 
                  command=lambda: self.run_correlation(parent),
                  bg="#4CAF50", fg="white",
                  font=("Arial", 11, "bold")).pack()
@@ -222,9 +253,9 @@ class AnalyticsDashboard:
             ax1 = fig.add_subplot(221)
             x_values = range(1, len(scores) + 1)
             ax1.plot(x_values, scores, 'o-', color='#4CAF50', linewidth=2)
-            ax1.set_title('EQ Score Trend', fontweight='bold')
-            ax1.set_xlabel('Test Number')
-            ax1.set_ylabel('Score')
+            ax1.set_title(self.i18n.get("dashboard.trend_title"), fontweight='bold')
+            ax1.set_xlabel(self.i18n.get("dashboard.trend_xlabel"))
+            ax1.set_ylabel(self.i18n.get("dashboard.trend_ylabel"))
             ax1.grid(True, alpha=0.3)
             
             # Add trend line if enough points
@@ -239,9 +270,9 @@ class AnalyticsDashboard:
             # Plot 2: Score distribution
             ax2 = fig.add_subplot(222)
             ax2.hist(scores, bins=5, color='#2196F3', edgecolor='black', alpha=0.7)
-            ax2.set_title('Score Distribution', fontweight='bold')
-            ax2.set_xlabel('Score')
-            ax2.set_ylabel('Frequency')
+            ax2.set_title(self.i18n.get("dashboard.distribution_title"), fontweight='bold')
+            ax2.set_xlabel(self.i18n.get("dashboard.distribution_xlabel"))
+            ax2.set_ylabel(self.i18n.get("dashboard.distribution_ylabel"))
             ax2.grid(True, alpha=0.3)
             
             # Plot 3: Moving average
@@ -251,21 +282,21 @@ class AnalyticsDashboard:
                 moving_avg = [np.mean(scores[max(0, i-window+1):i+1]) 
                              for i in range(len(scores))]
                 ax3.plot(x_values, moving_avg, 's-', color='#9C27B0', linewidth=2)
-                ax3.set_title(f'{window}-Test Moving Average', fontweight='bold')
-                ax3.set_xlabel('Test Number')
-                ax3.set_ylabel('Average Score')
+                ax3.set_title(self.i18n.get("dashboard.moving_avg_title", window=window), fontweight='bold')
+                ax3.set_xlabel(self.i18n.get("dashboard.trend_xlabel"))
+                ax3.set_ylabel(self.i18n.get("dashboard.moving_avg_ylabel"))
                 ax3.grid(True, alpha=0.3)
             
             # Plot 4: Performance comparison
             ax4 = fig.add_subplot(224)
             if len(scores) >= 4:
                 half = len(scores) // 2
-                positions = ['First Half', 'Second Half']
+                positions = [self.i18n.get("dashboard.first_half"), self.i18n.get("dashboard.second_half")]
                 averages = [np.mean(scores[:half]), np.mean(scores[half:])]
                 colors = ['#FF9800', '#4CAF50']
                 bars = ax4.bar(positions, averages, color=colors)
-                ax4.set_title('Performance Comparison', fontweight='bold')
-                ax4.set_ylabel('Average Score')
+                ax4.set_title(self.i18n.get("dashboard.performance_title"), fontweight='bold')
+                ax4.set_ylabel(self.i18n.get("dashboard.performance_ylabel"))
                 
                 # Add value labels
                 for bar, avg in zip(bars, averages):
@@ -644,6 +675,187 @@ class AnalyticsDashboard:
             insights_text.insert(tk.END, f"• {insight}\n\n")
             
         insights_text.config(state=tk.DISABLED)
+    
+    # ========== EMOTIONAL PROFILE CLUSTERING TAB ==========
+    def show_emotional_profile(self, parent):
+        """Show emotional profile clustering analysis."""
+        if not CLUSTERING_AVAILABLE:
+            tk.Label(parent, text="❌ Clustering module not available", 
+                    font=("Arial", 14)).pack(pady=50)
+            return
+        
+        # Title
+        tk.Label(parent, text="🧬 Your Emotional Profile", 
+                font=("Arial", 16, "bold")).pack(pady=10)
+        
+        # Description
+        tk.Label(parent, 
+                text="Discover your emotional profile based on unsupervised learning analysis of your assessment patterns.",
+                font=("Arial", 11), wraplength=600).pack(pady=5)
+        
+        # Results frame
+        results_frame = tk.Frame(parent, bg="#f8f9fa", relief=tk.RIDGE, bd=2)
+        results_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        # Load or compute profile
+        try:
+            profile = get_user_emotional_profile(self.username)
+            
+            if profile is None:
+                tk.Label(results_frame, 
+                        text="⚠️ Not enough data to determine your emotional profile yet.\n\n"
+                             "Complete more assessments to unlock this feature!",
+                        font=("Arial", 12), bg="#f8f9fa", fg="#666").pack(pady=50)
+                return
+            
+            profile_info = profile.get('profile', {})
+            
+            # --- Sentiment-style summary card (compact) ---
+            # Use avg_sentiment from features if available (scale -1..1 -> -100..100)
+            avg_sent = 0
+            try:
+                avg_sent = float(profile.get('features', {}).get('avg_sentiment', 0))
+            except Exception:
+                avg_sent = 0
+
+            sentiment_score = avg_sent * 100.0
+            if sentiment_score > 20:
+                sentiment_label = "Positive"
+                sentiment_color = "#4CAF50"
+            elif sentiment_score < -20:
+                sentiment_label = "Negative"
+                sentiment_color = "#E53935"
+            else:
+                sentiment_label = "Neutral/Balanced"
+                sentiment_color = "#FFC107"
+
+            card_bg = "#111111"
+            card_fg = sentiment_color
+
+            card_frame = tk.Frame(results_frame, bg=card_bg, relief=tk.RIDGE, bd=0)
+            card_frame.pack(fill=tk.X, padx=20, pady=(10, 8))
+
+            tk.Label(card_frame, text="Emotional Sentiment:",
+                    font=("Arial", 12, "bold"), bg=card_bg, fg="#FFFFFF").pack(anchor="w", padx=12, pady=(10, 0))
+
+            # Large score line
+            score_text = f"{sentiment_score:+.1f} ({sentiment_label})"
+            tk.Label(card_frame, text=score_text,
+                    font=("Arial", 20, "bold"), bg=card_bg, fg=card_fg).pack(anchor="w", padx=12, pady=(4, 2))
+
+            # Subtext
+            subtext = "Your reflection shows balanced emotions."
+            if sentiment_label == "Positive":
+                subtext = "Your reflection shows positive emotional tone."
+            elif sentiment_label == "Negative":
+                subtext = "Your reflection indicates negative emotional tone; consider support."
+
+            tk.Label(card_frame, text=subtext,
+                    font=("Arial", 10, "italic"), bg=card_bg, fg="#DDDDDD").pack(anchor="w", padx=12, pady=(0, 10))
+
+            # Quick actions
+            action_frame = tk.Frame(card_frame, bg=card_bg)
+            action_frame.pack(anchor="e", padx=12, pady=(0, 10))
+
+            def _open_full_report():
+                try:
+                    clusterer = create_profile_clusterer()
+                    visualizer = ClusteringVisualizer(clusterer)
+                    report_text = visualizer.generate_profile_report(self.username)
+
+                    rpt = tk.Toplevel(self.parent_root)
+                    rpt.title("Emotional Profile Report")
+                    txt = tk.Text(rpt, wrap=tk.WORD, font=("Courier", 10))
+                    txt.insert(tk.END, report_text)
+                    txt.config(state=tk.DISABLED)
+                    txt.pack(fill=tk.BOTH, expand=True)
+                except Exception as e:
+                    tk.messagebox.showerror("Error", f"Could not open report: {e}")
+
+            tk.Button(action_frame, text="See full profile report",
+                      command=_open_full_report, bg="#333333", fg="#FFFFFF", padx=8, pady=4).pack()
+
+            # Profile Header
+            header_frame = tk.Frame(results_frame, bg="#f8f9fa")
+            header_frame.pack(fill=tk.X, padx=20, pady=15)
+            
+            profile_emoji = profile_info.get('emoji', '🔍')
+            profile_name = profile_info.get('name', 'Unknown')
+            profile_color = profile_info.get('color', '#333333')
+            
+            tk.Label(header_frame, 
+                    text=f"{profile_emoji} {profile_name}",
+                    font=("Arial", 20, "bold"), bg="#f8f9fa", fg=profile_color).pack()
+            
+            # Confidence
+            confidence = profile.get('confidence', 0) * 100
+            tk.Label(header_frame, 
+                    text=f"Confidence: {confidence:.1f}%",
+                    font=("Arial", 11), bg="#f8f9fa", fg="#666").pack(pady=5)
+            
+            # Description
+            desc_frame = tk.Frame(results_frame, bg="#ffffff", relief=tk.GROOVE, bd=1)
+            desc_frame.pack(fill=tk.X, padx=20, pady=10)
+            
+            tk.Label(desc_frame, 
+                    text=profile_info.get('description', ''),
+                    font=("Arial", 11), bg="#ffffff", wraplength=550).pack(pady=15, padx=15)
+            
+            # Two-column layout for characteristics and recommendations
+            content_frame = tk.Frame(results_frame, bg="#f8f9fa")
+            content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+            
+            # Characteristics column
+            char_frame = tk.Frame(content_frame, bg="#e3f2fd", relief=tk.GROOVE, bd=1)
+            char_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+            
+            tk.Label(char_frame, text="✨ Key Characteristics",
+                    font=("Arial", 12, "bold"), bg="#e3f2fd").pack(pady=10)
+            
+            for char in profile_info.get('characteristics', []):
+                tk.Label(char_frame, text=f"• {char}",
+                        font=("Arial", 10), bg="#e3f2fd", 
+                        wraplength=250, justify=tk.LEFT).pack(anchor="w", padx=15, pady=3)
+            
+            # Recommendations column
+            rec_frame = tk.Frame(content_frame, bg="#e8f5e9", relief=tk.GROOVE, bd=1)
+            rec_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
+            
+            tk.Label(rec_frame, text="💡 Recommendations",
+                    font=("Arial", 12, "bold"), bg="#e8f5e9").pack(pady=10)
+            
+            for rec in profile_info.get('recommendations', []):
+                tk.Label(rec_frame, text=f"→ {rec}",
+                        font=("Arial", 10), bg="#e8f5e9",
+                        wraplength=250, justify=tk.LEFT).pack(anchor="w", padx=15, pady=3)
+            
+            # Profile Distribution (All Profiles Overview)
+            dist_frame = tk.Frame(results_frame, bg="#f8f9fa")
+            dist_frame.pack(fill=tk.X, padx=20, pady=15)
+            
+            tk.Label(dist_frame, text="📊 All Emotional Profiles",
+                    font=("Arial", 12, "bold"), bg="#f8f9fa").pack(pady=5)
+            
+            # Show all profiles as a legend
+            profiles_row = tk.Frame(dist_frame, bg="#f8f9fa")
+            profiles_row.pack()
+            
+            for pid, pinfo in EMOTIONAL_PROFILES.items():
+                is_current = pid == profile.get('cluster_id')
+                badge_bg = pinfo['color'] if is_current else "#cccccc"
+                badge_fg = "white" if is_current else "#666666"
+                
+                badge = tk.Label(profiles_row, 
+                               text=f"{pinfo['emoji']} {pinfo['name'][:15]}",
+                               font=("Arial", 9, "bold" if is_current else "normal"),
+                               bg=badge_bg, fg=badge_fg,
+                               padx=8, pady=4, relief=tk.RAISED if is_current else tk.FLAT)
+                badge.pack(side=tk.LEFT, padx=3)
+            
+        except Exception as e:
+            tk.Label(results_frame, 
+                    text=f"⚠️ Error loading profile: {str(e)}",
+                    font=("Arial", 11), bg="#f8f9fa", fg="red").pack(pady=50)
         
     def generate_insights(self):
         """Generate insights"""

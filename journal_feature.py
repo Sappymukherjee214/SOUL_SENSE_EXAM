@@ -3,6 +3,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 from datetime import datetime
 import sqlite3
+
+import logging
+from i18n_manager import get_i18n
+
 from sqlalchemy import desc
 import logging
 
@@ -10,21 +14,36 @@ import logging
 # from app.models import JournalEntry
 # to:
 try:
+
+    from sqlalchemy import desc
+    from app.models import JournalEntry, get_session
+    from analytics_dashboard import AnalyticsDashboard
+
     from app.models import JournalEntry
     from app.db import get_session
+
 except ImportError:
     # Fallback/Error handling
     JournalEntry = None
     get_session = None
+
+    AnalyticsDashboard = None
+    desc = None
+
 
 from analytics_dashboard import AnalyticsDashboard
 
 import nltk
 from nltk.sentiment import SentimentIntensityAnalyzer
 
+
 class JournalFeature:
     def __init__(self, parent_root):
         self.parent_root = parent_root
+
+        self.i18n = get_i18n()
+        # Database setup is handled efficiently by app.db.check_db_state or migration
+
         
         # Initialize VADER
         try:
@@ -36,25 +55,26 @@ class JournalFeature:
             self.sia = SentimentIntensityAnalyzer()
         except:
             self.sia = None
+
         
     def open_journal_window(self, username):
         """Open the journal window"""
         self.username = username
         self.journal_window = tk.Toplevel(self.parent_root)
-        self.journal_window.title("Emotional Journal")
+        self.journal_window.title(self.i18n.get("journal.title"))
         self.journal_window.geometry("600x500")
         
         # Title
-        tk.Label(self.journal_window, text="Daily Emotional Reflection", 
+        tk.Label(self.journal_window, text=self.i18n.get("journal.daily_reflection"), 
                 font=("Arial", 16, "bold")).pack(pady=10)
         
         # Date display
         today = datetime.now().strftime("%Y-%m-%d")
-        tk.Label(self.journal_window, text=f"Date: {today}", 
+        tk.Label(self.journal_window, text=self.i18n.get("journal.date", date=today), 
                 font=("Arial", 12)).pack(pady=5)
         
         # Text area for journal entry
-        tk.Label(self.journal_window, text="Write your emotional reflection:", 
+        tk.Label(self.journal_window, text=self.i18n.get("journal.write_reflection"), 
                 font=("Arial", 12)).pack(pady=(10,5))
         
         self.text_area = scrolledtext.ScrolledText(self.journal_window, 
@@ -66,19 +86,19 @@ class JournalFeature:
         button_frame = tk.Frame(self.journal_window)
         button_frame.pack(pady=10)
         
-        tk.Button(button_frame, text="Save & Analyze", 
+        tk.Button(button_frame, text=self.i18n.get("journal.save_analyze"), 
                  command=self.save_and_analyze, 
                  font=("Arial", 12), bg="#4CAF50", fg="white").pack(side=tk.LEFT, padx=5)
         
-        tk.Button(button_frame, text="View Past Entries", 
+        tk.Button(button_frame, text=self.i18n.get("journal.view_past"), 
                  command=self.view_past_entries, 
                  font=("Arial", 12)).pack(side=tk.LEFT, padx=5)
         
-        tk.Button(button_frame, text="📊 Dashboard", 
+        tk.Button(button_frame, text=self.i18n.get("journal.dashboard"), 
                  command=self.open_dashboard, 
                  font=("Arial", 12), bg="#FF9800", fg="white").pack(side=tk.LEFT, padx=5)
         
-        tk.Button(button_frame, text="Close", 
+        tk.Button(button_frame, text=self.i18n.get("journal.close"), 
                  command=self.journal_window.destroy, 
                  font=("Arial", 12)).pack(side=tk.LEFT, padx=5)
     
@@ -118,35 +138,37 @@ class JournalFeature:
         # Stress indicators
         stress_words = ['stress', 'pressure', 'overwhelm', 'burden', 'exhausted']
         if any(word in text_lower for word in stress_words):
-            patterns.append("Stress indicators detected")
+            patterns.append(self.i18n.get("patterns.stress_indicators"))
         
         # Relationship mentions
         relationship_words = ['friend', 'family', 'colleague', 'partner', 'relationship']
         if any(word in text_lower for word in relationship_words):
-            patterns.append("Social/relationship focus")
+            patterns.append(self.i18n.get("patterns.social_focus"))
         
         # Growth mindset
         growth_words = ['learn', 'grow', 'improve', 'better', 'progress', 'develop']
         if any(word in text_lower for word in growth_words):
-            patterns.append("Growth-oriented thinking")
+            patterns.append(self.i18n.get("patterns.growth_oriented"))
         
         # Self-reflection
         reflection_words = ['realize', 'understand', 'reflect', 'think', 'feel', 'notice']
         if any(word in text_lower for word in reflection_words):
-            patterns.append("Self-reflective content")
+            patterns.append(self.i18n.get("patterns.self_reflective"))
         
-        return "; ".join(patterns) if patterns else "General emotional expression"
+        return "; ".join(patterns) if patterns else self.i18n.get("patterns.general_expression")
     
     def save_and_analyze(self):
         """Save journal entry and perform AI analysis"""
         content = self.text_area.get("1.0", tk.END).strip()
         
         if not content:
-            messagebox.showwarning("Empty Entry", "Please write something before saving.")
+            messagebox.showwarning(self.i18n.get("journal.empty_entry"), 
+                                  self.i18n.get("journal.empty_warning"))
             return
         
         if len(content) < 10:
-            messagebox.showwarning("Too Short", "Please write at least 10 characters for meaningful analysis.")
+            messagebox.showwarning(self.i18n.get("journal.too_short"), 
+                                  self.i18n.get("journal.short_warning"))
             return
         
         # Perform analysis
@@ -183,44 +205,44 @@ class JournalFeature:
     def show_analysis_results(self, sentiment_score, patterns):
         """Display AI analysis results"""
         result_window = tk.Toplevel(self.journal_window)
-        result_window.title("AI Analysis Results")
+        result_window.title(self.i18n.get("journal.analysis_title"))
         result_window.geometry("400x300")
         
-        tk.Label(result_window, text="Emotional Analysis", 
+        tk.Label(result_window, text=self.i18n.get("journal.emotional_analysis"), 
                 font=("Arial", 16, "bold")).pack(pady=10)
         
         # Sentiment interpretation
         if sentiment_score > 20:
-            sentiment_text = "Positive emotional tone detected"
+            sentiment_text = self.i18n.get("journal.positive_tone")
             color = "green"
         elif sentiment_score < -20:
-            sentiment_text = "Negative emotional tone detected"
+            sentiment_text = self.i18n.get("journal.negative_tone")
             color = "red"
         else:
-            sentiment_text = "Neutral emotional tone"
+            sentiment_text = self.i18n.get("journal.neutral_tone")
             color = "blue"
         
-        tk.Label(result_window, text=f"Sentiment Score: {sentiment_score:.1f}", 
+        tk.Label(result_window, text=self.i18n.get("journal.sentiment_score", score=f"{sentiment_score:.1f}"), 
                 font=("Arial", 12)).pack(pady=5)
         tk.Label(result_window, text=sentiment_text, 
                 font=("Arial", 12), fg=color).pack(pady=5)
         
-        tk.Label(result_window, text="Emotional Patterns:", 
+        tk.Label(result_window, text=self.i18n.get("journal.emotional_patterns"), 
                 font=("Arial", 12, "bold")).pack(pady=(15,5))
         tk.Label(result_window, text=patterns, 
                 font=("Arial", 11), wraplength=350).pack(pady=5)
         
-        tk.Button(result_window, text="Close", 
+        tk.Button(result_window, text=self.i18n.get("journal.close"), 
                  command=result_window.destroy, 
                  font=("Arial", 12)).pack(pady=20)
     
     def view_past_entries(self):
         """View past journal entries"""
         entries_window = tk.Toplevel(self.journal_window)
-        entries_window.title("Past Journal Entries")
+        entries_window.title(self.i18n.get("journal.past_entries_title"))
         entries_window.geometry("700x500")
         
-        tk.Label(entries_window, text="Your Emotional Journey", 
+        tk.Label(entries_window, text=self.i18n.get("journal.emotional_journey"), 
                 font=("Arial", 16, "bold")).pack(pady=10)
         
         # Create scrollable text area
@@ -237,23 +259,29 @@ class JournalFeature:
                 .all()
             
             if not entries:
-                text_area.insert(tk.END, "No journal entries found. Start writing to track your emotional journey!")
+                text_area.insert(tk.END, self.i18n.get("journal.no_entries"))
             else:
                 for entry in entries:
-                    text_area.insert(tk.END, f"Date: {entry.entry_date}\n")
-                    text_area.insert(tk.END, f"Sentiment: {entry.sentiment_score:.1f} | Patterns: {entry.emotional_patterns}\n")
-                    text_area.insert(tk.END, f"Entry: {entry.content}\n")
+                    text_area.insert(tk.END, self.i18n.get("journal.entry_date", date=entry.entry_date) + "\n")
+                    text_area.insert(tk.END, self.i18n.get("journal.entry_sentiment", 
+                                                           score=f"{entry.sentiment_score:.1f}", 
+                                                           patterns=entry.emotional_patterns) + "\n")
+                    text_area.insert(tk.END, self.i18n.get("journal.entry_content", content=entry.content) + "\n")
                     text_area.insert(tk.END, "-" * 70 + "\n\n")
         finally:
             session.close()
         
         text_area.config(state=tk.DISABLED)
         
-        tk.Button(entries_window, text="Close", 
+        tk.Button(entries_window, text=self.i18n.get("journal.close"), 
                  command=entries_window.destroy, 
                  font=("Arial", 12)).pack(pady=10)
     
     def open_dashboard(self):
         """Open analytics dashboard"""
-        dashboard = AnalyticsDashboard(self.journal_window, self.username)
-        dashboard.open_dashboard()
+        try:
+            from analytics_dashboard import AnalyticsDashboard
+            dashboard = AnalyticsDashboard(self.journal_window, self.username)
+            dashboard.open_dashboard()
+        except ImportError:
+            messagebox.showerror("Error", "Dashboard feature not available")

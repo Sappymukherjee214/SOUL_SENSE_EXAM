@@ -319,6 +319,11 @@ class ModelRegistry:
         
         logger.info(f"✅ Loaded model: {name} v{version}")
         return model_data, metadata
+
+    # Backwards-compatible alias for older callers
+    def load_model(self, name: str, version: Optional[str] = None) -> Tuple[Any, ModelMetadata]:
+        """Alias for get_model to preserve backward compatibility."""
+        return self.get_model(name, version)
     
     def get_production_model(self, name: str) -> Optional[Tuple[Any, ModelMetadata]]:
         """Get the production model for a given name."""
@@ -331,6 +336,10 @@ class ModelRegistry:
                 return self.get_model(name, version)
         
         return None
+
+    def has_active_run(self) -> bool:
+        """Return True if there is an active experiment run."""
+        return bool(self._current_experiment)
     
     def promote_to_production(self, name: str, version: str) -> bool:
         """Promote a model version to production."""
