@@ -349,34 +349,6 @@ class SoulSenseApp:
         """Create initial welcome screen with settings option"""
         self.auth.create_welcome_screen()
         
-        # Top Bar for Auth (Always Visible)
-        top_bar = self.create_widget(tk.Frame, self.root)
-        top_bar.pack(fill="x", padx=20, pady=10)
-        
-        # Login / Logout Button (Top Right)
-        if self.current_user_id:
-            auth_text = "Logout"
-            auth_cmd = self.logout_user
-            auth_bg = "#EF4444" # Red
-            auth_fg = "white"
-        else:
-            auth_text = "Login"
-            auth_cmd = lambda: self.create_username_screen(callback=self.create_welcome_screen)
-            auth_bg = "#3B82F6" # Blue
-            auth_fg = "white"
-            
-        auth_btn = self.create_widget(
-            tk.Button,
-            top_bar,
-            text=auth_text,
-            command=auth_cmd,
-            font=("Arial", 10, "bold"),
-            width=10,
-            bg=auth_bg,
-            fg=auth_fg
-        )
-        auth_btn.pack(side="right")
-        
         # Title
         title = self.create_widget(
             tk.Label,
@@ -384,7 +356,7 @@ class SoulSenseApp:
             text="Welcome to Soul Sense EQ Test",
             font=("Arial", 22, "bold")
         )
-        title.pack(pady=(0, 20))
+        title.pack(pady=20)
         
         # User Welcome / Description
         if self.current_user_id:
@@ -450,6 +422,32 @@ class SoulSenseApp:
             fg="white" if self.current_user_id else None
         )
         start_btn.pack(pady=5)
+        
+        # Login / Logout Button
+        if self.current_user_id:
+            auth_text = "Logout"
+            auth_cmd = self.logout_user
+            auth_bg = "#EF4444" # Red
+            auth_fg = "white"
+        else:
+            auth_text = "Login"
+            auth_cmd = lambda: self.create_username_screen(callback=self.create_welcome_screen)
+            auth_bg = "#3B82F6" # Blue
+            auth_fg = "white"
+            
+        auth_btn = self.create_widget(
+            tk.Button,
+            button_frame,
+            text=auth_text,
+            command=auth_cmd,
+            font=("Arial", 12),
+            width=15,
+            bg=auth_bg,
+            fg=auth_fg
+        )
+        auth_btn.pack(pady=5)
+
+        # Journal Button
 
         
         # Journal Button
