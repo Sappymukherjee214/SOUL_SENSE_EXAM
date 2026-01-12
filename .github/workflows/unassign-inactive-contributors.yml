@@ -2,7 +2,7 @@ name: Unassign inactive contributors
 
 on:
   schedule:
-    # Runs every 1 hour to check for inactivity
+    # Runs every 1 hour
     - cron: "0 * * * *"
 
 permissions:
@@ -18,7 +18,10 @@ jobs:
         with:
           script: |
             const now = new Date();
-            const warningPeriodHours = 12;
+
+            const WARNING_AFTER_HOURS = 15;   // Send warning
+            const UNASSIGN_AFTER_HOURS = 30;  // Unassign after warning window
+
             const issues = await github.paginate(
               github.rest.issues.listForRepo,
               {
@@ -39,33 +42,42 @@ jobs:
               const lastUpdated = new Date(issue.updated_at);
               const diffHours = (now - lastUpdated) / (1000 * 60 * 60);
 
-              // Check if warning already sent
+              // Fetch comments to check for existing warning
               const comments = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
               });
 
-              const warningComment = comments.data.find(c => 
-                c.body.includes("⚠️ You have been inactive on this issue")
+              const warningComment = comments.data.find(c =>
+                c.body.includes("⚠️ Inactivity Warning")
               );
 
-              // First warning if diffHours >= warningPeriodHours / 2 and no warning yet
-              if (diffHours >= warningPeriodHours / 2 && !warningComment) {
-                const assignees = issue.assignees.map(a => `@${a.login}`).join(", ");
+              const assigneesMention = issue.assignees
+                .map(a => `@${a.login}`)
+                .join(", ");
+
+              // 🔔 Send warning after 15 hours
+              if (diffHours >= WARNING_AFTER_HOURS && !warningComment) {
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issue.number,
-                  body: `⚠️ You have been inactive on this issue for some time, ${assignees}. Please update within the next ${warningPeriodHours/2} hours or you may be unassigned.`
+                  body: `⚠️ **Inactivity Warning**
+
+${assigneesMention}, this issue has been inactive for **15 hours**.
+
+Please provide an update within the next **15 hours**, or you may be **automatically unassigned**.`
                 });
+
                 console.log(`Warning sent for issue #${issue.number}`);
                 continue;
               }
 
-              // Unassign if diffHours >= warningPeriodHours after warning
-              if (diffHours >= warningPeriodHours && warningComment) {
+              // 🚫 Unassign after 30 hours (only if warning was sent)
+              if (diffHours >= UNASSIGN_AFTER_HOURS && warningComment) {
                 const assigneeLogins = issue.assignees.map(a => a.login);
+
                 await github.rest.issues.removeAssignees({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -77,7 +89,10 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issue.number,
-                  body: `ℹ️ You have been automatically unassigned from this issue due to prolonged inactivity.`
+                  body: `ℹ️ **Unassigned due to inactivity**
+
+You have been automatically unassigned after **30 hours of inactivity**.  
+Feel free to reassign yourself if you wish to continue working on this issue.`
                 });
 
                 console.log(`Unassigned contributors from issue #${issue.number}`);
