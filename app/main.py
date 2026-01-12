@@ -252,6 +252,7 @@ class SoulSenseApp:
             logging.error(f"Failed to initialize SentimentIntensityAnalyzer: {e}")
             self.sia = None
 
+        logging.error("\n\n>>> APP INITIALIZED V2.1 <<<\n")
         self.current_question = 0
         self.responses = []
         self.current_score = 0
@@ -349,11 +350,38 @@ class SoulSenseApp:
         """Create initial welcome screen with settings option"""
         self.auth.create_welcome_screen()
         
+        # Login / Logout Button (HEADER)
+        header_frame = self.create_widget(tk.Frame, self.root)
+        header_frame.pack(fill="x", padx=20, pady=(10, 0))
+        
+        if self.current_user_id:
+            auth_text = "Logout"
+            auth_cmd = self.logout_user
+            auth_bg = "#EF4444" # Red
+            auth_fg = "white"
+        else:
+            auth_text = "Login"
+            auth_cmd = self.open_login_screen
+            auth_bg = "#3B82F6" # Blue
+            auth_fg = "white"
+            
+        auth_btn = self.create_widget(
+            tk.Button,
+            header_frame,
+            text=auth_text,
+            command=auth_cmd,
+            font=("Arial", 10, "bold"),
+            width=10,
+            bg=auth_bg,
+            fg=auth_fg
+        )
+        auth_btn.pack()
+        
         # Title
         title = self.create_widget(
             tk.Label,
             self.root,
-            text="Welcome to Soul Sense EQ Test",
+            text="Soul Sense EQ",
             font=("Arial", 22, "bold")
         )
         title.pack(pady=20)
@@ -407,45 +435,25 @@ class SoulSenseApp:
         
         # Buttons
         button_frame = self.create_widget(tk.Frame, self.root)
-        button_frame.pack(pady=20)
+        button_frame.pack(pady=10) # Reduced padding
         
-        # Start Test Button
-        start_cmd = self.start_test if self.current_user_id else self.create_username_screen
-        start_btn = self.create_widget(
-            tk.Button,
-            button_frame,
-            text="Start Test",
-            command=start_cmd,
-            font=("Arial", 12),
-            width=15,
-            bg="#10B981" if self.current_user_id else None, # Green if ready
-            fg="white" if self.current_user_id else None
-        )
-        start_btn.pack(pady=5)
+
         
-        # Login / Logout Button
+
+
+    def on_start_test_click(self):
+        """Handle start test click dynamically checking auth status"""
+        logging.error(f"\n\n>>> DEBUG: Start Test Clicked! (New Handler)")
+        logging.error(f">>> DEBUG: self.current_user_id = {self.current_user_id}")
+        
         if self.current_user_id:
-            auth_text = "Logout"
-            auth_cmd = self.logout_user
-            auth_bg = "#EF4444" # Red
-            auth_fg = "white"
+            logging.error(">>> DEBUG: GOING TO EXAM")
+            self.start_test()
         else:
-            auth_text = "Login"
-            auth_cmd = lambda: self.create_username_screen(callback=self.create_welcome_screen)
-            auth_bg = "#3B82F6" # Blue
-            auth_fg = "white"
-            
-        auth_btn = self.create_widget(
-            tk.Button,
-            button_frame,
-            text=auth_text,
-            command=auth_cmd,
-            font=("Arial", 12),
-            width=15,
-            bg=auth_bg,
-            fg=auth_fg
-        )
-        auth_btn.pack(pady=5)
+            logging.error(">>> DEBUG: GOING TO FORM (ID Missing)")
+            self.create_username_screen(callback=self.create_welcome_screen)
+
+    def show_history_screen(self):
 
         # Journal Button
 
@@ -507,6 +515,18 @@ class SoulSenseApp:
             width=15
         )
         exit_btn.pack(pady=5)
+        
+
+
+    def open_login_screen(self):
+        """Safely open login screen with error handling"""
+        print("DEBUG: Opening Login Screen...")
+        try:
+            # We must pass the callback to return here
+            self.create_username_screen(callback=self.create_welcome_screen)
+        except Exception as e:
+            logging.error(f"Failed to open login screen: {e}", exc_info=True)
+            messagebox.showerror("Login Error", f"Could not open login screen: {e}")
 
     def open_journal_flow(self):
         """Handle journal access, prompting for name if needed"""
@@ -576,8 +596,8 @@ class SoulSenseApp:
         self.settings_manager.show_settings()
 
     # ---------- ORIGINAL SCREENS (Modified) ----------
-    def create_username_screen(self):
-        self.auth.create_username_screen()
+    def create_username_screen(self, callback=None):
+        self.auth.create_username_screen(callback=callback)
 
     def validate_name_input(self, name):
         return self.auth.validate_name_input(name)
