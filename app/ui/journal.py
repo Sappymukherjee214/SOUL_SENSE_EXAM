@@ -471,6 +471,7 @@ class JournalFeature:
                     .filter_by(username=self.username)\
                     .order_by(desc(JournalEntry.entry_date))\
                     .all()
+                print(f"DEBUG: View Past Entries found {len(entries)} records for {self.username}")
                 
                 filtered_count = 0
                 for entry in entries:
@@ -507,41 +508,72 @@ class JournalFeature:
         canvas.bind("<Configure>", _configure_canvas)
 
     def _create_entry_card(self, parent, entry):
-        """Create a styled card for a journal entry"""
-        card = tk.Frame(parent, bg=self.colors["surface"], bd=1, relief="ridge")
-        card.pack(fill="x", pady=5)
+        """Create a modern, aesthetic card for a journal entry"""
+        # --- Card Container (Shadow effect via nested frames) ---
+        shadow = tk.Frame(parent, bg="#d0d0d0")
+        shadow.pack(fill="x", pady=(8, 0), padx=(12, 8))
         
-        # Header
-        header = tk.Frame(card, bg=self.colors["surface"])
-        header.pack(fill="x", padx=10, pady=5)
+        card = tk.Frame(shadow, bg=self.colors.get("surface", "#fff"), bd=0)
+        card.pack(fill="x", padx=(0, 2), pady=(0, 2))
         
-        stress_icon = "🔴" if (entry.stress_level or 0) > 7 else "🟢"
-        date_str = datetime.strptime(str(entry.entry_date).split('.')[0], "%Y-%m-%d %H:%M:%S").strftime("%b %d, %I:%M %p")
+        # --- Header: Date & Mood ---
+        header = tk.Frame(card, bg=self.colors.get("surface", "#fff"))
+        header.pack(fill="x", padx=15, pady=(12, 5))
         
-        tk.Label(header, text=f"{stress_icon} {date_str}", 
-                font=("Segoe UI", 10, "bold"), bg=self.colors["surface"], fg=self.colors["text_primary"]).pack(side="left")
+        # Stress indicator with color gradient
+        stress_val = entry.stress_level or 0
+        if stress_val >= 8:
+            stress_color, stress_icon = "#EF4444", "🔴"
+        elif stress_val >= 5:
+            stress_color, stress_icon = "#F59E0B", "🟡"
+        else:
+            stress_color, stress_icon = "#22C55E", "🟢"
         
-        score = getattr(entry, 'sentiment_score', 0)
+        try:
+            date_str = datetime.strptime(str(entry.entry_date).split('.')[0], "%Y-%m-%d %H:%M:%S").strftime("%B %d, %Y • %I:%M %p")
+        except:
+            date_str = str(entry.entry_date)
+        
+        date_lbl = tk.Label(header, text=f"{stress_icon}  {date_str}", 
+                font=("Segoe UI", 11, "bold"), bg=self.colors.get("surface", "#fff"), fg=self.colors.get("text_primary", "#000"))
+        date_lbl.pack(side="left")
+        
+        # Mood Emoji (Larger, Right-aligned)
+        score = getattr(entry, 'sentiment_score', 0) or 0
         mood = "😊" if score > 50 else "😐" if score > -20 else "😔"
-        tk.Label(header, text=mood, font=("Segoe UI", 14), bg=self.colors["surface"]).pack(side="right")
+        tk.Label(header, text=mood, font=("Segoe UI", 20), bg=self.colors.get("surface", "#fff")).pack(side="right")
         
-        # Content Preview
-        preview = entry.content[:150] + "..." if len(entry.content) > 150 else entry.content
-        tk.Label(card, text=preview, font=("Segoe UI", 10), 
-                bg=self.colors["surface"], fg=self.colors["text_primary"], 
-                wraplength=500, justify="left").pack(fill="x", padx=10, pady=5)
+        # --- Content Preview ---
+        preview = entry.content[:180] + "..." if len(entry.content) > 180 else entry.content
+        content_lbl = tk.Label(card, text=preview, font=("Segoe UI", 10), 
+                bg=self.colors.get("surface", "#fff"), fg=self.colors.get("text_secondary", "#555"), 
+                wraplength=550, justify="left", anchor="w")
+        content_lbl.pack(fill="x", padx=15, pady=5)
         
-        # Footer Tags
-        footer = tk.Frame(card, bg=self.colors["surface"])
-        footer.pack(fill="x", padx=10, pady=5)
+        # --- Metrics Bar (Modern Tags) ---
+        metrics_bar = tk.Frame(card, bg=self.colors.get("surface", "#fff"))
+        metrics_bar.pack(fill="x", padx=15, pady=(5, 12))
         
-        def add_tag(text, color):
-            lbl = tk.Label(footer, text=text, font=("Segoe UI", 8), bg=color, fg="white", padx=5, pady=2)
-            lbl.pack(side="left", padx=2)
+        def add_metric(text, bg_color, fg_color="#fff"):
+            m = tk.Label(metrics_bar, text=text, font=("Segoe UI", 9, "bold"), 
+                        bg=bg_color, fg=fg_color, padx=10, pady=3)
+            m.pack(side="left", padx=(0, 8))
+            # Round corners effect (approximate with border)
+            m.configure(relief="flat", highlightthickness=0)
             
-        if entry.stress_level: add_tag(f"Stress: {entry.stress_level}", "#EF4444" if entry.stress_level > 7 else "#3B82F6")
-        if entry.sleep_hours: add_tag(f"Sleep: {entry.sleep_hours}h", "#8B5CF6")
-        if entry.screen_time_mins: add_tag(f"Screen: {entry.screen_time_mins//60}h", "#F59E0B")
+        # Add metrics with colors
+        if entry.stress_level: 
+            add_metric(f"Stress: {entry.stress_level}/10", stress_color)
+        if entry.sleep_hours: 
+            sleep_color = "#8B5CF6" if entry.sleep_hours >= 7 else "#9333EA"
+            add_metric(f"💤 {entry.sleep_hours:.1f}h", sleep_color)
+        if entry.screen_time_mins: 
+            screen_hrs = entry.screen_time_mins / 60
+            screen_color = "#F97316" if screen_hrs > 4 else "#3B82F6"
+            add_metric(f"📱 {screen_hrs:.1f}h", screen_color)
+        if entry.energy_level:
+            energy_color = "#22C55E" if entry.energy_level >= 7 else "#6B7280"
+            add_metric(f"⚡ {entry.energy_level}/10", energy_color)
     
     def open_dashboard(self):
         """Open analytics dashboard with lazy import"""
@@ -590,6 +622,15 @@ class JournalFeature:
                 screens.append(getattr(entry, 'screen_time_mins', None))
                 stresses.append(getattr(entry, 'stress_level', None))
             
+            # --- DEBUG LOGGING ---
+            print(f"DEBUG: Entries found: {len(entries)}")
+            print(f"DEBUG: Screens: {screens}")
+            print(f"DEBUG: Stresses: {stresses}")
+            print(f"DEBUG: Work: {works}")
+            print(f"DEBUG: Energy: {energies}")
+            print(f"DEBUG: Sleep: {sleeps}")
+            # ---------------------
+
             # --- ADVANCED ANALYSIS ENGINE ---
             
             risk_factors = []

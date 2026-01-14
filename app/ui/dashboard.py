@@ -231,45 +231,48 @@ class AnalyticsDashboard:
         create_card("Screen Time", avg_screen/60, "hours/day", "#F59E0B" if avg_screen > 240 else "#3B82F6")
         create_card("Avg Sleep", avg_sleep, "hours", "#8B5CF6")
 
-        # --- 2. Matplotlib Visualization ---
+        # --- 2. Matplotlib Visualization (Modern Style) ---
         viz_frame = tk.Frame(parent, bg=self.colors["bg"])
         viz_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
         fig = Figure(figsize=(10, 8), dpi=100, facecolor=self.colors["bg"])
         
-        # Plot 1: Wellbeing Trends (Multi-line)
+        # Plot 1: Wellbeing Trends (Multi-line with modern styling)
         ax1 = fig.add_subplot(211)
-        ax1.set_facecolor(self.colors["bg"])
+        ax1.set_facecolor(self.colors.get("surface", "#fff"))
         
         x_vals = range(len(dates))
-        ax1.plot(x_vals, stress, 'o-', color='#EF4444', label='Stress', alpha=0.8)
-        ax1.plot(x_vals, energy, 's--', color='#F59E0B', label='Energy', alpha=0.8)
-        ax1.plot(x_vals, sleep, '^:', color='#8B5CF6', label='Sleep (hrs)', alpha=0.8)
+        ax1.plot(x_vals, stress, 'o-', color='#EF4444', label='🔴 Stress', linewidth=2.5, markersize=8)
+        ax1.plot(x_vals, energy, 's-', color='#22C55E', label='⚡ Energy', linewidth=2.5, markersize=8)
+        ax1.plot(x_vals, sleep, '^-', color='#8B5CF6', label='💤 Sleep (hrs)', linewidth=2.5, markersize=8)
         
-        ax1.set_title('Wellbeing Trends', color=self.colors["text_primary"])
-        ax1.legend()
-        ax1.grid(True, alpha=0.2)
-        ax1.tick_params(colors=self.colors["text_secondary"])
-        for spine in ax1.spines.values(): spine.set_color(self.colors["border"])
+        ax1.set_title('📊 Wellbeing Trends Over Time', fontsize=14, fontweight='bold', color=self.colors.get("text_primary", "#000"), pad=10)
+        ax1.legend(loc='upper right', framealpha=0.9, fontsize=10)
+        ax1.grid(True, alpha=0.3, linestyle='--')
+        ax1.set_ylabel('Value', fontsize=10, color=self.colors.get("text_secondary", "#666"))
+        ax1.tick_params(colors=self.colors.get("text_secondary", "#666"))
+        for spine in ax1.spines.values(): 
+            spine.set_visible(False)
 
-        # Plot 2: Stress vs Screen Time (Scatter)
+        # Plot 2: Stress vs Screen Time (Scatter with enhanced colors)
         ax2 = fig.add_subplot(212)
-        ax2.set_facecolor(self.colors["bg"])
+        ax2.set_facecolor(self.colors.get("surface", "#fff"))
         
-        # Color points by Energy level
-        sc = ax2.scatter(screen, stress, c=energy, cmap='viridis', s=100, alpha=0.7)
-        ax2.set_xlabel('Screen Time (mins)', color=self.colors["text_secondary"])
-        ax2.set_ylabel('Stress Level (1-10)', color=self.colors["text_secondary"])
-        ax2.set_title('Stress vs. Screen Time (Color = Energy Level)', color=self.colors["text_primary"])
+        # Color points by Energy level with a vibrant colormap
+        sc = ax2.scatter(screen, stress, c=energy, cmap='RdYlGn', s=150, alpha=0.85, edgecolors='white', linewidths=1.5)
+        ax2.set_xlabel('📱 Screen Time (mins)', fontsize=11, color=self.colors.get("text_secondary", "#666"))
+        ax2.set_ylabel('😰 Stress Level', fontsize=11, color=self.colors.get("text_secondary", "#666"))
+        ax2.set_title('📈 Stress vs. Screen Time Correlation', fontsize=14, fontweight='bold', color=self.colors.get("text_primary", "#000"), pad=10)
         
-        cbar = fig.colorbar(sc, ax=ax2)
-        cbar.set_label('Energy Level')
+        cbar = fig.colorbar(sc, ax=ax2, shrink=0.8)
+        cbar.set_label('⚡ Energy', fontsize=10)
         
-        ax2.grid(True, alpha=0.2)
-        ax2.tick_params(colors=self.colors["text_secondary"])
-        for spine in ax2.spines.values(): spine.set_color(self.colors["border"])
+        ax2.grid(True, alpha=0.3, linestyle='--')
+        ax2.tick_params(colors=self.colors.get("text_secondary", "#666"))
+        for spine in ax2.spines.values(): 
+            spine.set_visible(False)
         
-        fig.tight_layout()
+        fig.tight_layout(pad=2.0)
         
         canvas = FigureCanvasTkAgg(fig, viz_frame)
         canvas.draw()
