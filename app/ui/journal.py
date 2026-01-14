@@ -602,6 +602,17 @@ class JournalFeature:
             if avg_sleep < 6:
                 insights.append("💤 **Sleep Debt**: You're averaging <6 hours. This significantly impacts mood regulation.")
 
+            # 4. Trigger Awareness (New)
+            recent_triggers = [t for t in [getattr(e, 'stress_triggers', '') for e in entries] if t]
+            if recent_triggers:
+                common_trigger = recent_triggers[0][:20] + "..." # Simplified "topic extraction"
+                insights.append(f"🧠 **Trigger Awareness**: You noted '{common_trigger}'. Awareness is the first step to management.")
+
+            # 5. Schedule Optimization (New)
+            schedules = [s for s in [getattr(e, 'daily_schedule', '') for e in entries] if s]
+            if schedules and len(schedules[0]) > 50: # Arbitrary length check for "busy"
+                 insights.append("🗓️ **Schedule Check**: Your days look packed. Ensure you have 15 mins of 'white space' for transition time.")
+
             if insights:
                 return "\n\n".join(insights)
             else:
