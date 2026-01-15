@@ -231,11 +231,43 @@ class SoulSenseApp:
                  "sidebar_hover": "#F1F5F9",
                  "text_primary": "#0F172A", "text_secondary": "#64748B",
 
-                 # Extended UI Colors
-                 "card_bg": "#FFFFFF", "card_border": "#E2E8F0",
-                 "input_bg": "#F8FAFC", "input_fg": "#0F172A", "input_border": "#E2E8F0",
-                 "success": "#10B981", "success_hover": "#059669"
-            })
+             "success": "#10B981", "success_hover": "#059669"
+        })
+    
+    # Configure ttk styles for consistency
+    style = ttk.Style()
+    style.theme_use('clam') # 'clam' usually allows easier color customization than 'vista'
+    
+    bg = self.colors["bg"]
+    fg = self.colors["text_primary"]
+    input_bg = self.colors["input_bg"]
+    input_fg = self.colors["input_fg"]
+    border = self.colors["card_border"]
+    
+    style.configure("TFrame", background=bg)
+    style.configure("TNotebook", background=bg, tabmargins=[2, 5, 2, 0])
+    style.configure("TNotebook.Tab", background=self.colors["surface"], foreground=fg, padding=[10, 2], borderwidth=0)
+    style.map("TNotebook.Tab", background=[("selected", self.colors["primary"])], foreground=[("selected", "white")])
+    
+    # Fix Combobox Theme
+    style.configure("TCombobox", 
+                    fieldbackground=input_bg, 
+                    background=self.colors["surface"], 
+                    foreground=input_fg,
+                    arrowcolor=fg,
+                    bordercolor=border,
+                    lightcolor=border,
+                    darkcolor=border)
+    
+    style.map("TCombobox", 
+              fieldbackground=[("readonly", input_bg)], 
+              selectbackground=[("readonly", input_bg)],
+              selectforeground=[("readonly", input_fg)],
+              background=[("active", self.colors["surface"])])
+    
+    # Fix Scrollbar
+    style.configure("Vertical.TScrollbar", background=self.colors["surface"], troughcolor=bg, bordercolor=bg, arrowcolor=fg)
+
         
         # Refresh current view
         # A full restart might be best, but we'll try to update existing frames
