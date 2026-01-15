@@ -200,19 +200,24 @@ class ExamSession:
             conn = get_connection()
             cursor = conn.cursor()
             
+            # Fetch user_id for consistency (Profile View uses user_id to query)
+            cursor.execute("SELECT id FROM users WHERE username = ?", (self.username,))
+            res = cursor.fetchone()
+            user_id = res[0] if res else None
+            
             cursor.execute(
                 """
                 INSERT INTO scores 
-                (username, age, total_score, sentiment_score, reflection_text, 
+                (username, user_id, age, total_score, sentiment_score, reflection_text, 
                  is_rushed, is_inconsistent, timestamp, detailed_age_group) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (self.username, self.age, self.score, self.sentiment_score, 
+                (self.username, user_id, self.age, self.score, self.sentiment_score, 
                  self.reflection_text, self.is_rushed, self.is_inconsistent, 
                  timestamp, self.age_group)
             )
             conn.commit()
-            logger.info(f"Exam saved. Score: {self.score}, Sentiment: {self.sentiment_score}")
+            logger.info(f"Exam saved. Score: {self.score}, Sentiment: {self.sentiment_score}, UserID: {user_id}")
             return True
         except Exception as e:
             logger.error(f"Failed to save exam results: {e}", exc_info=True)

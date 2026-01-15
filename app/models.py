@@ -80,6 +80,7 @@ class PersonalProfile(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'), unique=True, index=True, nullable=False)
     
+    # Basic Info
     occupation = Column(String, nullable=True)
     education = Column(String, nullable=True)
     marital_status = Column(String, nullable=True)
@@ -87,8 +88,14 @@ class PersonalProfile(Base):
     bio = Column(Text, nullable=True)
     life_events = Column(Text, nullable=True) # JSON: [{date, title, description, impact}]
     
-    # New fields for PR #5 (Issues #261, #260)
-    society_contribution = Column(Text, nullable=True) # How user contributes to community
+    # Contact Info (Phase 53: Profile Redesign)
+    email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    date_of_birth = Column(String, nullable=True)  # Format: YYYY-MM-DD
+    gender = Column(String, nullable=True)         # Male/Female/Other/Prefer not to say
+    address = Column(Text, nullable=True)
+    
+    # Existing fields from PR #5 (Issues #261, #260)
     society_contribution = Column(Text, nullable=True) # How user contributes to community
     life_pov = Column(Text, nullable=True)             # User's philosophy/perspective
     high_pressure_events = Column(Text, nullable=True) # Issue #275: Recent high-pressure events

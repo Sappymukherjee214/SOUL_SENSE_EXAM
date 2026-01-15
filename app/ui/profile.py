@@ -33,11 +33,12 @@ class UserProfileView:
         self.sidebar = SidebarNav(
             self.main_container, 
             self.app,
-            items=[
+        items=[
                 {"id": "back", "icon": "←", "label": "Back to Home"},
+                {"id": "overview", "icon": "👤", "label": "Overview"},  # Phase 53: New default
                 {"id": "medical", "icon": "🏥", "label": self.i18n.get("profile.tab_medical")},
                 {"id": "history", "icon": "📜", "label": "Personal History"},
-                {"id": "strengths", "icon": "💪", "label": "Strengths & Goals"}, # New Tab
+                {"id": "strengths", "icon": "💪", "label": "Strengths & Goals"},
                 {"id": "settings", "icon": "⚙️", "label": "Settings"},
             ],
             on_change=self.on_nav_change
@@ -75,44 +76,55 @@ class UserProfileView:
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         self.canvas.pack(side="left", fill="both", expand=True)
         
-        # Ensure inner frame expands to fill width AND minimal height
+        # Ensure inner frame expands to fill width
         def _on_canvas_configure(event):
-            current_width = event.width
-            # Force height to be at least the canvas height (fill screen)
-            # effectively mimicking expand=True behavior for the inner frame
-            min_height = max(event.height, self.view_container.winfo_reqheight())
-            self.canvas.itemconfig(self.canvas_window, width=current_width, height=min_height)
+            # Update the inner frame's width to fill the canvas
+            self.canvas.itemconfig(self.canvas_window, width=event.width)
             
         self.canvas.bind("<Configure>", _on_canvas_configure)
         
-        # Also update height when content changes
-        self.view_container.bind(
-            "<Configure>",
-            lambda e: self.canvas.itemconfig(self.canvas_window, height=max(self.canvas.winfo_height(), e.height)) or self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
-        
-        # Smart Scroll: Bind only when hovering
-        def _on_mousewheel(event):
-             if self.canvas.winfo_exists():
-                # Check if we should scroll (if content is larger than viewport)
-                if self.canvas.bbox("all")[3] > self.canvas.winfo_height():
-                    self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-
-        def _bind_mouse(event):
-            self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        # Update scrollregion when content changes
+        def _on_frame_configure(event):
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
             
-        def _unbind_mouse(event):
-            try: self.canvas.unbind_all("<MouseWheel>")
-            except: pass
-
-        self.canvas.bind("<Enter>", _bind_mouse)
-        self.canvas.bind("<Leave>", _unbind_mouse)
+        self.view_container.bind("<Configure>", _on_frame_configure)
+        
+        # Smart Scroll: Support mousewheel, touchpad on Windows
+        def _on_mousewheel(event):
+            if self.canvas.winfo_exists():
+                # Always try to scroll - Tkinter handles the boundaries automatically
+                # Windows uses event.delta
+                if hasattr(event, 'delta') and event.delta:
+                    # precision touchpads may return small deltas < 120
+                    # ensure we scroll at least 1 unit
+                    if abs(event.delta) < 120:
+                        scroll_amount = -1 if event.delta > 0 else 1
+                    else:
+                        scroll_amount = int(-1 * (event.delta / 120))
+                    self.canvas.yview_scroll(scroll_amount, "units")
+                
+                # Linux uses Button-4 (up) and Button-5 (down)
+                elif hasattr(event, 'num'):
+                    if event.num == 4:
+                        self.canvas.yview_scroll(-3, "units")
+                    elif event.num == 5:
+                        self.canvas.yview_scroll(3, "units")
+        
+        # Bind scroll globally to window so it works even when hovering over child widgets
+        # Note: 'add=True' appends binding to existing ones
+        self.window.bind_all("<MouseWheel>", _on_mousewheel)
+        self.window.bind_all("<Button-4>", _on_mousewheel)  # Linux
+        self.window.bind_all("<Button-5>", _on_mousewheel)  # Linux
+        
+        # Also bind directly to canvas and view_container
+        self.canvas.bind("<MouseWheel>", _on_mousewheel)
+        self.view_container.bind("<MouseWheel>", _on_mousewheel)
         
         # Views Cache
         self.views = {}
         
-        # Initialize default view
-        self.sidebar.select_item("medical")
+        # Initialize default view (Phase 53: Overview as default)
+        self.sidebar.select_item("overview")
 
     def center_window(self):
         self.window.update_idletasks()
@@ -134,7 +146,10 @@ class UserProfileView:
             self.app.switch_view("home")
             return
 
-        if view_id == "medical":
+        if view_id == "overview":
+            self.header_label.configure(text="Profile Overview")
+            self._render_overview_view()
+        elif view_id == "medical":
             self.header_label.configure(text=self.i18n.get("profile.header", name=self.app.username))
             self._render_medical_view()
         elif view_id == "history":
@@ -146,6 +161,650 @@ class UserProfileView:
         elif view_id == "settings":
             self.header_label.configure(text="Account Settings")
             self._render_settings_view(self.view_container)
+
+    # ==========================
+    # 0. OVERVIEW VIEW (Phase 53: Profile Redesign - Medical Dashboard Style)
+    # ==========================
+    def _render_overview_view(self):
+        """Render the modern medical dashboard-style overview."""
+        from datetime import datetime
+        
+        # Teal accent color (like reference)
+        ACCENT = "#009688"  # Teal
+        
+        # Main 2-Column Layout (Left: Profile Card | Right: Stats Cards)
+        # Use pack instead of weight-based grid to allow natural height overflow for scrolling
+        main_frame = tk.Frame(self.view_container, bg=self.colors.get("bg"))
+        main_frame.pack(fill="x", padx=15, pady=10)  # fill="x" not "both" to allow height overflow
+        main_frame.columnconfigure(0, weight=3)  # Left takes more space
+        main_frame.columnconfigure(1, weight=2)
+        # Don't set rowconfigure weight - let rows have natural height
+        
+        # Load all data upfront
+        user_data = self._load_user_overview_data()
+        
+        # =====================
+        # LEFT COLUMN - ROW 0: PROFILE CARD
+        # =====================
+        profile_card = tk.Frame(
+            main_frame, bg=self.colors.get("card_bg"),
+            highlightbackground=self.colors.get("card_border", "#E0E0E0"),
+            highlightthickness=1
+        )
+        profile_card.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=(0, 10))
+        
+        # Profile card inner layout
+        profile_inner = tk.Frame(profile_card, bg=self.colors.get("card_bg"))
+        profile_inner.pack(fill="both", expand=True, padx=25, pady=20)
+        profile_inner.columnconfigure(0, weight=1)  # Avatar + Info
+        profile_inner.columnconfigure(1, weight=1)  # Contact Details
+        
+        # --- Left side: Avatar + Name + Info Grid ---
+        left_profile = tk.Frame(profile_inner, bg=self.colors.get("card_bg"))
+        left_profile.grid(row=0, column=0, sticky="nsew")
+        
+        # Circular Avatar using Canvas for true circle
+        avatar_size = 110
+        avatar_canvas = tk.Canvas(
+            left_profile, width=avatar_size, height=avatar_size,
+            bg=self.colors.get("card_bg"), highlightthickness=0, cursor="hand2"
+        )
+        avatar_canvas.pack(anchor="w", pady=(0, 15))
+        
+        # Draw circular background
+        avatar_canvas.create_oval(2, 2, avatar_size-2, avatar_size-2, fill=ACCENT, outline=ACCENT, width=0)
+        
+        # Try to load actual profile photo
+        avatar_path = user_data.get("avatar_path")
+        photo_loaded = False
+        
+        if avatar_path:
+            try:
+                from PIL import Image, ImageTk, ImageDraw
+                import os
+                
+                if os.path.exists(avatar_path):
+                    # Load and resize image
+                    img = Image.open(avatar_path)
+                    
+                    # Center crop to square
+                    min_dim = min(img.width, img.height)
+                    left = (img.width - min_dim) // 2
+                    top = (img.height - min_dim) // 2
+                    img = img.crop((left, top, left + min_dim, top + min_dim))
+                    
+                    # Resize to avatar size
+                    img = img.resize((avatar_size - 4, avatar_size - 4), Image.Resampling.LANCZOS)
+                    
+                    # Create circular mask
+                    mask = Image.new("L", (avatar_size - 4, avatar_size - 4), 0)
+                    draw = ImageDraw.Draw(mask)
+                    draw.ellipse((0, 0, avatar_size - 5, avatar_size - 5), fill=255)
+                    
+                    # Apply mask for circular appearance
+                    output = Image.new("RGBA", (avatar_size - 4, avatar_size - 4), (0, 0, 0, 0))
+                    output.paste(img.convert("RGBA"), (0, 0))
+                    output.putalpha(mask)
+                    
+                    # Convert to PhotoImage and display on canvas
+                    self.avatar_photo = ImageTk.PhotoImage(output)
+                    avatar_canvas.create_image(avatar_size//2, avatar_size//2, image=self.avatar_photo, anchor="center")
+                    photo_loaded = True
+            except Exception as e:
+                logging.warning(f"Could not load profile photo: {e}")
+        
+        # Fallback: Show initial letter if no photo
+        if not photo_loaded:
+            initial = user_data.get("username", "?")[0].upper()
+            avatar_canvas.create_text(
+                avatar_size//2, avatar_size//2,
+                text=initial, font=("Segoe UI", 42, "bold"),
+                fill="white", anchor="center"
+            )
+        
+        # Camera icon (small circle in corner)
+        cam_size = 28
+        cam_x, cam_y = avatar_size - 18, avatar_size - 18
+        avatar_canvas.create_oval(cam_x - cam_size//2, cam_y - cam_size//2, 
+                                  cam_x + cam_size//2, cam_y + cam_size//2,
+                                  fill="white", outline="#E0E0E0", width=1)
+        avatar_canvas.create_text(cam_x, cam_y, text="📷", font=("Segoe UI", 10), anchor="center")
+        
+        # Bind click on entire canvas to upload
+        avatar_canvas.bind("<Button-1>", lambda e: self._upload_profile_photo())
+        
+        # Name
+        tk.Label(
+            left_profile, text=user_data.get("username", "User"),
+            font=("Segoe UI", 22, "bold"),
+            bg=self.colors.get("card_bg"), fg=self.colors.get("text_primary")
+        ).pack(anchor="w")
+        
+        # Subtitle (Occupation or "Soul Sense Member")
+        subtitle = user_data.get("occupation") or "Soul Sense Member"
+        tk.Label(
+            left_profile, text=subtitle,
+            font=("Segoe UI", 11), bg=self.colors.get("card_bg"), fg=ACCENT
+        ).pack(anchor="w", pady=(0, 15))
+        
+        # Info Grid (DOB, Age, Gender in 2x2)
+        info_grid = tk.Frame(left_profile, bg=self.colors.get("card_bg"))
+        info_grid.pack(anchor="w", fill="x")
+        
+        self._create_mini_stat(info_grid, "DOB", user_data.get("dob", "--"), 0, 0)
+        self._create_mini_stat(info_grid, "Age", user_data.get("age", "--"), 0, 1)
+        self._create_mini_stat(info_grid, "Gender", user_data.get("gender", "--"), 1, 0)
+        self._create_mini_stat(info_grid, "Member Since", user_data.get("member_since", "--"), 1, 1)
+        
+        # Edit Profile Button
+        edit_btn = tk.Button(
+            left_profile, text="✏️ EDIT PROFILE",
+            command=lambda: self.sidebar.select_item("history"),
+            font=("Segoe UI", 10, "bold"), bg=ACCENT,
+            fg="white", relief="flat", cursor="hand2", padx=20, pady=8
+        )
+        edit_btn.pack(anchor="w", pady=(20, 0))
+        
+        # --- Right side: Contact Details ---
+        right_profile = tk.Frame(profile_inner, bg=self.colors.get("card_bg"))
+        right_profile.grid(row=0, column=1, sticky="nsew", padx=(30, 0))
+        
+        self._create_contact_row(right_profile, "Home Address", user_data.get("address", "Not set"))
+        self._create_contact_row(right_profile, "Phone #", user_data.get("phone", "Not set"))
+        self._create_contact_row(right_profile, "Email", user_data.get("email", "Not set"))
+        
+        # =====================
+        # RIGHT COLUMN - ROW 0: MEDICAL INFO / EQ INFO
+        # =====================
+        right_top = tk.Frame(main_frame, bg=self.colors.get("bg"))
+        right_top.grid(row=0, column=1, sticky="nsew", pady=(0, 10))
+        
+        # --- Medical Info Card (adapted from Medications) ---
+        medical_card = self._create_overview_card(right_top, "🏥 Medical Info")
+        medical_content = tk.Frame(medical_card, bg=self.colors.get("card_bg"))
+        medical_content.pack(fill="x", padx=15, pady=(0, 15))
+        
+        if user_data.get("blood_type"):
+            self._create_pill_item(medical_content, f"Blood Type: {user_data.get('blood_type', 'Unknown')}")
+        if user_data.get("allergies"):
+            self._create_pill_item(medical_content, f"Allergies: {user_data.get('allergies', 'None')[:30]}...")
+        if user_data.get("conditions"):
+            self._create_pill_item(medical_content, f"Conditions: {user_data.get('conditions', 'None')[:30]}...")
+        if not any([user_data.get("blood_type"), user_data.get("allergies"), user_data.get("conditions")]):
+            tk.Label(medical_content, text="No medical info set", font=("Segoe UI", 10), 
+                    bg=self.colors.get("card_bg"), fg="gray").pack(anchor="w")
+        
+        # --- Quick Stats Card (renamed from EQ Vitals) ---
+        vitals_card = self._create_overview_card(right_top, "📊 Quick Stats")
+        vitals_content = tk.Frame(vitals_card, bg=self.colors.get("card_bg"))
+        vitals_content.pack(fill="x", padx=15, pady=(0, 15))
+        
+        # Row 1: EQ Score + Sentiment
+        vitals_row1 = tk.Frame(vitals_content, bg=self.colors.get("card_bg"))
+        vitals_row1.pack(fill="x", pady=(0, 10))
+        
+        self._create_vital_display(vitals_row1, "🧠", "EQ Score", user_data.get("last_eq", "--"), ACCENT, 0)
+        self._create_vital_display(vitals_row1, "😊", "Sentiment", user_data.get("sentiment", "--"), "#4CAF50", 1)
+        
+        # Row 2: Tests Taken + Journals
+        vitals_row2 = tk.Frame(vitals_content, bg=self.colors.get("card_bg"))
+        vitals_row2.pack(fill="x")
+        
+        self._create_vital_display(vitals_row2, "📝", "Tests", user_data.get("tests_count", "0"), "#3B82F6", 0)
+        self._create_vital_display(vitals_row2, "📔", "Journals", user_data.get("journals_count", "0"), "#F59E0B", 1)
+        
+        # =====================
+        # LEFT COLUMN - ROW 1: NOTES/JOURNAL
+        # =====================
+        notes_card = tk.Frame(
+            main_frame, bg=self.colors.get("card_bg"),
+            highlightbackground=self.colors.get("card_border", "#E0E0E0"),
+            highlightthickness=1
+        )
+        notes_card.grid(row=1, column=0, sticky="nsew", padx=(0, 10), pady=(0, 0))
+        
+        # Notes header
+        notes_header = tk.Frame(notes_card, bg=self.colors.get("card_bg"))
+        notes_header.pack(fill="x", padx=20, pady=(15, 10))
+        tk.Label(notes_header, text="📝 Notes & Journal", font=("Segoe UI", 14, "bold"),
+                bg=self.colors.get("card_bg"), fg=self.colors.get("text_primary")).pack(side="left")
+        
+        notes_content = tk.Frame(notes_card, bg=self.colors.get("card_bg"))
+        notes_content.pack(fill="both", expand=True, padx=20, pady=(0, 15))
+        
+        # Show recent journal entries as notes
+        if user_data.get("recent_journals"):
+            for entry in user_data.get("recent_journals", [])[:3]:
+                self._create_note_entry(notes_content, entry["date"], entry["content"])
+        else:
+            tk.Label(notes_content, text="No journal entries yet.\nStart journaling to see your notes here!",
+                    font=("Segoe UI", 11), bg=self.colors.get("card_bg"), fg="gray", justify="left").pack(anchor="w")
+        
+        # =====================
+        # RIGHT COLUMN - ROW 1: RECENT RESULTS
+        # =====================
+        results_card = self._create_overview_card_gridded(main_frame, "📊 Recent Results", 1, 1)
+        results_content = tk.Frame(results_card, bg=self.colors.get("card_bg"))
+        results_content.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        if user_data.get("recent_scores"):
+            for score in user_data.get("recent_scores", [])[:4]:
+                self._create_result_row(results_content, f"EQ Test - Score: {score['score']}", score["date"])
+        else:
+            tk.Label(results_content, text="No test results yet.", font=("Segoe UI", 10),
+                    bg=self.colors.get("card_bg"), fg="gray").pack(anchor="w")
+    
+    def _load_user_overview_data(self):
+        """Load all user data for overview display."""
+        from datetime import datetime
+        data = {"username": self.app.username}
+        
+        try:
+            from app.models import Score, JournalEntry, MedicalProfile
+            session = get_session()
+            user = session.query(User).filter_by(username=self.app.username).first()
+            
+            if user:
+                # Member since
+                if user.created_at:
+                    try:
+                        created = datetime.fromisoformat(user.created_at.replace('Z', '+00:00'))
+                        data["member_since"] = created.strftime("%b %Y")
+                    except:
+                        data["member_since"] = "--"
+                
+                # Personal Profile data
+                if user.personal_profile:
+                    pp = user.personal_profile
+                    data["email"] = pp.email or "Not set"
+                    data["phone"] = pp.phone or "Not set"
+                    data["address"] = pp.address or "Not set"
+                    data["occupation"] = pp.occupation
+                    data["gender"] = pp.gender or "--"
+                    data["avatar_path"] = pp.avatar_path  # Profile photo path
+                    if pp.date_of_birth:
+                        data["dob"] = pp.date_of_birth
+                        try:
+                            dob = datetime.strptime(pp.date_of_birth, "%Y-%m-%d")
+                            age = (datetime.now() - dob).days // 365
+                            data["age"] = f"{age}y"
+                        except:
+                            data["age"] = "--"
+                
+                # Medical Profile data
+                if user.medical_profile:
+                    mp = user.medical_profile
+                    data["blood_type"] = mp.blood_type
+                    data["allergies"] = mp.allergies
+                    data["conditions"] = mp.medical_conditions
+                
+                # Recent scores
+                # Use username for filtering to be robust against missing user_id in historical data
+                scores = session.query(Score).filter_by(username=self.app.username).order_by(Score.timestamp.desc()).limit(5).all()
+                data["recent_scores"] = [{"score": s.total_score, "date": s.timestamp[:10] if s.timestamp else "--"} for s in scores]
+                if scores:
+                    data["last_eq"] = str(scores[0].total_score)
+                    if scores[0].sentiment_score:
+                        data["sentiment"] = f"{scores[0].sentiment_score:.1f}"
+                
+                # Tests count
+                data["tests_count"] = str(session.query(Score).filter_by(username=self.app.username).count())
+                
+                # Recent journals
+                journals = session.query(JournalEntry).filter_by(username=self.app.username).order_by(JournalEntry.entry_date.desc()).limit(3).all()
+                data["recent_journals"] = [{"date": j.entry_date[:10] if j.entry_date else "--", "content": (j.content or "")[:100]} for j in journals]
+                
+                # Journals count
+                data["journals_count"] = str(session.query(JournalEntry).filter_by(username=self.app.username).count())
+            
+            session.close()
+        except Exception as e:
+            logging.error(f"Error loading overview data: {e}")
+        
+        return data
+    
+    def _upload_profile_photo(self):
+        """Open file dialog to select and upload a profile photo."""
+        from tkinter import filedialog, messagebox
+        import shutil
+        import os
+        
+        # Open file dialog
+        filetypes = [
+            ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp"),
+            ("PNG files", "*.png"),
+            ("JPEG files", "*.jpg *.jpeg"),
+            ("All files", "*.*")
+        ]
+        
+        filepath = filedialog.askopenfilename(
+            title="Select Profile Photo",
+            filetypes=filetypes,
+            parent=self.window
+        )
+        
+        if not filepath:
+            return  # User cancelled
+        
+        # Open crop dialog
+        self._open_crop_dialog(filepath)
+    
+    def _open_crop_dialog(self, filepath):
+        """Open a dialog to crop the selected image to a square."""
+        from PIL import Image, ImageTk
+        import os
+        
+        try:
+            original_img = Image.open(filepath)
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror("Error", f"Could not open image: {e}", parent=self.window)
+            return
+        
+        # Create crop dialog
+        dialog = tk.Toplevel(self.window)
+        dialog.title("Crop Profile Photo")
+        dialog.geometry("500x550")
+        dialog.configure(bg=self.colors.get("card_bg"))
+        dialog.transient(self.window)
+        dialog.grab_set()
+        
+        # Instructions
+        tk.Label(
+            dialog, text="Drag to position, scroll to resize",
+            font=("Segoe UI", 11), bg=self.colors.get("card_bg"), fg="gray"
+        ).pack(pady=(15, 10))
+        
+        # Calculate display size (max 400px)
+        display_size = 400
+        scale = min(display_size / original_img.width, display_size / original_img.height)
+        display_w = int(original_img.width * scale)
+        display_h = int(original_img.height * scale)
+        
+        display_img = original_img.resize((display_w, display_h), Image.Resampling.LANCZOS)
+        display_photo = ImageTk.PhotoImage(display_img)
+        
+        # Canvas for crop area
+        canvas = tk.Canvas(dialog, width=display_w, height=display_h, bg="gray", highlightthickness=0)
+        canvas.pack(pady=10)
+        canvas.create_image(0, 0, image=display_photo, anchor="nw", tags="image")
+        canvas.image = display_photo  # Keep reference
+        
+        # Initial crop square (centered, size = min dimension)
+        min_dim = min(display_w, display_h)
+        crop_size = int(min_dim * 0.8)
+        crop_x = (display_w - crop_size) // 2
+        crop_y = (display_h - crop_size) // 2
+        
+        # Store crop state
+        crop_state = {"x": crop_x, "y": crop_y, "size": crop_size, "drag_start": None}
+        
+        # Draw crop overlay
+        def draw_crop():
+            canvas.delete("crop")
+            x, y, s = crop_state["x"], crop_state["y"], crop_state["size"]
+            
+            # Darken outside areas (4 rectangles)
+            canvas.create_rectangle(0, 0, x, display_h, fill="black", stipple="gray50", tags="crop")
+            canvas.create_rectangle(x + s, 0, display_w, display_h, fill="black", stipple="gray50", tags="crop")
+            canvas.create_rectangle(x, 0, x + s, y, fill="black", stipple="gray50", tags="crop")
+            canvas.create_rectangle(x, y + s, x + s, display_h, fill="black", stipple="gray50", tags="crop")
+            
+            # Crop circle outline
+            canvas.create_oval(x, y, x + s, y + s, outline="white", width=2, tags="crop")
+        
+        draw_crop()
+        
+        # Drag handling
+        def on_press(event):
+            crop_state["drag_start"] = (event.x - crop_state["x"], event.y - crop_state["y"])
+        
+        def on_drag(event):
+            if crop_state["drag_start"]:
+                dx, dy = crop_state["drag_start"]
+                new_x = max(0, min(display_w - crop_state["size"], event.x - dx))
+                new_y = max(0, min(display_h - crop_state["size"], event.y - dy))
+                crop_state["x"], crop_state["y"] = new_x, new_y
+                draw_crop()
+        
+        def on_release(event):
+            crop_state["drag_start"] = None
+        
+        def on_scroll(event):
+            delta = 10 if event.delta > 0 else -10
+            new_size = max(50, min(min(display_w, display_h), crop_state["size"] + delta))
+            # Keep centered
+            center_x = crop_state["x"] + crop_state["size"] // 2
+            center_y = crop_state["y"] + crop_state["size"] // 2
+            crop_state["size"] = new_size
+            crop_state["x"] = max(0, min(display_w - new_size, center_x - new_size // 2))
+            crop_state["y"] = max(0, min(display_h - new_size, center_y - new_size // 2))
+            draw_crop()
+        
+        canvas.bind("<Button-1>", on_press)
+        canvas.bind("<B1-Motion>", on_drag)
+        canvas.bind("<ButtonRelease-1>", on_release)
+        canvas.bind("<MouseWheel>", on_scroll)
+        
+        # Save button
+        def save_crop():
+            from tkinter import messagebox
+            import shutil
+            
+            try:
+                # Calculate actual crop area (scale back to original)
+                x = int(crop_state["x"] / scale)
+                y = int(crop_state["y"] / scale)
+                s = int(crop_state["size"] / scale)
+                
+                cropped = original_img.crop((x, y, x + s, y + s))
+                
+                # Create avatars directory
+                from app.config import DATA_DIR
+                avatars_dir = os.path.join(DATA_DIR, "avatars")
+                os.makedirs(avatars_dir, exist_ok=True)
+                
+                # Save cropped image
+                new_path = os.path.join(avatars_dir, f"{self.app.username}_avatar.png")
+                cropped.save(new_path, "PNG")
+                
+                # Update database
+                session = get_session()
+                user = session.query(User).filter_by(username=self.app.username).first()
+                if user:
+                    if not user.personal_profile:
+                        from app.models import PersonalProfile
+                        user.personal_profile = PersonalProfile(user_id=user.id)
+                    user.personal_profile.avatar_path = new_path
+                    session.commit()
+                session.close()
+                
+                dialog.destroy()
+                messagebox.showinfo("Success", "Profile photo updated!", parent=self.window)
+                self.sidebar.select_item("overview")  # Refresh
+                
+            except Exception as e:
+                logging.error(f"Error saving cropped photo: {e}")
+                messagebox.showerror("Error", f"Could not save photo: {e}", parent=dialog)
+        
+        # Buttons
+        btn_frame = tk.Frame(dialog, bg=self.colors.get("card_bg"))
+        btn_frame.pack(fill="x", padx=20, pady=15)
+        
+        tk.Button(
+            btn_frame, text="Cancel", command=dialog.destroy,
+            font=("Segoe UI", 10), bg="#E0E0E0", fg="black", relief="flat", padx=20, pady=8
+        ).pack(side="left")
+        
+        tk.Button(
+            btn_frame, text="✓ Save Photo", command=save_crop,
+            font=("Segoe UI", 10, "bold"), bg="#009688", fg="white", relief="flat", padx=20, pady=8
+        ).pack(side="right")
+    
+    def _create_overview_card(self, parent, title):
+        """Create a simple overview card with title."""
+        card = tk.Frame(parent, bg=self.colors.get("card_bg"),
+                       highlightbackground=self.colors.get("card_border", "#E0E0E0"), highlightthickness=1)
+        card.pack(fill="x", pady=(0, 10))
+        
+        tk.Label(card, text=title, font=("Segoe UI", 13, "bold"),
+                bg=self.colors.get("card_bg"), fg=self.colors.get("text_primary")).pack(anchor="w", padx=15, pady=(12, 8))
+        return card
+    
+    def _create_overview_card_gridded(self, parent, title, row, col):
+        """Create an overview card positioned in grid."""
+        card = tk.Frame(parent, bg=self.colors.get("card_bg"),
+                       highlightbackground=self.colors.get("card_border", "#E0E0E0"), highlightthickness=1)
+        card.grid(row=row, column=col, sticky="nsew", pady=(0, 0))
+        
+        tk.Label(card, text=title, font=("Segoe UI", 13, "bold"),
+                bg=self.colors.get("card_bg"), fg=self.colors.get("text_primary")).pack(anchor="w", padx=15, pady=(12, 8))
+        return card
+    
+    def _create_mini_stat(self, parent, label, value, row, col):
+        """Create a mini stat display like DOB/Age grid."""
+        box = tk.Frame(parent, bg=self.colors.get("card_bg"))
+        box.grid(row=row, column=col, sticky="w", padx=(0, 30), pady=3)
+        
+        tk.Label(box, text=label, font=("Segoe UI", 9), bg=self.colors.get("card_bg"), fg="gray").pack(anchor="w")
+        tk.Label(box, text=value, font=("Segoe UI", 12, "bold"), bg=self.colors.get("card_bg"), 
+                fg=self.colors.get("text_primary")).pack(anchor="w")
+    
+    def _create_contact_row(self, parent, label, value):
+        """Create a contact info row with label above value."""
+        row = tk.Frame(parent, bg=self.colors.get("card_bg"))
+        row.pack(fill="x", pady=8)
+        
+        tk.Label(row, text=label, font=("Segoe UI", 9), bg=self.colors.get("card_bg"), fg="gray").pack(anchor="w")
+        tk.Label(row, text=value, font=("Segoe UI", 11, "bold"), bg=self.colors.get("card_bg"),
+                fg=self.colors.get("text_primary"), wraplength=200, justify="left").pack(anchor="w")
+    
+    def _create_pill_item(self, parent, text):
+        """Create a pill/medication style list item."""
+        row = tk.Frame(parent, bg=self.colors.get("card_bg"))
+        row.pack(fill="x", pady=3)
+        
+        tk.Label(row, text="💊", font=("Segoe UI", 10), bg=self.colors.get("card_bg")).pack(side="left")
+        tk.Label(row, text=text, font=("Segoe UI", 10), bg=self.colors.get("card_bg"),
+                fg=self.colors.get("text_primary")).pack(side="left", padx=5)
+    
+    def _create_vital_display(self, parent, icon, label, value, color, col):
+        """Create a vital sign display with icon."""
+        box = tk.Frame(parent, bg=self.colors.get("card_bg"))
+        box.grid(row=0, column=col, sticky="nsew", padx=10)
+        parent.columnconfigure(col, weight=1)
+        
+        tk.Label(box, text=icon, font=("Segoe UI", 24), bg=self.colors.get("card_bg")).pack()
+        tk.Label(box, text=label, font=("Segoe UI", 9), bg=self.colors.get("card_bg"), fg="gray").pack()
+        tk.Label(box, text=value, font=("Segoe UI", 18, "bold"), bg=self.colors.get("card_bg"), fg=color).pack()
+    
+    def _create_note_entry(self, parent, date, content):
+        """Create a note/journal entry display."""
+        entry_frame = tk.Frame(parent, bg=self.colors.get("card_bg"))
+        entry_frame.pack(fill="x", pady=8)
+        
+        tk.Label(entry_frame, text=date, font=("Segoe UI", 9, "bold"), 
+                bg=self.colors.get("card_bg"), fg="#009688").pack(anchor="w")
+        tk.Label(entry_frame, text=content if content else "No notes", font=("Segoe UI", 10),
+                bg=self.colors.get("card_bg"), fg=self.colors.get("text_primary"), wraplength=350, justify="left").pack(anchor="w")
+    
+    def _create_result_row(self, parent, text, date):
+        """Create a result/lab result style row."""
+        row = tk.Frame(parent, bg=self.colors.get("card_bg"))
+        row.pack(fill="x", pady=4)
+        
+        tk.Label(row, text="📄", font=("Segoe UI", 10), bg=self.colors.get("card_bg")).pack(side="left")
+        tk.Label(row, text=text, font=("Segoe UI", 10), bg=self.colors.get("card_bg"),
+                fg=self.colors.get("text_primary")).pack(side="left", padx=5)
+        tk.Label(row, text=date, font=("Segoe UI", 9), bg=self.colors.get("card_bg"), fg="gray").pack(side="right")
+    
+    def _create_dashboard_card(self, parent, title):
+        """Create a styled card container with optional title."""
+        card = tk.Frame(
+            parent, bg=self.colors.get("card_bg"),
+            highlightbackground=self.colors.get("card_border", "#E2E8F0"),
+            highlightthickness=1
+        )
+        card.pack(fill="x", pady=(0, 15))
+        
+        if title:
+            tk.Label(
+                card, text=title, font=("Segoe UI", 14, "bold"),
+                bg=self.colors.get("card_bg"), fg=self.colors.get("text_primary")
+            ).pack(anchor="w", padx=20, pady=(15, 10))
+        
+        return card
+    
+    def _create_info_row(self, parent, label, value):
+        """Create an info display row with label and value."""
+        row = tk.Frame(parent, bg=self.colors.get("card_bg"))
+        row.pack(fill="x", pady=5)
+        
+        tk.Label(
+            row, text=label, font=("Segoe UI", 11), width=12, anchor="w",
+            bg=self.colors.get("card_bg"), fg="gray"
+        ).pack(side="left")
+        
+        tk.Label(
+            row, text=value, font=("Segoe UI", 11),
+            bg=self.colors.get("card_bg"), fg=self.colors.get("text_primary")
+        ).pack(side="left", padx=10)
+    
+    def _create_stat_box(self, parent, label, value, color, row, col):
+        """Create a stat display box with colored accent."""
+        box = tk.Frame(parent, bg=self.colors.get("card_bg"))
+        box.grid(row=row, column=col, sticky="nsew", padx=5, pady=5)
+        parent.columnconfigure(col, weight=1)
+        
+        # Value (large)
+        tk.Label(
+            box, text=value, font=("Segoe UI", 24, "bold"),
+            bg=self.colors.get("card_bg"), fg=color
+        ).pack(anchor="w")
+        
+        # Label (small)
+        tk.Label(
+            box, text=label, font=("Segoe UI", 10),
+            bg=self.colors.get("card_bg"), fg="gray"
+        ).pack(anchor="w")
+    
+    def _create_activity_row(self, parent, icon, text, timestamp):
+        """Create an activity timeline row."""
+        row = tk.Frame(parent, bg=self.colors.get("card_bg"))
+        row.pack(fill="x", pady=3)
+        
+        tk.Label(
+            row, text=icon, font=("Segoe UI", 12),
+            bg=self.colors.get("card_bg")
+        ).pack(side="left")
+        
+        tk.Label(
+            row, text=text, font=("Segoe UI", 11),
+            bg=self.colors.get("card_bg"), fg=self.colors.get("text_primary")
+        ).pack(side="left", padx=(5, 10))
+        
+        # Format timestamp
+        time_str = ""
+        if timestamp:
+            try:
+                if isinstance(timestamp, str):
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                else:
+                    dt = timestamp
+                diff = datetime.now() - dt.replace(tzinfo=None)
+                if diff.days > 0:
+                    time_str = f"{diff.days}d ago"
+                elif diff.seconds > 3600:
+                    time_str = f"{diff.seconds // 3600}h ago"
+                else:
+                    time_str = f"{diff.seconds // 60}m ago"
+            except:
+                time_str = str(timestamp)[:10] if timestamp else ""
+        
+        tk.Label(
+            row, text=time_str, font=("Segoe UI", 9),
+            bg=self.colors.get("card_bg"), fg="gray"
+        ).pack(side="right")
 
     # ==========================
     # 1. MEDICAL VIEW
@@ -246,13 +905,15 @@ class UserProfileView:
     # ==========================
     def _render_history_view(self):
         # Responsive Split: Left (Form) | Right (Timeline)
-        paned = tk.PanedWindow(self.view_container, orient=tk.HORIZONTAL, bg=self.colors.get("bg"), sashwidth=4, sashrelief="flat")
-        paned.pack(fill="both", expand=True)
+        # Use simple Frame with grid instead of PanedWindow to allow proper vertical scrolling
+        content_grid = tk.Frame(self.view_container, bg=self.colors.get("bg"))
+        content_grid.pack(fill="x", expand=True, padx=0, pady=0)
+        content_grid.columnconfigure(0, weight=1) # Form
+        content_grid.columnconfigure(1, weight=1) # Timeline
         
         # --- LEFT COLUMN: Form ---
-        left_col = tk.Frame(paned, bg=self.colors.get("bg"))
-        # Add to pane
-        paned.add(left_col, width=350, minsize=250, sticky="nsew", padx=0) # padx tuple not supported in PanedWindow add
+        left_col = tk.Frame(content_grid, bg=self.colors.get("bg"))
+        left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         
         card = tk.Frame(left_col, bg=self.colors.get("card_bg"), highlightbackground=self.colors.get("card_border"), highlightthickness=1)
         card.pack(fill="both", expand=True)
@@ -277,10 +938,49 @@ class UserProfileView:
         self.status_combo.pack(fill="x", pady=5)
         
         self._create_field_label(form_content, "Bio")
-        self._create_field_label(form_content, "Bio")
         self.bio_text = self._create_text_area(form_content)
+        
+        # --- Phase 53: Contact Information Section ---
+        self._create_section_label(form_content, "📞 Contact Information")
+        
+        # Email
+        self._create_field_label(form_content, "Email")
+        self.email_var = tk.StringVar()
+        self._create_entry(form_content, self.email_var)
+        
+        # Phone
+        self._create_field_label(form_content, "Phone")
+        self.phone_var = tk.StringVar()
+        self._create_entry(form_content, self.phone_var)
+        
+        # Date of Birth + Gender in a row
+        dob_gender_frame = tk.Frame(form_content, bg=self.colors.get("card_bg"))
+        dob_gender_frame.pack(fill="x", pady=(10, 0))
+        
+        dob_col = tk.Frame(dob_gender_frame, bg=self.colors.get("card_bg"))
+        dob_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        tk.Label(dob_col, text="Date of Birth", font=("Segoe UI", 10, "bold"), bg=self.colors.get("card_bg"), fg="gray").pack(anchor="w")
+        self.dob_entry = DateEntry(
+            dob_col, date_pattern="yyyy-mm-dd", font=("Segoe UI", 11),
+            background=self.colors.get("primary"), foreground="white"
+        )
+        self.dob_entry.pack(fill="x", pady=5)
+        
+        gender_col = tk.Frame(dob_gender_frame, bg=self.colors.get("card_bg"))
+        gender_col.pack(side="left", fill="x", expand=True, padx=(10, 0))
+        tk.Label(gender_col, text="Gender", font=("Segoe UI", 10, "bold"), bg=self.colors.get("card_bg"), fg="gray").pack(anchor="w")
+        self.gender_var = tk.StringVar()
+        gender_opts = ["Prefer not to say", "Male", "Female", "Non-binary", "Other"]
+        self.gender_combo = ttk.Combobox(gender_col, textvariable=self.gender_var, values=gender_opts, state="readonly", font=("Segoe UI", 11))
+        self.gender_combo.pack(fill="x", pady=5)
+        
+        # Address
+        self._create_field_label(form_content, "Address")
+        self.address_text = self._create_text_area(form_content)
 
         # --- PR #5: Society Contribution & Life POV ---
+        self._create_section_label(form_content, "📝 Life Perspective")
+        
         self._create_field_label(form_content, "Contribution to Society")
         self.society_text = self._create_text_area(form_content)
 
@@ -300,8 +1000,8 @@ class UserProfileView:
         save_profile_btn.pack(fill="x", pady=20)
 
         # --- RIGHT COLUMN: Timeline ---
-        right_col = tk.Frame(paned, bg=self.colors.get("bg"))
-        paned.add(right_col, minsize=400, sticky="nsew", padx=0)
+        right_col = tk.Frame(content_grid, bg=self.colors.get("bg"))
+        right_col.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         
         # Timeline Component
         self.timeline = LifeTimeline(
@@ -418,10 +1118,22 @@ class UserProfileView:
                 self.occ_var.set(profile.occupation or "")
                 self.edu_var.set(profile.education or "")
                 self.status_var.set(profile.marital_status or "")
-                self.status_var.set(profile.marital_status or "")
                 self.bio_text.insert("1.0", profile.bio or "")
 
-                # PR #5 Save logic Load
+                # Phase 53: Load contact info
+                self.email_var.set(profile.email or "")
+                self.phone_var.set(profile.phone or "")
+                if profile.date_of_birth:
+                    try:
+                        from datetime import datetime
+                        dob = datetime.strptime(profile.date_of_birth, "%Y-%m-%d")
+                        self.dob_entry.set_date(dob)
+                    except:
+                        pass
+                self.gender_var.set(profile.gender or "Prefer not to say")
+                self.address_text.insert("1.0", profile.address or "")
+
+                # PR #5 Load
                 self.society_text.insert("1.0", profile.society_contribution or "")
                 self.life_pov_text.insert("1.0", profile.life_pov or "")
                 self.high_pressure_text.insert("1.0", profile.high_pressure_events or "")
@@ -452,8 +1164,27 @@ class UserProfileView:
              profile.occupation = self.occ_var.get()
              profile.education = self.edu_var.get()
              profile.marital_status = self.status_var.get()
-             profile.marital_status = self.status_var.get()
              profile.bio = self.bio_text.get("1.0", tk.END).strip()
+
+             # Phase 53: Save contact info
+             email = self.email_var.get().strip()
+             phone = self.phone_var.get().strip()
+             
+             # Validation (Phase 2.5 of Plan)
+             import re
+             if email and not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+                 messagebox.showwarning("Validation Error", "Invalid email format.")
+                 return
+                 
+             if phone and not re.match(r"^\+?[\d\s-]{10,}$", phone):
+                 messagebox.showwarning("Validation Error", "Invalid phone number format (min 10 digits).")
+                 return
+             
+             profile.email = email
+             profile.phone = phone
+             profile.date_of_birth = self.dob_entry.get_date().strftime("%Y-%m-%d")
+             profile.gender = self.gender_var.get()
+             profile.address = self.address_text.get("1.0", tk.END).strip()
 
              # PR #5 Save
              profile.society_contribution = self.society_text.get("1.0", tk.END).strip()
