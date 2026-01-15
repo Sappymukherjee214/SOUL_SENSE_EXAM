@@ -96,6 +96,11 @@ class JournalFeature:
         metrics_frame.columnconfigure(1, weight=1)
         metrics_frame.columnconfigure(3, weight=1)
         
+        # Configure Theme for Sliders
+        style = ttk.Style()
+        style.configure("TScale", background=colors["surface"], troughcolor=colors.get("border", "#ccc"),
+                        sliderthickness=15)
+
         def create_slider(parent, label_text, from_, to_, row, col, variable, resolution=1):
             lbl = tk.Label(parent, text=label_text, font=("Segoe UI", 11), 
                     bg=colors["surface"], fg=colors["text_primary"])
@@ -111,6 +116,7 @@ class JournalFeature:
                 variable.set(v)
                 val_lbl.config(text=f"{v:g}")
 
+            # Use "TScale" style implicitly or explicitly if needed, but configure sets global default for TScale
             s = ttk.Scale(parent, from_=from_, to=to_, orient="horizontal", variable=variable, command=on_scroll)
             s.grid(row=row, column=col+1, sticky="ew", padx=5)
 
@@ -128,6 +134,35 @@ class JournalFeature:
         self.work_hours_var = tk.DoubleVar(value=8.0)
         create_slider(metrics_frame, "Work (hrs)", 0, 16, 1, 3, self.work_hours_var, 0.5)
 
+        # Row 2 (PR #6 Expansion)
+        self.stress_level_var = tk.IntVar(value=3)
+        create_slider(metrics_frame, "Stress (1-10)", 1, 10, 2, 0, self.stress_level_var, 1)
+
+        # Screen Time (Slider)
+        self.screen_time_var = tk.IntVar(value=120)
+        create_slider(metrics_frame, "Screen Time (mins)", 0, 720, 2, 3, self.screen_time_var, 15)
+
+        # --- Daily Context Section (PR #6) ---
+        context_frame = tk.LabelFrame(container, text="Daily Context", 
+                                     font=("Segoe UI", 12, "bold"), bg=colors["surface"],
+                                     fg=colors["text_primary"], padx=15, pady=10)
+        context_frame.pack(fill="x", pady=5)
+        
+        def create_compact_text(parent, label, ht=3):
+            frame = tk.Frame(parent, bg=colors["surface"])
+            frame.pack(fill="x", pady=5)
+            tk.Label(frame, text=label, font=("Segoe UI", 10, "bold"), 
+                    bg=colors["surface"], fg=colors["text_secondary"]).pack(anchor="w")
+            txt = tk.Text(frame, height=ht, font=("Segoe UI", 10),
+                         bg=colors.get("input_bg", "#fff"), fg=colors.get("input_fg", "#000"),
+                         relief="flat", highlightthickness=1,
+                         highlightbackground=colors.get("border", "#ccc"))
+            txt.pack(fill="x")
+            return txt
+
+        self.schedule_text = create_compact_text(context_frame, "Daily Schedule / Key Events")
+        self.triggers_text = create_compact_text(context_frame, "Stress Triggers (if any)")
+
         # --- Reflection Section ---
         tk.Label(container, text="Your thoughts today...", 
                 font=("Segoe UI", 12, "bold"), bg=colors["bg"], 
@@ -143,6 +178,15 @@ class JournalFeature:
         # Buttons
         btn_frame = tk.Frame(container, bg=colors["bg"])
         btn_frame.pack(fill="x", pady=20)
+        
+        # Navigation Buttons
+        tk.Button(btn_frame, text=self.i18n.get("journal.view_past"), command=self.view_past_entries,
+                 font=("Segoe UI", 11), bg=colors["surface"], fg=colors["text_primary"],
+                 relief="flat", padx=15).pack(side="left", padx=(0, 10))
+
+        tk.Button(btn_frame, text=self.i18n.get("journal.dashboard"), command=self.open_dashboard,
+                 font=("Segoe UI", 11), bg=colors["surface"], fg=colors["text_primary"],
+                 relief="flat", padx=15).pack(side="left")
         
         tk.Button(btn_frame, text="Save Entry", command=self.save_and_analyze,
                  font=("Segoe UI", 11, "bold"), bg=colors["primary"], fg=colors.get("text_inverse", "white"),
@@ -250,7 +294,12 @@ class JournalFeature:
                 sleep_hours=self.sleep_hours_var.get(),
                 sleep_quality=self.sleep_quality_var.get(),
                 energy_level=self.energy_level_var.get(),
-                work_hours=self.work_hours_var.get()
+                work_hours=self.work_hours_var.get(),
+                # PR #6 Expansion
+                screen_time_mins=self.screen_time_var.get(),
+                stress_level=self.stress_level_var.get(),
+                daily_schedule=self.schedule_text.get("1.0", tk.END).strip(),
+                stress_triggers=self.triggers_text.get("1.0", tk.END).strip()
             )
             session.add(entry)
             session.commit()
@@ -262,7 +311,10 @@ class JournalFeature:
             self.show_analysis_results(sentiment_score, emotional_patterns, health_insights)
             
             # Clear text area
+            # Clear inputs
             self.text_area.delete("1.0", tk.END)
+            self.schedule_text.delete("1.0", tk.END)
+            self.triggers_text.delete("1.0", tk.END)
             
         except Exception as e:
             logging.error("Failed to save journal entry", exc_info=True)
@@ -352,11 +404,11 @@ class JournalFeature:
         entries_window = tk.Toplevel(self.journal_window)
         entries_window.title(self.i18n.get("journal.past_entries_title"))
         entries_window.geometry("700x500")
-        entries_window.configure(bg=self.colors["bg_primary"])
+        entries_window.configure(bg=self.colors.get("bg", "#f0f0f0"))
         
         tk.Label(entries_window, text=self.i18n.get("journal.emotional_journey"), 
-                font=("Arial", 16, "bold"), bg=self.colors["bg_primary"],
-                fg=self.colors["text_primary"]).pack(pady=10)
+                font=("Arial", 16, "bold"), bg=self.colors.get("bg", "#f0f0f0"),
+                fg=self.colors.get("text_primary", "#000")).pack(pady=10)
 
         def open_history_view():
             """Open daily history view with lazy import"""
@@ -373,50 +425,245 @@ class JournalFeature:
         tk.Button(entries_window, text="📅 Calendar View", command=open_history_view,
                  bg=self.colors.get("secondary", "#8B5CF6"), fg="white", 
                  relief="flat", padx=10).pack(pady=5)
-        
-        # Create scrollable text area
-        text_area = scrolledtext.ScrolledText(entries_window, width=80, height=25, 
-                                            font=("Arial", 10),
-                                            bg=self.colors["surface"],
-                                            fg=self.colors["text_primary"])
-        text_area.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
-        
-        # Fetch entries from database with ORM
-        session = get_session()
-        try:
-            entries = session.query(JournalEntry)\
-                .filter_by(username=self.username)\
-                .order_by(desc(JournalEntry.entry_date))\
-                .all()
-            
-            if not entries:
-                text_area.insert(tk.END, self.i18n.get("journal.no_entries"))
-            else:
-                for entry in entries:
-                    text_area.insert(tk.END, self.i18n.get("journal.entry_date", date=entry.entry_date) + "\n")
-                    text_area.insert(tk.END, self.i18n.get("journal.entry_sentiment", 
-                                                           score=f"{entry.sentiment_score:.1f}", 
-                                                           patterns=entry.emotional_patterns) + "\n")
-                    
-                    # Display metrics if available
-                    if getattr(entry, 'sleep_hours', None) is not None:
-                         metrics_str = self.i18n.get("journal.entry_metrics",
-                                                     sleep_h=entry.sleep_hours,
-                                                     sleep_q=entry.sleep_quality,
-                                                     energy=entry.energy_level,
-                                                     work=entry.work_hours)
-                         text_area.insert(tk.END, metrics_str + "\n")
 
-                    text_area.insert(tk.END, self.i18n.get("journal.entry_content", content=entry.content) + "\n")
-                    text_area.insert(tk.END, "-" * 70 + "\n\n")
-        finally:
-            session.close()
+
+        # --- Modern Filter Bar (No search, Month + Type filters) ---
+        filter_frame = tk.Frame(entries_window, bg=self.colors.get("surface", "#fff"), pady=12)
+        filter_frame.pack(fill="x", padx=20, pady=(0, 10))
         
-        text_area.config(state=tk.DISABLED)
+        # Month filter
+        month_container = tk.Frame(filter_frame, bg=self.colors.get("surface", "#fff"))
+        month_container.pack(side="left", padx=(10, 15))
         
-        tk.Button(entries_window, text=self.i18n.get("journal.close"), 
-                 command=entries_window.destroy, 
-                 font=("Arial", 12)).pack(pady=10)
+        tk.Label(month_container, text="📅 Month:", font=("Segoe UI", 10, "bold"),
+                bg=self.colors.get("surface", "#fff"), 
+                fg=self.colors.get("text_secondary", "#666")).pack(side="left")
+        
+        # Generate month options
+        from datetime import datetime
+        current_month = datetime.now()
+        month_options = ["All Months"]
+        for i in range(12):
+            month_date = datetime(current_month.year if current_month.month - i > 0 else current_month.year - 1,
+                                 ((current_month.month - i - 1) % 12) + 1, 1)
+            month_options.append(month_date.strftime("%B %Y"))
+        
+        month_var = tk.StringVar(value="All Months")
+        month_combo = ttk.Combobox(month_container, textvariable=month_var, 
+                                  values=month_options, state="readonly", width=15)
+        month_combo.pack(side="left", padx=5)
+        
+        # Type filter
+        filter_container = tk.Frame(filter_frame, bg=self.colors.get("surface", "#fff"))
+        filter_container.pack(side="left", padx=10)
+        
+        tk.Label(filter_container, text="Type:", font=("Segoe UI", 10, "bold"),
+                bg=self.colors.get("surface", "#fff"), 
+                fg=self.colors.get("text_secondary", "#666")).pack(side="left")
+        
+        type_var = tk.StringVar(value="All Entries")
+        type_combo = ttk.Combobox(filter_container, textvariable=type_var, 
+                                 values=["All Entries", "High Stress", "Great Days", "Bad Sleep"], 
+                                 state="readonly", width=15)
+        type_combo.pack(side="left", padx=5)
+        
+        # Clear button
+        def clear_filters():
+            month_var.set("All Months")
+            type_var.set("All Entries")
+            render_entries()
+        
+        tk.Button(filter_frame, text="Reset", command=clear_filters,
+                 font=("Segoe UI", 9), bg=self.colors.get("primary", "#8B5CF6"), fg="white",
+                 relief="flat", padx=12, pady=4).pack(side="right", padx=10)
+        
+        # Scrollable Area (Hidden scrollbar - mousewheel only)
+        canvas = tk.Canvas(entries_window, bg=self.colors.get("bg", "#f0f0f0"), highlightthickness=0)
+        scrollable_frame = tk.Frame(canvas, bg=self.colors.get("bg", "#f0f0f0"))
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.pack(fill="both", expand=True, padx=20)
+        
+        # Enable mousewheel scrolling (scoped to this canvas only)
+        def _on_mousewheel(event):
+            try:
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                pass  # Canvas may be destroyed
+        
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+        
+        def render_entries():
+            # Clear existing
+            for widget in scrollable_frame.winfo_children():
+                widget.destroy()
+                
+            selected_month = month_var.get()
+            filter_type = type_var.get()
+            
+            session = get_session()
+            try:
+                entries = session.query(JournalEntry)\
+                    .filter_by(username=self.username)\
+                    .order_by(desc(JournalEntry.entry_date))\
+                    .all()
+                print(f"DEBUG: View Past Entries found {len(entries)} records for {self.username}")
+                
+                filtered_count = 0
+                for entry in entries:
+                    # Apply month filter
+                    if selected_month != "All Months":
+                        try:
+                            entry_month = datetime.strptime(str(entry.entry_date).split('.')[0], "%Y-%m-%d %H:%M:%S").strftime("%B %Y")
+                            if entry_month != selected_month:
+                                continue
+                        except:
+                            pass
+                        
+                    # Apply type filter
+                    if filter_type == "High Stress" and (entry.stress_level or 0) <= 7:
+                        continue
+                    if filter_type == "Great Days" and (entry.energy_level or 0) <= 7:
+                        continue
+                    if filter_type == "Bad Sleep" and (entry.sleep_hours or 7) >= 6:
+                        continue
+                        
+                    filtered_count += 1
+                    self._create_entry_card(scrollable_frame, entry)
+                    
+                if filtered_count == 0:
+                    tk.Label(scrollable_frame, text="No entries found matching filters.", 
+                            font=("Segoe UI", 12), bg=self.colors.get("bg", "#f0f0f0"), 
+                            fg=self.colors.get("text_secondary", "#666")).pack(pady=20)
+            finally:
+                session.close()
+
+        # Update on filter change
+        month_combo.bind("<<ComboboxSelected>>", lambda e: render_entries())
+        type_combo.bind("<<ComboboxSelected>>", lambda e: render_entries())
+        
+        # Initial Render
+        render_entries()
+
+        # Configure canvas width
+        def _configure_canvas(event):
+            canvas.itemconfig(canvas.create_window((0,0), window=scrollable_frame, anchor="nw"), width=event.width)
+        canvas.bind("<Configure>", _configure_canvas)
+
+    def _create_entry_card(self, parent, entry):
+        """Create a modern, aesthetic card for a journal entry with click-to-detail"""
+        # --- Card Container (Shadow effect via nested frames) ---
+        shadow = tk.Frame(parent, bg="#d0d0d0")
+        shadow.pack(fill="x", pady=(8, 0), padx=(12, 8))
+        
+        card = tk.Frame(shadow, bg=self.colors.get("surface", "#fff"), bd=0, cursor="hand2")
+        card.pack(fill="x", padx=(0, 2), pady=(0, 2))
+        
+        # Click handler to open Day Detail
+        def open_day_detail(e=None):
+            try:
+                from app.ui.day_detail import DayDetailPopup
+                DayDetailPopup(card, entry, self.colors, self.i18n)
+            except Exception as err:
+                logging.error(f"Failed to open Day Detail: {err}")
+        
+        card.bind("<Button-1>", open_day_detail)
+        
+        # --- Header: Color Bar + Date + Stress Label ---
+        header = tk.Frame(card, bg=self.colors.get("surface", "#fff"))
+        header.pack(fill="x", padx=0, pady=0)
+        
+        # Stress color bar on left edge
+        stress_val = entry.stress_level or 0
+        if stress_val >= 8:
+            stress_color, stress_label = "#EF4444", "High Stress"
+        elif stress_val >= 5:
+            stress_color, stress_label = "#F59E0B", "Moderate"
+        else:
+            stress_color, stress_label = "#22C55E", "Low Stress"
+        
+        color_bar = tk.Frame(header, bg=stress_color, width=6)
+        color_bar.pack(side="left", fill="y")
+        color_bar.bind("<Button-1>", open_day_detail)
+        
+        # Date and stress text
+        date_container = tk.Frame(header, bg=self.colors.get("surface", "#fff"))
+        date_container.pack(side="left", fill="x", expand=True, padx=15, pady=12)
+        date_container.bind("<Button-1>", open_day_detail)
+        
+        try:
+            date_str = datetime.strptime(str(entry.entry_date).split('.')[0], "%Y-%m-%d %H:%M:%S").strftime("%B %d, %Y • %I:%M %p")
+        except:
+            date_str = str(entry.entry_date)
+        
+        date_lbl = tk.Label(date_container, text=date_str, 
+                font=("Segoe UI", 11, "bold"), bg=self.colors.get("surface", "#fff"), fg=self.colors.get("text_primary", "#000"))
+        date_lbl.pack(side="left")
+        date_lbl.bind("<Button-1>", open_day_detail)
+        
+        # Stress label badge
+        stress_badge = tk.Label(date_container, text=stress_label, font=("Segoe UI", 9, "bold"),
+                               bg=stress_color, fg="white", padx=8, pady=2)
+        stress_badge.pack(side="left", padx=10)
+        stress_badge.bind("<Button-1>", open_day_detail)
+        
+        # Sentiment meter (mini bar from red to green)
+        score = getattr(entry, 'sentiment_score', 0) or 0
+        sentiment_text = "Positive" if score > 30 else "Neutral" if score > -30 else "Negative"
+        sentiment_color = "#22C55E" if score > 30 else "#6B7280" if score > -30 else "#EF4444"
+        
+        sentiment_lbl = tk.Label(header, text=f"Mood: {sentiment_text}", font=("Segoe UI", 9),
+                                bg=self.colors.get("surface", "#fff"), fg=sentiment_color)
+        sentiment_lbl.pack(side="right", padx=15)
+        sentiment_lbl.bind("<Button-1>", open_day_detail)
+        
+        # --- Content Preview ---
+        preview = entry.content[:180] + "..." if len(entry.content) > 180 else entry.content
+        content_lbl = tk.Label(card, text=preview, font=("Segoe UI", 10), 
+                bg=self.colors.get("surface", "#fff"), fg=self.colors.get("text_secondary", "#555"), 
+                wraplength=550, justify="left", anchor="w")
+        content_lbl.pack(fill="x", padx=15, pady=5)
+        content_lbl.bind("<Button-1>", open_day_detail)
+        
+        # --- Metrics Bar (Clear Text Labels) ---
+        metrics_bar = tk.Frame(card, bg=self.colors.get("surface", "#fff"))
+        metrics_bar.pack(fill="x", padx=15, pady=(5, 12))
+        metrics_bar.bind("<Button-1>", open_day_detail)
+        
+        def add_metric(text, bg_color, fg_color="#fff"):
+            m = tk.Label(metrics_bar, text=text, font=("Segoe UI", 9, "bold"), 
+                        bg=bg_color, fg=fg_color, padx=10, pady=3)
+            m.pack(side="left", padx=(0, 8))
+            m.configure(relief="flat", highlightthickness=0)
+            m.bind("<Button-1>", open_day_detail)
+            
+        # Add metrics with clear text labels
+        if entry.sleep_hours: 
+            sleep_color = "#8B5CF6" if entry.sleep_hours >= 7 else "#9333EA"
+            add_metric(f"Sleep: {entry.sleep_hours:.1f}h", sleep_color)
+        if entry.screen_time_mins: 
+            screen_hrs = entry.screen_time_mins / 60
+            screen_color = "#F97316" if screen_hrs > 4 else "#3B82F6"
+            add_metric(f"Screen: {screen_hrs:.1f}h", screen_color)
+        if entry.energy_level:
+            energy_color = "#22C55E" if entry.energy_level >= 7 else "#6B7280"
+            add_metric(f"Energy: {entry.energy_level}/10", energy_color)
+        if entry.work_hours:
+            work_color = "#0EA5E9" if entry.work_hours <= 8 else "#DC2626"
+            add_metric(f"Work: {entry.work_hours:.1f}h", work_color)
+        
+        # Click hint
+        hint = tk.Label(card, text="Click to view details →", font=("Segoe UI", 8, "italic"),
+                       bg=self.colors.get("surface", "#fff"), fg=self.colors.get("text_secondary", "#999"))
+        hint.pack(anchor="e", padx=15, pady=(0, 8))
+        hint.bind("<Button-1>", open_day_detail)
     
     def open_dashboard(self):
         """Open analytics dashboard with lazy import"""
@@ -426,7 +673,7 @@ class JournalFeature:
             colors = getattr(self.app, 'colors', self.colors)
             theme = self.app.settings.get("theme", "light") if self.app else "light"
             dashboard = AnalyticsDashboard(self.journal_window, self.username, colors=colors, theme=theme)
-            dashboard.open_dashboard()
+            dashboard.render_dashboard()
         except ImportError as e:
             logging.error(f"Failed to import AnalyticsDashboard: {e}")
             messagebox.showerror("Error", "Dashboard feature not available")
@@ -454,18 +701,90 @@ class JournalFeature:
             qualities = []
             energies = []
             works = []
+            screens = []
+            stresses = []
             
             for entry in entries:
                 sleeps.append(entry.sleep_hours)
                 qualities.append(entry.sleep_quality)
                 energies.append(entry.energy_level)
                 works.append(entry.work_hours)
+                screens.append(getattr(entry, 'screen_time_mins', None))
+                stresses.append(getattr(entry, 'stress_level', None))
             
-            # Filter out None values
-            sleeps = [s for s in sleeps if s is not None]
-            qualities = [q for q in qualities if q is not None]
-            energies = [e for e in energies if e is not None]
-            works = [w for w in works if w is not None]
+            # --- DEBUG LOGGING ---
+            print(f"DEBUG: Entries found: {len(entries)}")
+            print(f"DEBUG: Screens: {screens}")
+            print(f"DEBUG: Stresses: {stresses}")
+            print(f"DEBUG: Work: {works}")
+            print(f"DEBUG: Energy: {energies}")
+            print(f"DEBUG: Sleep: {sleeps}")
+            # ---------------------
+
+            # --- ADVANCED ANALYSIS ENGINE ---
+            
+            risk_factors = []
+            advice_components = []
+            
+            # 1. Digital Overload Check
+            avg_screen = sum(s for s in screens if s)/len([s for s in screens if s]) if any(screens) else 0
+            avg_stress = sum(s for s in stresses if s)/len([s for s in stresses if s]) if any(stresses) else 0
+            
+            if avg_screen > 240 and avg_stress > 6:
+                risk_factors.append("Digital Overload")
+                advice_components.append("Reducing screen time by 1 hour could lower your stress levels.")
+
+            # 2. Burnout Check
+            avg_work = sum(w for w in works if w)/len([w for w in works if w]) if any(works) else 0
+            avg_energy = sum(e for e in energies if e)/len([e for e in energies if e]) if any(energies) else 0
+            
+            if avg_work > 9 and avg_energy < 5:
+                risk_factors.append("Early Burnout")
+                advice_components.append("Your energy is low despite high work output. This is sustainable for only short periods.")
+
+            # 3. Sleep Check
+            avg_sleep = sum(s for s in sleeps if s)/len([s for s in sleeps if s]) if any(sleeps) else 0
+            if avg_sleep < 6:
+                risk_factors.append("Sleep Deprivation")
+                advice_components.append("Recovery is your #1 priority right now. Aim for 7h tonight.")
+
+            # 4. Contextual Triggers & Schedule
+            recent_triggers = [t for t in [getattr(e, 'stress_triggers', '') for e in entries] if t]
+            common_trigger = recent_triggers[0][:15] + "..." if recent_triggers else None
+            
+            schedules = [s for s in [getattr(e, 'daily_schedule', '') for e in entries] if s]
+            is_busy = schedules and len(schedules[0]) > 50
+
+            # --- SYNTHESIS ---
+            
+            if not risk_factors:
+                return "🌟 **Balanced State**: Your metrics look healthy! Keep maintaining this rhythm."
+            
+            if len(risk_factors) == 1:
+                # Single issue
+                msg = f"⚠️ **Attention Needed**: I've detected signs of {risk_factors[0]}.\n"
+                msg += advice_components[0]
+                if common_trigger: msg += f"\n(Context: You mentioned '{common_trigger}' as a trigger)"
+                return msg
+            
+            else:
+                # Complex/Combined issue (Smart Synthesis)
+                combined = " + ".join(risk_factors)
+                msg = f"🛑 **Complex Alert**: You are facing a combination of {combined}.\n\n"
+                msg += "This compounding effect requires immediate action:\n"
+                
+                # Prioritize Sleep if present
+                if "Sleep Deprivation" in risk_factors:
+                    msg += "1. **Fix Sleep First**: Without rest, stress and burnout are 2x harder to manage.\n"
+                    msg += "2. **Secondary Step**: " + ("Cut screen time." if "Digital Overload" in risk_factors else "Limit work hours.")
+                elif "Digital Overload" in risk_factors and "Early Burnout" in risk_factors:
+                    msg += "1. **Disconnect**: Your high screen time is preventing mental recovery from work.\n"
+                    msg += "2. **Hard Stop**: Set a strict work cutoff time today."
+                
+                if is_busy:
+                    msg += "\n\n🗓️ **Note**: Your schedule looks packed. Clear 30 mins for 'do nothing' time."
+                
+                return msg
             
             # Calculate Averages
             avg_sleep = sum(sleeps) / len(sleeps) if sleeps else 0

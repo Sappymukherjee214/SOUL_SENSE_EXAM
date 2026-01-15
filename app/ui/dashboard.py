@@ -173,6 +173,110 @@ class AnalyticsDashboard:
         satisfaction_frame = ttk.Frame(notebook)
         notebook.add(satisfaction_frame, text="💼 Satisfaction")
         self.show_satisfaction_analytics(satisfaction_frame)
+
+    def show_wellbeing_analytics(self, parent):
+        """Show comprehensive health and wellbeing analytics (PR #7)"""
+        parent = self._create_scrollable_frame(parent)
+        
+        # Get data including new PR #6 fields
+        conn = get_connection()
+        try:
+            # Check if columns exist first to avoid errors during dev
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(journal_entries)")
+            columns = [c[1] for c in cursor.fetchall()]
+            
+            if 'screen_time_mins' not in columns:
+                tk.Label(parent, text="Database schema update required (Missing v2 columns)", fg="red").pack()
+                return
+
+            query = """
+                SELECT entry_date, sleep_hours, energy_level, stress_level, screen_time_mins 
+                FROM journal_entries 
+                WHERE username = ? 
+                ORDER BY entry_date
+            """
+            cursor.execute(query, (self.username,))
+            data = cursor.fetchall()
+        finally:
+            conn.close()
+
+        if not data:
+            tk.Label(parent, text=self.i18n.get("journal.no_entries"), font=("Segoe UI", 12)).pack(pady=50)
+            return
+
+        # Parse data
+        dates = [datetime.strptime(row[0].split(' ')[0], "%Y-%m-%d") for row in data]
+        sleep = [row[1] if row[1] is not None else 0 for row in data]
+        energy = [row[2] if row[2] is not None else 0 for row in data]
+        stress = [row[3] if row[3] is not None else 0 for row in data]
+        screen = [row[4] if row[4] is not None else 0 for row in data]
+        
+        # --- 1. Weekly Averages Cards ---
+        cards_frame = tk.Frame(parent, bg=self.colors["bg"])
+        cards_frame.pack(fill="x", padx=10, pady=10)
+        
+        def create_card(title, value, unit, color):
+            f = tk.Frame(cards_frame, bg=self.colors["surface"], bd=1, relief="ridge")
+            f.pack(side="left", expand=True, fill="both", padx=5)
+            tk.Label(f, text=title, font=("Segoe UI", 10), bg=self.colors["surface"], fg=self.colors["text_secondary"]).pack(pady=(10,0))
+            tk.Label(f, text=f"{value:.1f}", font=("Segoe UI", 20, "bold"), bg=self.colors["surface"], fg=color).pack()
+            tk.Label(f, text=unit, font=("Segoe UI", 8), bg=self.colors["surface"], fg=self.colors["text_secondary"]).pack(pady=(0,10))
+
+        avg_stress = sum(stress)/len(stress) if stress else 0
+        avg_screen = sum(screen)/len(screen) if screen else 0
+        avg_sleep = sum(sleep)/len(sleep) if sleep else 0
+        
+        create_card("Avg Stress", avg_stress, "/ 10", "#EF4444" if avg_stress > 7 else "#22C55E")
+        create_card("Screen Time", avg_screen/60, "hours/day", "#F59E0B" if avg_screen > 240 else "#3B82F6")
+        create_card("Avg Sleep", avg_sleep, "hours", "#8B5CF6")
+
+        # --- 2. Matplotlib Visualization (Modern Style) ---
+        viz_frame = tk.Frame(parent, bg=self.colors["bg"])
+        viz_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        fig = Figure(figsize=(10, 8), dpi=100, facecolor=self.colors["bg"])
+        
+        # Plot 1: Wellbeing Trends (Multi-line with modern styling)
+        ax1 = fig.add_subplot(211)
+        ax1.set_facecolor(self.colors.get("surface", "#fff"))
+        
+        x_vals = range(len(dates))
+        ax1.plot(x_vals, stress, 'o-', color='#EF4444', label='🔴 Stress', linewidth=2.5, markersize=8)
+        ax1.plot(x_vals, energy, 's-', color='#22C55E', label='⚡ Energy', linewidth=2.5, markersize=8)
+        ax1.plot(x_vals, sleep, '^-', color='#8B5CF6', label='💤 Sleep (hrs)', linewidth=2.5, markersize=8)
+        
+        ax1.set_title('📊 Wellbeing Trends Over Time', fontsize=14, fontweight='bold', color=self.colors.get("text_primary", "#000"), pad=10)
+        ax1.legend(loc='upper right', framealpha=0.9, fontsize=10)
+        ax1.grid(True, alpha=0.3, linestyle='--')
+        ax1.set_ylabel('Value', fontsize=10, color=self.colors.get("text_secondary", "#666"))
+        ax1.tick_params(colors=self.colors.get("text_secondary", "#666"))
+        for spine in ax1.spines.values(): 
+            spine.set_visible(False)
+
+        # Plot 2: Stress vs Screen Time (Scatter with enhanced colors)
+        ax2 = fig.add_subplot(212)
+        ax2.set_facecolor(self.colors.get("surface", "#fff"))
+        
+        # Color points by Energy level with a vibrant colormap
+        sc = ax2.scatter(screen, stress, c=energy, cmap='RdYlGn', s=150, alpha=0.85, edgecolors='white', linewidths=1.5)
+        ax2.set_xlabel('📱 Screen Time (mins)', fontsize=11, color=self.colors.get("text_secondary", "#666"))
+        ax2.set_ylabel('😰 Stress Level', fontsize=11, color=self.colors.get("text_secondary", "#666"))
+        ax2.set_title('📈 Stress vs. Screen Time Correlation', fontsize=14, fontweight='bold', color=self.colors.get("text_primary", "#000"), pad=10)
+        
+        cbar = fig.colorbar(sc, ax=ax2, shrink=0.8)
+        cbar.set_label('⚡ Energy', fontsize=10)
+        
+        ax2.grid(True, alpha=0.3, linestyle='--')
+        ax2.tick_params(colors=self.colors.get("text_secondary", "#666"))
+        for spine in ax2.spines.values(): 
+            spine.set_visible(False)
+        
+        fig.tight_layout(pad=2.0)
+        
+        canvas = FigureCanvasTkAgg(fig, viz_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
         
     def show_satisfaction_analytics(self, parent):
         """Show satisfaction analytics"""

@@ -466,7 +466,15 @@ Populate the database with default questions and categories:
 python -m scripts.seed_db
 ```
 
-### 3. Start the Application
+### 3. Initialize Features
+
+Ensure all feature tables (including assessments) are ready:
+
+```bash
+python -m scripts.migrate_assessments
+```
+
+### 4. Start the Application
 
 Launch the SoulSense interface:
 

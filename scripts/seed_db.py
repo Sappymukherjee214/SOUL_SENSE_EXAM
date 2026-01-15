@@ -13,10 +13,10 @@ def seed_database():
         
         # 1. Categories
         categories = [
-            QuestionCategory(name="Self-Awareness", description="Understanding your own emotions."),
-            QuestionCategory(name="Self-Management", description="Managing your own emotions."),
-            QuestionCategory(name="Social Awareness", description="Understanding others' emotions."),
-            QuestionCategory(name="Relationship Management", description="Managing interactions with others.")
+            QuestionCategory(name="Self-Awareness"),
+            QuestionCategory(name="Self-Management"),
+            QuestionCategory(name="Social Awareness"),
+            QuestionCategory(name="Relationship Management")
         ]
         
         # Check and add categories

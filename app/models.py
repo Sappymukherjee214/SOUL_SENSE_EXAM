@@ -203,6 +203,12 @@ class JournalEntry(Base):
     energy_level = Column(Integer, nullable=True)  # Range: 1-10
     work_hours = Column(Float, nullable=True)      # Range: 0-24
 
+    # PR #6: Expanded Daily Metrics (Issues #254, #259, #268, #253)
+    screen_time_mins = Column(Integer, nullable=True)  # Minutes of screen time
+    stress_level = Column(Integer, nullable=True)      # Range: 1-10
+    stress_triggers = Column(Text, nullable=True)      # What triggered stress
+    daily_schedule = Column(Text, nullable=True)       # Daily routine/schedule
+
 class SatisfactionRecord(Base):
     __tablename__ = 'satisfaction_records'
     
