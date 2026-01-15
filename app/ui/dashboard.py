@@ -419,7 +419,7 @@ class AnalyticsDashboard:
         
         # Text area for results
         self.correlation_text = tk.Text(parent, wrap=tk.WORD, height=15, 
-                                       font=("Arial", 11))
+                                       font=("Arial", 11), state='disabled')
         self.correlation_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Visualization frame
