@@ -212,6 +212,10 @@ class UserProfileView:
         self._create_field_label(right_col, "Therapy History (Private 🔒)")
         self.therapy_text = self._create_text_area(right_col)
 
+        # Issue #262: Ongoing Health Issues
+        self._create_field_label(right_col, "Ongoing Health Issues")
+        self.health_issues_text = self._create_text_area(right_col)
+
         # Footer Actions (Save Button)
         footer = tk.Frame(card, bg=self.colors.get("card_bg"), height=80)
         footer.pack(fill="x", side="bottom", padx=40, pady=30)
@@ -282,6 +286,10 @@ class UserProfileView:
 
         self._create_field_label(form_content, "Perspective on Life")
         self.life_pov_text = self._create_text_area(form_content)
+
+        # Issue #275: High-Pressure Events
+        self._create_field_label(form_content, "Recent High-Pressure Events")
+        self.high_pressure_text = self._create_text_area(form_content)
         
         # Save Button for Profile Details
         save_profile_btn = tk.Button(
@@ -413,9 +421,10 @@ class UserProfileView:
                 self.status_var.set(profile.marital_status or "")
                 self.bio_text.insert("1.0", profile.bio or "")
 
-                # PR #5 Load
+                # PR #5 Save logic Load
                 self.society_text.insert("1.0", profile.society_contribution or "")
                 self.life_pov_text.insert("1.0", profile.life_pov or "")
+                self.high_pressure_text.insert("1.0", profile.high_pressure_events or "")
                 
                 # Load events
                 if profile.life_events:
@@ -449,6 +458,7 @@ class UserProfileView:
              # PR #5 Save
              profile.society_contribution = self.society_text.get("1.0", tk.END).strip()
              profile.life_pov = self.life_pov_text.get("1.0", tk.END).strip()
+             profile.high_pressure_events = self.high_pressure_text.get("1.0", tk.END).strip()
              
              session.commit()
              session.close()
@@ -608,6 +618,7 @@ class UserProfileView:
                 # PR #5 Load
                 self.surgeries_text.insert("1.0", profile.surgeries or "")
                 self.therapy_text.insert("1.0", profile.therapy_history or "")
+                self.health_issues_text.insert("1.0", profile.ongoing_health_issues or "")
             else:
                 self.blood_type_var.set("Unknown")
             
@@ -649,6 +660,7 @@ class UserProfileView:
             # PR #5 Save
             profile.surgeries = self.surgeries_text.get("1.0", tk.END).strip()
             profile.therapy_history = self.therapy_text.get("1.0", tk.END).strip()
+            profile.ongoing_health_issues = self.health_issues_text.get("1.0", tk.END).strip()
             
             session.commit()
             session.close()

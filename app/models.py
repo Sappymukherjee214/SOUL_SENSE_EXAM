@@ -65,6 +65,7 @@ class MedicalProfile(Base):
     # New fields for PR #5 (Issues #258, #263)
     surgeries = Column(Text, nullable=True)        # History of surgeries
     therapy_history = Column(Text, nullable=True)  # Past counselling/therapy
+    ongoing_health_issues = Column(Text, nullable=True) # Issue #262: Ongoing health issues
     
     emergency_contact_name = Column(String, nullable=True)
     emergency_contact_phone = Column(String, nullable=True)
@@ -88,7 +89,9 @@ class PersonalProfile(Base):
     
     # New fields for PR #5 (Issues #261, #260)
     society_contribution = Column(Text, nullable=True) # How user contributes to community
+    society_contribution = Column(Text, nullable=True) # How user contributes to community
     life_pov = Column(Text, nullable=True)             # User's philosophy/perspective
+    high_pressure_events = Column(Text, nullable=True) # Issue #275: Recent high-pressure events
     
     avatar_path = Column(String, nullable=True) # Path to local image file
     
