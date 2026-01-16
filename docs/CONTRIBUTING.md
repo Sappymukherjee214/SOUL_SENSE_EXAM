@@ -75,11 +75,26 @@ _Note: This script scans the entire codebase (excluding generated files)._
 
 #### 3. Run Tests
 
-Run the test suite to ensure no regressions.
+We use `pytest` for testing. Run all tests with:
 
 ```bash
 python -m pytest tests/
 ```
+
+To run tests with coverage report:
+
+```bash
+python -m coverage run --source=app -m pytest tests/
+python -m coverage report -m
+```
+
+The suite includes:
+
+- **Unit Tests**: `tests/test_exam_service.py`, `tests/test_cli_refactored.py`, `tests/test_cli_extended.py`
+- **Integration Tests**: `tests/test_profile_integration.py`
+- **Logic Tests**: `tests/test_questions_logic.py`
+
+Please ensure all tests pass (or known failures are marked `xfail`) before submitting a PR.
 
 ---
 
