@@ -40,6 +40,7 @@ class UserProfileView:
                 {"id": "medical", "icon": "🏥", "label": self.i18n.get("profile.tab_medical")},
                 {"id": "history", "icon": "📜", "label": "Personal History"},
                 {"id": "strengths", "icon": "💪", "label": "Strengths & Goals"},
+                {"id": "export", "icon": "📤", "label": "Data Export"},
                 {"id": "settings", "icon": "⚙️", "label": "Settings"},
             ],
             on_change=self.on_nav_change
@@ -159,6 +160,9 @@ class UserProfileView:
         elif view_id == "strengths":
             self.header_label.configure(text="Strengths & Goals")
             self._render_strengths_view()
+        elif view_id == "export":
+            self.header_label.configure(text="Data Export")
+            self._render_export_view()
         elif view_id == "settings":
             self.header_label.configure(text="Account Settings")
             self._render_settings_view(self.view_container)
