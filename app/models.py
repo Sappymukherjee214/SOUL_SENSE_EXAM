@@ -118,6 +118,7 @@ class UserStrengths(Base):
     # JSON Lists for Tags
     top_strengths = Column(Text, default="[]") # e.g. ["Creativity", "Empathy"]
     areas_for_improvement = Column(Text, default="[]") # e.g. ["Public Speaking"]
+    current_challenges = Column(Text, default="[]") # Issue #271: New field
     
     # Preferences
     learning_style = Column(String, nullable=True) # Visual, Auditory, etc.

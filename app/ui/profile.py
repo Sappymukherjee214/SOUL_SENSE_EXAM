@@ -1530,6 +1530,13 @@ class UserProfileView:
         suggested_improvements = ["Public Speaking", "Time Management", "Delegation", "Patience", "Networking"]
         self.improvements_input = TagInput(left_col, max_tags=5, colors=self.colors, suggestion_list=suggested_improvements)
         self.improvements_input.pack(fill="x", pady=(0, 20))
+
+        # Issue #271: Current Challenges
+        self._create_field_label(left_col, "Current Challenges")
+        tk.Label(left_col, text="(Obstacles you are facing)", font=("Segoe UI", 9), bg=self.colors.get("card_bg"), fg="gray").pack(anchor="w")
+        suggested_challenges = ["Burnout", "Procrastination", "Anxiety", "Work-Life Balance", "Sleep Issues", "Motivation", "Focus"]
+        self.challenges_input = TagInput(left_col, max_tags=6, max_char=40, colors=self.colors, suggestion_list=suggested_challenges)
+        self.challenges_input.pack(fill="x", pady=(0, 20))
         
         # Goals
         self._create_section_label(left_col, "Aspirations")
@@ -1650,6 +1657,11 @@ class UserProfileView:
                 except: self.boundaries_input.tags = []
                 self.boundaries_input._render_tags()
                 
+                # Issue #271 Load
+                try: self.challenges_input.tags = json.loads(s.current_challenges)
+                except: self.challenges_input.tags = []
+                self.challenges_input._render_tags()
+                
                 self.learn_style_var.set(s.learning_style or "")
                 self.comm_style_var.set(s.communication_preference or "")
                 self.goals_text.insert("1.0", s.goals or "")
@@ -1687,6 +1699,8 @@ class UserProfileView:
             # Update fields
             strengths.top_strengths = json.dumps(self.strengths_input.get_tags())
             strengths.areas_for_improvement = json.dumps(self.improvements_input.get_tags())
+            # Issue #271 Save
+            strengths.current_challenges = json.dumps(self.challenges_input.get_tags())
             strengths.sharing_boundaries = json.dumps(self.boundaries_input.get_tags())
 
             strengths.learning_style = self.learn_style_var.get()
