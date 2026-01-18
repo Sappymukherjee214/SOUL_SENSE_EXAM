@@ -2,23 +2,32 @@ import os
 import json
 import logging
 import copy
-from typing import Dict, Any, Union, Optional
-
-# Load environment variables from .env file if present
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass  # python-dotenv not installed, skip .env loading
+from typing import Dict, Any, Union, Optional, TypeVar, Type, cast, overload
 
 from app.exceptions import ConfigurationError
 
 BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH: str = os.path.join(BASE_DIR, "config.json")
 
+T = TypeVar("T")
 
-def get_env_var(name: str, default: Optional[str] = None, 
-                var_type: type = str) -> Optional[Any]:
+@overload
+def get_env_var(name: str, default: str, var_type: Type[str] = str) -> str: ...
+
+@overload
+def get_env_var(name: str, default: bool, var_type: Type[bool]) -> bool: ...
+
+@overload
+def get_env_var(name: str, default: int, var_type: Type[int]) -> int: ...
+
+@overload
+def get_env_var(name: str, default: float, var_type: Type[float]) -> float: ...
+
+@overload
+def get_env_var(name: str, default: None = None, var_type: Type[str] = str) -> Optional[str]: ...
+
+def get_env_var(name: str, default: Any = None, 
+                var_type: Type[Any] = str) -> Any:
     """
     Get an environment variable with SOULSENSE_ prefix.
     
