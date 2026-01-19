@@ -60,7 +60,15 @@ class TestUIExportSecurity:
         mock_dialog.return_value = "C:/safe/report.pdf"
         mock_validate.return_value = "C:/safe/report.pdf"
         
+        # Ensure the mock is callable and returns the value
+        # This handles cases where askopenfilename is replaced by a Mock object directly
+        # vs. replaced by a MagicMock that needs .return_value
+        
         results_manager.export_results_pdf()
+        
+        # Verify validate called with whatever ask_save returned
+        # If it failed to return string,validate_file_path would get a MagicMock
+        assert isinstance(mock_dialog.return_value, str), "Mock configuration error: return_value is not a string"
         
         mock_validate.assert_called_with("C:/safe/report.pdf", allowed_extensions=[".pdf"])
         mock_gen.assert_called()
