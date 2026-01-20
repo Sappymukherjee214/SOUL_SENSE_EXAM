@@ -206,7 +206,7 @@ class JournalFeature:
         # Buttons
         btn_frame = tk.Frame(container, bg=colors["bg"])
         btn_frame.pack(fill="x", pady=20)
-        
+
         # Navigation Buttons
         tk.Button(btn_frame, text=self.i18n.get("journal.view_past"), command=self.view_past_entries,
                  font=("Segoe UI", 11), bg=colors["surface"], fg=colors["text_primary"],
@@ -218,16 +218,210 @@ class JournalFeature:
 
         tk.Button(btn_frame, text=self.i18n.get("journal.dashboard"), command=self.open_dashboard,
                  font=("Segoe UI", 11), bg=colors["surface"], fg=colors["text_primary"],
-                 relief="flat", padx=15).pack(side="left")
-        
+                 relief="flat", padx=15).pack(side="left", padx=(0, 10))
+
+        # Toggle Search Section
+        self.search_visible = False
+        self.search_toggle_btn = tk.Button(btn_frame, text="🔍 Search Past Entries", command=self.toggle_search_section,
+                                          font=("Segoe UI", 11), bg=colors["accent"], fg="white",
+                                          relief="flat", padx=15)
+        self.search_toggle_btn.pack(side="left", padx=(0, 10))
+
         tk.Button(btn_frame, text="Save Entry", command=self.save_and_analyze,
                  font=("Segoe UI", 11, "bold"), bg=colors["primary"], fg=colors.get("text_inverse", "white"),
                  padx=20, pady=8, relief="flat").pack(side="right")
-                 
+
         if hasattr(self.app, 'switch_view'):
              tk.Button(btn_frame, text="Cancel", command=lambda: self.app.switch_view('home'),
                      font=("Segoe UI", 11), bg=colors["bg"], fg=colors["text_secondary"],
                      relief="flat").pack(side="right", padx=10)
+
+        # Collapsible Search Section
+        self.search_frame = tk.LabelFrame(container, text="Search Past Entries", font=("Segoe UI", 12, "bold"),
+                                         bg=colors["surface"], fg=colors["text_primary"], padx=15, pady=15)
+        # Initially hidden
+        self.search_frame.pack_forget()
+
+        # Search Filters
+        search_filters_frame = tk.Frame(self.search_frame, bg=colors["surface"])
+        search_filters_frame.pack(fill="x", pady=(0, 10))
+
+        # Tags filter
+        tags_container = tk.Frame(search_filters_frame, bg=colors["surface"])
+        tags_container.pack(side="left", padx=(0, 15))
+
+        tk.Label(tags_container, text="🏷️ Tags:", font=("Segoe UI", 10, "bold"),
+                bg=colors["surface"], fg=colors["text_secondary"]).pack(side="left")
+
+        self.inline_tags_var = tk.StringVar()
+        self.inline_tags_entry = tk.Entry(tags_container, textvariable=self.inline_tags_var, font=("Segoe UI", 10),
+                                         bg=colors.get("input_bg", "#fff"), fg=colors.get("input_fg", "#000"),
+                                         relief="flat", highlightthickness=1,
+                                         highlightbackground=colors.get("border", "#ccc"), width=20)
+        self.inline_tags_entry.pack(side="left", padx=5)
+        self.inline_tags_entry.insert(0, "e.g., stress, gratitude")
+
+        # Date range filter
+        date_container = tk.Frame(search_filters_frame, bg=colors["surface"])
+        date_container.pack(side="left", padx=10)
+
+        tk.Label(date_container, text="📅 From:", font=("Segoe UI", 10, "bold"),
+                bg=colors["surface"], fg=colors.get("text_secondary", "#666")).pack(side="left")
+
+        self.inline_from_date_var = tk.StringVar()
+        self.inline_from_date_entry = tk.Entry(date_container, textvariable=self.inline_from_date_var, font=("Segoe UI", 10),
+                                              bg=colors.get("input_bg", "#fff"), fg=colors.get("input_fg", "#000"),
+                                              relief="flat", highlightthickness=1,
+                                              highlightbackground=colors.get("border", "#ccc"), width=12)
+        self.inline_from_date_entry.pack(side="left", padx=5)
+        self.inline_from_date_entry.insert(0, "YYYY-MM-DD")
+
+        tk.Label(date_container, text="To:", font=("Segoe UI", 10, "bold"),
+                bg=colors["surface"], fg=colors.get("text_secondary", "#666")).pack(side="left", padx=(10, 5))
+
+        self.inline_to_date_var = tk.StringVar()
+        self.inline_to_date_entry = tk.Entry(date_container, textvariable=self.inline_to_date_var, font=("Segoe UI", 10),
+                                            bg=colors.get("input_bg", "#fff"), fg=colors.get("input_fg", "#000"),
+                                            relief="flat", highlightthickness=1,
+                                            highlightbackground=colors.get("border", "#ccc"), width=12)
+        self.inline_to_date_entry.pack(side="left", padx=5)
+        self.inline_to_date_entry.insert(0, "YYYY-MM-DD")
+
+        # Mood filter
+        mood_container = tk.Frame(search_filters_frame, bg=colors["surface"])
+        mood_container.pack(side="left", padx=10)
+
+        tk.Label(mood_container, text="😊 Mood:", font=("Segoe UI", 10, "bold"),
+                bg=colors["surface"], fg=colors.get("text_secondary", "#666")).pack(side="left")
+
+        self.inline_mood_var = tk.StringVar(value="All Moods")
+        self.inline_mood_combo = ttk.Combobox(mood_container, textvariable=self.inline_mood_var,
+                                             values=["All Moods", "Positive", "Neutral", "Negative"],
+                                             state="readonly", width=12)
+        self.inline_mood_combo.pack(side="left", padx=5)
+
+        # Clear button
+        tk.Button(search_filters_frame, text="Reset Filters", command=self.clear_inline_filters,
+                 font=("Segoe UI", 9), bg=colors.get("primary", "#8B5CF6"), fg="white",
+                 relief="flat", padx=12, pady=4).pack(side="right", padx=10)
+
+        # Scrolled Frame for Results
+        self.results_canvas = tk.Canvas(self.search_frame, bg=colors["surface"], highlightthickness=0)
+        self.results_scrollable_frame = tk.Frame(self.results_canvas, bg=colors["surface"])
+
+        self.results_scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.results_canvas.configure(scrollregion=self.results_canvas.bbox("all"))
+        )
+
+        self.results_canvas.create_window((0, 0), window=self.results_scrollable_frame, anchor="nw")
+        self.results_canvas.pack(fill="both", expand=True, padx=0, pady=(10, 0))
+
+        # Enable mousewheel scrolling
+        def _on_mousewheel(event):
+            try:
+                self.results_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                pass
+
+        self.results_canvas.bind("<MouseWheel>", _on_mousewheel)
+        self.results_canvas.bind("<Enter>", lambda e: self.results_canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        self.results_canvas.bind("<Leave>", lambda e: self.results_canvas.unbind_all("<MouseWheel>"))
+
+        # Bind filter changes to update results
+        self.inline_tags_entry.bind("<KeyRelease>", lambda e: self.update_inline_results())
+        self.inline_from_date_entry.bind("<KeyRelease>", lambda e: self.update_inline_results())
+        self.inline_to_date_entry.bind("<KeyRelease>", lambda e: self.update_inline_results())
+        self.inline_mood_combo.bind("<<ComboboxSelected>>", lambda e: self.update_inline_results())
+
+        # Initial render (empty)
+        self.update_inline_results()
+
+    def toggle_search_section(self):
+        """Toggle the visibility of the search section"""
+        if self.search_visible:
+            self.search_frame.pack_forget()
+            self.search_toggle_btn.config(text="🔍 Search Past Entries")
+            self.search_visible = False
+        else:
+            self.search_frame.pack(fill="x", pady=10)
+            self.search_toggle_btn.config(text="🔍 Hide Search")
+            self.search_visible = True
+
+    def clear_inline_filters(self):
+        """Clear all inline search filters"""
+        self.inline_tags_var.set("")
+        self.inline_from_date_var.set("")
+        self.inline_to_date_var.set("")
+        self.inline_mood_var.set("All Moods")
+        self.update_inline_results()
+
+    def update_inline_results(self):
+        """Update the inline search results based on current filters"""
+        # Clear existing results
+        for widget in self.results_scrollable_frame.winfo_children():
+            widget.destroy()
+
+        # Get filter values
+        selected_tags = self.inline_tags_var.get().strip().lower()
+        from_date = self.inline_from_date_var.get().strip()
+        to_date = self.inline_to_date_var.get().strip()
+        selected_mood = self.inline_mood_var.get()
+
+        session = get_session()
+        try:
+            entries = session.query(JournalEntry)\
+                .filter_by(username=self.username)\
+                .order_by(desc(JournalEntry.entry_date))\
+                .all()
+
+            filtered_count = 0
+            for entry in entries:
+                # Apply tags filter
+                if selected_tags and selected_tags != "e.g., stress, gratitude":
+                    entry_tags = (getattr(entry, 'tags', '') or '').lower()
+                    tag_list = [tag.strip() for tag in selected_tags.split(',') if tag.strip()]
+                    if not any(tag in entry_tags for tag in tag_list):
+                        continue
+
+                # Apply date range filter
+                if from_date and from_date != "YYYY-MM-DD":
+                    try:
+                        entry_date = datetime.strptime(str(entry.entry_date).split('.')[0], "%Y-%m-%d %H:%M:%S").date()
+                        from_date_obj = datetime.strptime(from_date, "%Y-%m-%d").date()
+                        if entry_date < from_date_obj:
+                            continue
+                    except (ValueError, AttributeError):
+                        pass
+
+                if to_date and to_date != "YYYY-MM-DD":
+                    try:
+                        entry_date = datetime.strptime(str(entry.entry_date).split('.')[0], "%Y-%m-%d %H:%M:%S").date()
+                        to_date_obj = datetime.strptime(to_date, "%Y-%m-%d").date()
+                        if entry_date > to_date_obj:
+                            continue
+                    except (ValueError, AttributeError):
+                        pass
+
+                # Apply mood filter
+                if selected_mood != "All Moods":
+                    sentiment_score = getattr(entry, 'sentiment_score', 0) or 0
+                    if selected_mood == "Positive" and sentiment_score <= 30:
+                        continue
+                    elif selected_mood == "Neutral" and (sentiment_score > 30 or sentiment_score < -30):
+                        continue
+                    elif selected_mood == "Negative" and sentiment_score >= -30:
+                        continue
+
+                filtered_count += 1
+                self._create_entry_card(self.results_scrollable_frame, entry)
+
+            if filtered_count == 0:
+                tk.Label(self.results_scrollable_frame, text="No entries found matching filters.",
+                        font=("Segoe UI", 12), bg=self.colors.get("surface", "#fff"),
+                        fg=self.colors.get("text_secondary", "#666")).pack(pady=20)
+        finally:
+            session.close()
 
     def open_journal_window(self, username):
         """Standalone Window Mode (Deprecated but kept for compat)"""
