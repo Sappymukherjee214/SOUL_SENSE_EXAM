@@ -8,7 +8,7 @@ over time for returning users.
 import pytest
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch, MagicMock
-from app.time_based_analysis import TimeBasedAnalyzer
+from app.analysis.time_based_analysis import TimeBasedAnalyzer
 from app.models import User, Score, Response, JournalEntry
 
 
@@ -25,7 +25,7 @@ class TestTimeBasedAnalyzer:
         assert analyzer is not None
         assert analyzer.logger is not None
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_get_user_timeline_with_data(self, mock_db, analyzer):
         """Test getting user timeline with available data."""
         # Create mock objects
@@ -69,7 +69,7 @@ class TestTimeBasedAnalyzer:
         assert len(result["journal_entries"]) == 1
         assert result["scores"][0]["score"] == 35
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_get_user_timeline_no_data(self, mock_db, analyzer):
         """Test getting user timeline with no data."""
         mock_session = MagicMock()
@@ -84,7 +84,7 @@ class TestTimeBasedAnalyzer:
         assert result["scores"] == []
         assert result["responses"] == []
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_analyze_score_trends_upward(self, mock_db, analyzer):
         """Test score trend analysis with upward trend."""
         mock_scores = []
@@ -111,7 +111,7 @@ class TestTimeBasedAnalyzer:
         assert result["min_score"] == 30
         assert "Upward" in result.get("trend_direction", "")
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_analyze_score_trends_downward(self, mock_db, analyzer):
         """Test score trend analysis with downward trend."""
         mock_scores = []
@@ -132,7 +132,7 @@ class TestTimeBasedAnalyzer:
         assert result["total_improvement"] == -8
         assert "Downward" in result.get("trend_direction", "")
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_analyze_score_trends_no_data(self, mock_db, analyzer):
         """Test score trend analysis with no data."""
         mock_session = MagicMock()
@@ -145,7 +145,7 @@ class TestTimeBasedAnalyzer:
         
         assert "error" in result
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_analyze_response_patterns_over_time(self, mock_db, analyzer):
         """Test response pattern analysis over time."""
         mock_responses = []
@@ -183,7 +183,7 @@ class TestTimeBasedAnalyzer:
         assert result.get("question_patterns", {}).get(1, {}).get("response_change") == 2  # 5 - 3
         assert result.get("question_patterns", {}).get(2, {}).get("response_change") == 0   # 4 - 4
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_get_time_period_stats_daily(self, mock_db, analyzer):
         """Test getting daily statistics."""
         mock_scores = []
@@ -205,7 +205,7 @@ class TestTimeBasedAnalyzer:
         assert "2025-01-01" in result["period_statistics"]
         assert result["period_statistics"]["2025-01-01"]["attempts_count"] == 3
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_get_time_period_stats_weekly(self, mock_db, analyzer):
         """Test getting weekly statistics."""
         mock_scores = []
@@ -228,7 +228,7 @@ class TestTimeBasedAnalyzer:
         assert result["period"] == "weekly"
         assert len(result["period_statistics"]) >= 1
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_identify_returning_users(self, mock_db, analyzer):
         """Test identifying returning users (users with multiple attempts)."""
         mock_user_data = [
@@ -248,7 +248,7 @@ class TestTimeBasedAnalyzer:
         assert result[0]["total_attempts"] == 5  # Sorted by attempts, descending
         assert result[0]["username"] == "user1"
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_get_comparative_analysis_improved(self, mock_db, analyzer):
         """Test comparative analysis showing performance improvement."""
         # Create scores: old ones (before cutoff) and recent ones (after cutoff)
@@ -283,7 +283,7 @@ class TestTimeBasedAnalyzer:
         assert result["recent"]["average_score"] == 38.0
         assert result["performance_change"] > 0
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_get_user_activity_summary(self, mock_db, analyzer):
         """Test getting comprehensive user activity summary."""
         mock_user = Mock(spec=User)
@@ -325,7 +325,7 @@ class TestTimeBasedAnalyzer:
         assert result["total_journal_entries"] == 3
         assert result["is_returning_user"] is True
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_get_user_activity_summary_new_user(self, mock_db, analyzer):
         """Test activity summary for new user (single attempt)."""
         mock_user = Mock(spec=User)
@@ -361,7 +361,7 @@ class TestTimeBasedAnalyzer:
         assert result["is_returning_user"] is False
         assert result["total_assessments"] == 1
 
-    @patch('app.time_based_analysis.safe_db_context')
+    @patch('app.analysis.time_based_analysis.safe_db_context')
     def test_analyze_score_trends_single_score(self, mock_db, analyzer):
         """Test trend analysis with only one score."""
         mock_score = Mock(spec=Score)

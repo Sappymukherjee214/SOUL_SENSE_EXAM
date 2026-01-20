@@ -56,6 +56,12 @@ logs/
 db/*.db
 *.sqlite
 *.sqlite3
+soulsense_db
+
+# =========================
+# Cache / Runtime files
+# =========================
+cache/
 
 # =========================
 # Jupyter
@@ -109,18 +115,32 @@ __pypackages__/
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
-db/*.db 
-db/*.sqlite 
-soulsesne_db
+
+# =========================
+# Data Organization
+# =========================
+data/*.db
+data/*.sqlite
+data/soulsense.db
+data/experiments/
+data/model_metrics.txt
+data/confusion_matrix.png
 
 # =========================
 # ML Artifacts
 # =========================
-*.pkl
-*.png
-model_metrics.txt
-
-###  registry data and experiment logs
-
+models/*.pkl
+models/risk_model_*.pkl
 models/registry/
+
+# =========================
+# Additional Exclusions
+# =========================
+confusion_matrix.png
+soulsense_ml_model.pkl
 experiments/
+
+# Test output files
+test_*.txt
+*_output.txt
+*_output_*.txt

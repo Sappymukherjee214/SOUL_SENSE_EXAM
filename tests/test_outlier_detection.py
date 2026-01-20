@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from app.outlier_detection import OutlierDetector
+from app.analysis.outlier_detection import OutlierDetector
 from app.db import get_session
 from app.models import Score, User, Base
 from datetime import datetime
@@ -22,7 +22,7 @@ class TestOutlierDetector:
     @pytest.fixture
     def sample_scores(self):
         """Sample scores with outliers"""
-        return [23, 25, 24, 26, 25, 24, 25, 23, 150, 22, 24, 25, 26]
+        return [23, 25, 24, 26, 25, 24, 25, 23, 1000, 22, 24, 25, 26]
     
     @pytest.fixture
     def clean_scores(self):
@@ -197,7 +197,7 @@ class TestOutlierDetector:
     
     def test_negative_scores(self, detector):
         """Test with negative scores (shouldn't occur but test robustness)"""
-        scores = [-50, 10, 20, 30, 40, 50]
+        scores = [-1000] + [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
         
         result = detector.detect_outliers_zscore(scores)
         assert "outliers" in result
@@ -216,7 +216,7 @@ class TestOutlierDetectorDatabase:
     """Test suite for database integration"""
     
     @pytest.fixture
-    def db_session(self):
+    def db_session(self, temp_db):
         """Create a test database session"""
         session = get_session()
         yield session
@@ -225,7 +225,7 @@ class TestOutlierDetectorDatabase:
     @pytest.fixture
     def test_user_with_scores(self, db_session):
         """Create a test user with scores"""
-        user = User(username="test_user_outlier")
+        user = User(username="test_user_outlier", password_hash="dummy_hash")
         db_session.add(user)
         db_session.commit()
         

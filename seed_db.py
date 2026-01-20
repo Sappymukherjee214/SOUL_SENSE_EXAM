@@ -1,54 +1,90 @@
-from app.db import get_session
-from app.models import Question, QuestionCategory
+import sqlite3
+import random
+from datetime import datetime, timedelta
+import os
+import sys
 
-def seed_database():
-    session = get_session()
-    try:
-        # Check if we have questions
-        if session.query(Question).count() > 0:
-            print("Database already has questions. Skipping seed.")
-            return
+# Add the parent directory to sys.path to allow imports from app
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-        print("Seeding database with initial questions...")
+from app.auth import AuthManager
+from app.config import DB_PATH
+
+# Initialize AuthManager
+auth_manager = AuthManager()
+
+def get_db():
+    if not os.path.exists(os.path.dirname(DB_PATH)):
+        os.makedirs(os.path.dirname(DB_PATH))
+    return sqlite3.connect(DB_PATH)
+
+def init_db():
+    # Helper to ensure tables exist if not running via main app first
+    # For now, we assume schema exists via alembic
+    pass
+
+def seed_data():
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    print("Seeding database with synthetic users...")
+    
+    # Create 110 users to be safe (>100)
+    for i in range(1, 111):
+        username = f"user_{i}"
         
-        # 1. Categories
-        categories = [
-            QuestionCategory(name="Self-Awareness", description="Understanding your own emotions."),
-            QuestionCategory(name="Self-Management", description="Managing your own emotions."),
-            QuestionCategory(name="Social Awareness", description="Understanding others' emotions."),
-            QuestionCategory(name="Relationship Management", description="Managing interactions with others.")
-        ]
+        # Check if user exists
+        cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+        if cursor.fetchone():
+            continue
+            
+        # Create User
+        pwd_hash = auth_manager.hash_password("password123")
+        cursor.execute(
+            "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+            (username, pwd_hash, datetime.utcnow().isoformat())
+        )
+        user_id = cursor.lastrowid
         
-        # Check and add categories
-        existing_cats = session.query(QuestionCategory).all()
-        if not existing_cats:
-            session.add_all(categories)
-            session.commit()
-            print("Added categories.")
+        # Simulate different personas for realistic data
+        # Persona A: High Risk (Low Score, Negative Sentiment)
+        # Persona B: Low Risk (High Score, Positive Sentiment)
+        # Persona C: Medium (Average)
         
-        # 2. Questions
-        questions = [
-            Question(question_text="I recognize my emotions as I experience them.", category_id=1),
-            Question(question_text="I lose my temper when I get frustrated.", category_id=2), # Reverse scored usually, but simplified here
-            Question(question_text="I know when others are feeling sad or down.", category_id=3),
-            Question(question_text="I can resolve conflicts effectively.", category_id=4),
-            Question(question_text="I stay calm under pressure.", category_id=2),
-            Question(question_text="I understand how my behavior affects others.", category_id=1),
-            Question(question_text="I listen effectively to others.", category_id=3),
-            Question(question_text="I help others manage their emotions.", category_id=4),
-            Question(question_text="I am aware of my strengths and weaknesses.", category_id=1),
-            Question(question_text="I find it difficult to handle change.", category_id=2)
-        ]
+        persona = random.choice(['A', 'B', 'B', 'C', 'C', 'C']) 
         
-        session.add_all(questions)
-        session.commit()
-        print(f"Added {len(questions)} questions.")
+        if persona == 'A':
+            score = random.randint(10, 24)
+            sentiment = random.uniform(-0.9, -0.3)
+            age = random.randint(18, 25)
+        elif persona == 'B':
+            score = random.randint(36, 50)
+            sentiment = random.uniform(0.3, 0.9)
+            age = random.randint(25, 40)
+        else:
+            score = random.randint(25, 35)
+            sentiment = random.uniform(-0.3, 0.3)
+            age = random.randint(20, 60)
+            
+        # Insert Score
+        cursor.execute(
+            """INSERT INTO scores 
+               (username, total_score, age, detailed_age_group, user_id, timestamp) 
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (username, score, age, "Adult", user_id, datetime.utcnow().isoformat())
+        )
         
-    except Exception as e:
-        session.rollback()
-        print(f"Seeding failed: {e}")
-    finally:
-        session.close()
+        # Insert Journal Entry (Simulated)
+        cursor.execute(
+            """INSERT INTO journal_entries 
+               (username, entry_date, content, sentiment_score, user_id) 
+               VALUES (?, ?, ?, ?, ?)""",
+            (username, datetime.utcnow().isoformat(), "Synthetic Content", sentiment, user_id)
+        )
+        
+    conn.commit()
+    print("Successfully seeded 110 records.")
+    conn.close()
 
 if __name__ == "__main__":
-    seed_database()
+    seed_data()

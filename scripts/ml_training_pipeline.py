@@ -256,17 +256,21 @@ class MLTrainingPipeline:
         
         return X, y
     
-    def load_data_from_db(self, db_path: str = "db/soulsense.db") -> Tuple[np.ndarray, np.ndarray]:
+    def load_data_from_db(self, db_path: str = None) -> Tuple[np.ndarray, np.ndarray]:
         """
         Load training data from the database.
         
         Args:
-            db_path: Path to the SQLite database
+            db_path: Path to the SQLite database (uses config default if None)
             
         Returns:
             Tuple of (features, labels) or None if insufficient data
         """
         import sqlite3
+        from app.config import DB_PATH as DEFAULT_DB_PATH
+        
+        if db_path is None:
+            db_path = DEFAULT_DB_PATH
         
         logger.info(f"Loading data from {db_path}...")
         
@@ -338,7 +342,19 @@ class MLTrainingPipeline:
         X_val_scaled = self.scaler.transform(X_val)
         X_test_scaled = self.scaler.transform(X_test)
         
-        logger.info(f"Data split: train={len(y_train)}, val={len(y_val)}, test={len(y_test)}")
+        # Validate distribution
+        logger.info("-" * 40)
+        logger.info(f"DATA SPLIT REPORT")
+        logger.info(f"Total Samples: {len(y)}")
+        logger.info(f"Training Set:   {len(y_train)} ({len(y_train)/len(y):.1%})")
+        logger.info(f"Validation Set: {len(y_val)} ({len(y_val)/len(y):.1%})")
+        logger.info(f"Test Set:       {len(y_test)} ({len(y_test)/len(y):.1%})")
+        
+        # Log class distribution for verification
+        unique, counts = np.unique(y_test, return_counts=True)
+        test_dist = dict(zip(unique, counts))
+        logger.info(f"Test Class Dist: {test_dist} (Stratification Verification)")
+        logger.info("-" * 40)
         
         return {
             "X_train": X_train_scaled,

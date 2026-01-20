@@ -1,0 +1,64 @@
+name: Remove ECWoC Label from All Issues
+
+on:
+  # Runs automatically when this workflow is added/updated
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  issues: write
+
+jobs:
+  remove-ecwoc-label:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Remove ECWoC label from all issues
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const labelName = "ECWoC";
+
+            let page = 1;
+            const per_page = 100;
+
+            while (true) {
+              const { data: issues } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                state: "all",
+                per_page,
+                page,
+              });
+
+              if (issues.length === 0) break;
+
+              for (const issue of issues) {
+                // Skip pull requests
+                if (issue.pull_request) continue;
+
+                const labels = issue.labels.map(l => l.name);
+
+                if (labels.includes(labelName)) {
+                  try {
+                    await github.rest.issues.removeLabel({
+                      owner,
+                      repo,
+                      issue_number: issue.number,
+                      name: labelName,
+                    });
+                    console.log(`🗑️ Removed '${labelName}' from issue #${issue.number}`);
+                  } catch (error) {
+                    console.log(`⚠️ Could not remove label from #${issue.number}: ${error.message}`);
+                  }
+                }
+              }
+
+              page++;
+            }
+
+            console.log("✅ Finished removing ECWoC label from all issues");

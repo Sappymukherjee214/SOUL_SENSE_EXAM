@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from model_versioning import (
+from app.ml.versioning import (
     SemanticVersion,
     ModelRegistry,
     ExperimentTracker,
@@ -80,6 +80,15 @@ class TestSemanticVersion:
         assert v1 == v2
 
 
+class PickleableMockModel:
+    """A simple pickle-able model class for testing"""
+    def predict(self, X):
+        return [0]
+    def predict_proba(self, X):
+        return [[0.5, 0.5]]
+    def fit(self, X, y):
+        pass
+
 class TestModelRegistry:
     """Tests for ModelRegistry class"""
     
@@ -96,9 +105,7 @@ class TestModelRegistry:
     @pytest.fixture
     def mock_model(self):
         """Create a mock model for testing"""
-        model = MagicMock()
-        model.predict = MagicMock(return_value=[0])
-        return model
+        return PickleableMockModel()
     
     def test_create_registry(self, temp_registry):
         """Test registry creation"""
@@ -365,7 +372,7 @@ class TestModelVersioningManager:
     @pytest.fixture
     def mock_model(self):
         """Create a mock model"""
-        return MagicMock()
+        return PickleableMockModel()
     
     def test_start_and_end_run(self, temp_manager, mock_model):
         """Test full experiment workflow"""

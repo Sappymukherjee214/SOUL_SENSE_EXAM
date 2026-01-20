@@ -20,7 +20,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.db import get_session
-from app.outlier_detection import OutlierDetector
+from app.analysis.outlier_detection import OutlierDetector
 
 logging.basicConfig(
     level=logging.INFO,

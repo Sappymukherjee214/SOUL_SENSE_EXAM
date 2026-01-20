@@ -1,7 +1,7 @@
 # 🧠 Soul Sense EQ Test
 
 Soul Sense EQ Test is a desktop-based Emotional Intelligence (EQ) assessment application built using Python, Tkinter, and SQLite.
-It provides a✅ Tip: If you see `ModuleNotFoundError`, it usually means your virtual environment is **not active** or the package isn't installed inside it.
+It provides a ✅ Tip: If you see `ModuleNotFoundError`, it usually means your virtual environment is **not active** or the package isn't installed inside it.
 
 ---
 
@@ -10,21 +10,193 @@ It provides a✅ Tip: If you see `ModuleNotFoundError`, it usually means your vi
 SoulSense now supports multiple languages with easy switching!
 
 ### Supported Languages
+
 - **English** (default)
 - **हिंदी (Hindi)**
 - **Español (Spanish)**
 
 ### Quick Start
+
 1. Launch the application
 2. Select your language from the dropdown at the top of the main screen
 3. All UI elements update instantly
 4. Your preference is saved automatically
 
 ### For Contributors
+
 Want to add your language? See our [I18N Guide](I18N_GUIDE.md) for:
+
 - Step-by-step instructions
 - Translation template
 - Testing guidelines
+
+<div align="center">
+
+# Frequently Asked Questions
+
+Everything you need to know about the **Soul Sense Exam**.
+
+</div>
+
+<table>
+<tr>
+<td width="65%" valign="top">
+
+### User FAQs
+
+<details>
+<summary><strong>Is this a medical or diagnostic test?</strong></summary>
+<br>
+No. This application is not a medical or psychological diagnostic tool. It is meant for self-reflection and educational purposes only.
+</details>
+
+<details>
+<summary><strong>Are my responses stored?</strong></summary>
+<br>
+User responses may be stored securely to improve insights and future features. Personal data is handled responsibly and with user consent.
+</details>
+
+<details>
+<summary><strong>Can I retake the exam?</strong></summary>
+<br>
+Yes, users can retake the exam to track changes in their emotional patterns over time.
+</details>
+
+<details>
+<summary><strong>How are the results calculated?</strong></summary>
+<br>
+Results are generated based on predefined logic and, in future updates, may use data-driven or ML-based analysis.
+</details>
+
+<details>
+<summary><strong>Can I edit my personal details later?</strong></summary>
+<br>
+Yes, users will be able to update their profile information as new features are added.
+</details>
+
+<details>
+<summary><strong>Will this app give therapy or treatment advice?</strong></summary>
+<br>
+No. The app may provide general insights or suggestions, but it does not replace professional help.
+</details>
+
+<details>
+<summary><strong>Is my data shared with others?</strong></summary>
+<br>
+No personal data is shared without consent. Any data used for analysis is anonymized.
+</details>
+
+<details>
+<summary><strong>Who should I contact for support or feedback?</strong></summary>
+<br>
+You can raise an issue on the GitHub repository or contact the project maintainers through the community channels.
+</details>
+
+<br>
+<hr>
+
+## 🛠️ Developer Guide (Run Locally)
+
+### 1. Prerequisites
+
+- Python 3.8+
+- [Git](https://git-scm.com/)
+
+### 2. Installation
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/Rohanrathod7/soul-sense-Exam.git
+    cd soul-sense-Exam/SOUL_SENSE_EXAM
+    ```
+
+2.  **Set up a virtual environment (Recommended):**
+
+    ```bash
+    python -m venv venv
+    # Windows
+    .\venv\Scripts\activate
+    # Mac/Linux
+    source venv/bin/activate
+    ```
+
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+### 3. Running the Application
+
+- **Desktop GUI (Main App):**
+
+  ```bash
+  python -m app.main
+  ```
+
+- **CLI Version (Terminal Mode):**
+  ```bash
+  python -m app.cli
+  ```
+
+### 4. Running Tests
+
+Run the full test suite to verify your environment:
+
+```bash
+python -m pytest tests/
+```
+
+To run the startup integrity specific tests:
+```bash
+python -m pytest tests/test_startup_checks.py -v
+```
+
+### 5. Git Workflow Commands
+
+If you are contributing to the project, use these common Git commands:
+
+```bash
+git status                # Check which files have changed
+git add .                 # Stage all changes for commit
+git commit -m "feat: description"  # Commit your changes
+git push origin main      # Push changes to your fork/branch
+git fetch origin          # Get latest changes from remote
+git pull origin main      # Update your local branch
+```
+
+<hr>
+<h3>Contributor FAQs</h3>
+
+<details>
+<summary><strong>How do I run this project locally?</strong></summary>
+See the <strong>Developer Guide</strong> section above for full setup instructions.
+</details>
+<br>
+Clone the repo, set up a virtual environment (<code>python -m venv venv</code>), install dependencies with <code>pip install -r requirements.txt</code>, and run <code>python -m app.main</code> to launch the application.
+</details>
+
+<details>
+<summary><strong>What is the Tech Stack?</strong></summary>
+<br>
+This project utilizes Python 3.11+, Tkinter for the GUI, SQLite for the database, and Pytest for testing.
+</details>
+
+<details>
+<summary><strong>Found a bug?</strong></summary>
+<br>
+Please open an issue describing the bug, steps to reproduce it, and the expected behavior. Pull Requests with fixes are welcome!
+</details>
+
+</td>
+<td width="35%" valign="top" align="center">
+
+<br>
+<img src="https://placehold.co/400x400/6c63ff/ffffff?text=SOUL%0ASENSE%0AEQ&font=montserrat" alt="Soul Sense Logo">
+
+</td>
+</tr>
+</table>
 
 ---
 
@@ -33,6 +205,7 @@ Want to add your language? See our [I18N Guide](I18N_GUIDE.md) for:
 SoulSense includes a powerful admin interface for managing questions and categories.
 
 ### Features
+
 - **GUI Admin Panel** - User-friendly graphical interface
 - **CLI Tool** - Command-line interface for automation
 - **Secure Access** - Password-protected admin accounts
@@ -43,16 +216,19 @@ SoulSense includes a powerful admin interface for managing questions and categor
 ### Quick Start
 
 **Create Admin Account:**
+
 ```bash
 python admin_cli.py create-admin --no-auth
 ```
 
 **Launch GUI:**
+
 ```bash
 python admin_interface.py
 ```
 
 **CLI Commands:**
+
 ```bash
 python admin_cli.py list                    # List all questions
 python admin_cli.py add                     # Add new question
@@ -63,6 +239,7 @@ python admin_cli.py categories              # View statistics
 ```
 
 ### Documentation
+
 See [ADMIN_GUIDE.md](ADMIN_GUIDE.md) for comprehensive documentation.
 
 ---
@@ -70,6 +247,8 @@ See [ADMIN_GUIDE.md](ADMIN_GUIDE.md) for comprehensive documentation.
 ## ▶️ How to Runeractive self-reflection test, persists results locally, and is designed with maintainability, testability, and extensibility in mind.
 
 **🌍 Now available in multiple languages: English, Hindi (हिंदी), and Spanish (Español)!**
+
+The application is grounded in established emotional intelligence theory (Salovey & Mayer, 1990; Goleman, 1995) and incorporates evidence-based approaches for self-report EI assessment (Petrides & Furnham, 2001). For comprehensive academic references, see [RESEARCH_REFERENCES.md](RESEARCH_REFERENCES.md).
 
 ---
 
@@ -82,7 +261,7 @@ See [ADMIN_GUIDE.md](ADMIN_GUIDE.md) for comprehensive documentation.
   - Simple framework for adding more languages
 - **User Authentication System**
   - Secure user registration and login
-  - Password hashing with SHA-256
+  - Password hashing with bcrypt (12 rounds)
   - Session management with logout functionality
   - User-specific data tracking
 - **Outlier Detection & Data Quality**
@@ -102,9 +281,19 @@ See [ADMIN_GUIDE.md](ADMIN_GUIDE.md) for comprehensive documentation.
   - User authentication data
 - Backward-compatible database schema migrations
 - Pytest-based test suite with isolated temporary databases
+- **Enhanced User Profile (NEW!)**
+  - **Medical Profile**: Track allergies, conditions, and emergency contacts
+  - **Personal History**: Visual timeline of life events
+  - **Strengths & Goals**: Track personal strengths, learning styles, and aspirations
+  - **Avatar Customization**: Upload and crop profile pictures
 - Daily emotional journal with AI sentiment analysis
 - Emotional pattern tracking and insights
+- **Emotional Patterns Capture (NEW!)** - Define your common emotional states for personalized AI responses
 - View past journal entries and emotional journey
+- **Startup Integrity Checks (NEW!)**
+  - Validates database schema and required files at startup
+  - Auto-recovery for missing directories or corrupted config
+  - User-friendly diagnostic alerts
 
 ---
 
@@ -123,6 +312,67 @@ The journal feature allows users to:
 - **Sentiment Scoring:** Analyzes positive/negative emotional tone using NLTK's VADER
 - **Pattern Detection:** Identifies stress indicators, relationship focus, growth mindset, and self-reflection
 - **Emotional Tracking:** Monitors emotional trends over time
+
+The journal feature is informed by research on expressive writing and emotional processing (Pennebaker, 1997; Smyth, 1998), which demonstrates the therapeutic benefits of written emotional expression. The AI sentiment analysis uses natural language processing techniques validated in computational psychology research (Calvo & D'Mello, 2010).
+
+---
+
+## 💭 Emotional Patterns Feature (Issue #269)
+
+Allows users to describe their common emotional states, enabling more personalized and empathetic AI responses.
+
+### How to Use
+
+1. Navigate to **Profile → Strengths & Goals**
+2. Scroll to the **"Emotional Profile"** section
+3. Fill in your details:
+   - **Common Emotional States**: Select or type emotions you often experience (e.g., Anxiety, Stress, Calmness)
+   - **Emotional Triggers**: Describe what causes these emotions
+   - **Coping Strategies**: Your personal methods for managing emotions
+   - **Preferred AI Support Style**: How you want the AI to respond to you
+
+### AI Support Styles
+
+| Style | Response Approach |
+|-------|-------------------|
+| **Encouraging & Motivating** | "You've got this! You've handled tough days before." |
+| **Problem-Solving & Practical** | "Here's an action item to try today..." |
+| **Just Listen & Validate** | "It's okay to feel this way. Take your time." |
+| **Distraction & Positivity** | "Fun idea: Take a 5-min break and do something you enjoy!" |
+
+### Integration
+
+When you write journal entries, the AI will:
+- Detect if your current emotional state matches your defined patterns
+- Personalize responses based on your preferred support style
+- Provide relevant coping suggestions from your profile
+
+---
+
+## 🤖 ML Model Training (Real User Data)
+
+Soul Sense now supports training a custom Machine Learning model on **real local user data** to provide personalized risk assessments.
+
+### How It Works
+
+1.  **Data Collection**: As users take tests and write journals, data accumulates in `db/soulsense.db`.
+2.  **Threshold**: The system requires at least **100 records** to ensure statistical validity.
+3.  **Training**: The `train_real_model.py` script extracts this data, labels it based on risk factors (Score + Sentiment), and trains a Random Forest model.
+4.  **Inference**: The app automatically uses the latest trained model for future predictions.
+
+### Command to Train
+
+```bash
+python scripts/train_real_model.py
+```
+
+_Note: If you have fewer than 100 records, the script will abort to prevent overfitting._
+
+### 📊 Data Distribution
+
+The following chart emphasizes the quantity of data points across risk categories and score ranges used for training:
+
+![Training Data Distribution](docs/images/training_data_distribution.png)
 
 ---
 
@@ -187,6 +437,129 @@ Based on sentiment ranges:
 
 ---
 
+## 🛡️ Startup Integrity Checks
+
+SoulSense includes a self-diagnostic system that runs every time the application starts to ensure a stable environment.
+
+### What it Validates
+
+| Check | Description | Auto-Recovery |
+|-------|-------------|---------------|
+| **Config Integrity** | Validates `config.json` structure and keys. | Restores defaults if missing or corrupt. |
+| **Required Files** | Ensures `data/`, `logs/`, and `models/` exist. | Auto-creates missing directories. |
+| **Database Schema** | Verifies all required tables and columns. | Re-initializes schema if tables are missing. |
+
+### How it Works
+
+The system categorizes issues into:
+- **Warnings**: Non-critical issues that were auto-recovered. The app notifies the user and proceeds.
+- **Failures**: Critical issues that prevent the app from starting safely. The app shows a detailed error and exits gracefully.
+
+This prevents common "ModuleNotFoundError" or "DatabaseError" crashes that users might encounter due to filesystem issues.
+
+---
+
+## ⚙️ Environment Configuration
+
+SoulSense supports configuration via environment variables with the `SOULSENSE_*` prefix.
+
+### Quick Setup
+
+1. **Copy the example file:**
+   ```bash
+   copy .env.example .env
+   ```
+
+2. **Edit `.env`** to customize settings (optional)
+
+### Supported Variables
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `SOULSENSE_ENV` | string | `development` | Environment mode (development/production/test) |
+| `SOULSENSE_DEBUG` | bool | `false` | Enable debug logging |
+| `SOULSENSE_LOG_LEVEL` | string | `INFO` | Log level (DEBUG/INFO/WARNING/ERROR) |
+| `SOULSENSE_DB_PATH` | string | `data/soulsense.db` | Custom database file path |
+| `SOULSENSE_ENABLE_JOURNAL` | bool | `true` | Enable/disable journal feature |
+| `SOULSENSE_ENABLE_ANALYTICS` | bool | `true` | Enable/disable analytics feature |
+
+### Configuration Priority
+
+1. **Environment variables** (highest priority)
+2. **`.env` file** (loaded automatically if present)
+3. **`config.json`** file
+4. **Built-in defaults** (lowest priority)
+
+> **Note:** No configuration is required for normal usage. The application works out-of-the-box with sensible defaults.
+
+---
+
+## 🧪 Experimental Feature Flags
+
+SoulSense includes a feature flag system for controlling experimental and beta features. This allows you to enable cutting-edge functionality before it becomes generally available.
+
+### Available Flags
+
+| Flag | Environment Variable | Description |
+|------|---------------------|-------------|
+| `ai_journal_suggestions` | `SOULSENSE_FF_AI_JOURNAL_SUGGESTIONS` | AI-powered suggestions in the journal |
+| `advanced_analytics` | `SOULSENSE_FF_ADVANCED_ANALYTICS` | Predictive insights in analytics dashboard |
+| `beta_ui_components` | `SOULSENSE_FF_BETA_UI_COMPONENTS` | Experimental UI layouts and components |
+| `ml_emotion_detection` | `SOULSENSE_FF_ML_EMOTION_DETECTION` | ML-based emotion detection from text |
+| `data_export_v2` | `SOULSENSE_FF_DATA_EXPORT_V2` | New export formats (PDF, enhanced CSV) |
+
+### Enabling a Feature
+
+**Option 1: Environment Variable** (recommended for testing)
+```bash
+set SOULSENSE_FF_AI_JOURNAL_SUGGESTIONS=true
+python -m app.main
+```
+
+**Option 2: `.env` File**
+```bash
+SOULSENSE_FF_AI_JOURNAL_SUGGESTIONS=true
+```
+
+**Option 3: `config.json`**
+```json
+{
+    "experimental": {
+        "ai_journal_suggestions": true
+    }
+}
+```
+
+**Option 3:  `Direct`**
+```bash
+Turn on
+$env:SOULSENSE_FF_AI_JOURNAL_SUGGESTIONS = "true"
+Turn Off
+$env:SOULSENSE_FF_AI_JOURNAL_SUGGESTIONS = "false"
+python -m app.main
+```
+
+### Python API for Developers
+
+```python
+from app.feature_flags import feature_flags, feature_gated
+
+# Check if a flag is enabled
+if feature_flags.is_enabled("ai_journal_suggestions"):
+    # Use experimental feature
+    pass
+
+# Use decorator to gate entire functions
+@feature_gated("ml_emotion_detection")
+def detect_emotions(text):
+    # Only runs if flag is enabled
+    return model.predict(text)
+```
+
+> **Warning:** Experimental features may change or be removed without notice.
+
+---
+
 ## 🛠 Technologies Used
 
 - Python 3.11+
@@ -202,33 +575,36 @@ Based on sentiment ranges:
 SOUL_SENSE_EXAM/
 │
 ├── app/                     # Core application package
-│   ├── __init__.py
+│   ├── ml/                  # Machine Learning modules
+│   │   ├── __init__.py
+│   │   ├── predictor.py
+│   │   ├── clustering.py
+│   │   └── ...
+│   ├── ui/                  # UI components
+│   │   ├── dashboard.py
+│   │   ├── journal.py
+│   │   └── ...
 │   ├── main.py              # Tkinter application entry point
 │   ├── config.py            # Centralized configuration
 │   ├── db.py                # Database connection & migrations
-│   ├── models.py            # SQLAlchemy models
-│   ├── auth.py              # Authentication logic
-│   ├── questions.py         # Question loading logic
-│   └── utils.py             # Shared helpers
+│   ├── i18n_manager.py      # Internationalization
+│   └── ...
 │
-├── migrations/              # Alembic migrations
-│   ├── versions/            # Migration scripts
-│   └── env.py               # Alembic config
+├── data/                    # persistent data
+│   ├── soulsense.db         # SQLite database
+│   ├── questions.txt        # Source question bank
+│   └── experiments/         # ML experiments
 │
-├── scripts/                 # Maintenance scripts
-│   ├── __init__.py
-│   └── load_questions.py    # Seed data loader
-│
-├── data/
-│   └── questions.txt        # Source question bank
-│
-├── db/
-│   └── soulsense.db         # SQLite database
-│
-├── tests/                   # Pytest test suite
+├── models/                  # ML models & registry
+│   ├── soulsense_ml_model.pkl
+│   └── registry/
 │
 ├── logs/
 │   └── soulsense.log        # Application logs
+│
+├── scripts/                 # Maintenance scripts
+├── tests/                   # Pytest test suite
+├── migrations/              # Alembic migrations
 │
 ├── alembic.ini              # Alembic config
 ├── pytest.ini               # Pytest config
@@ -308,15 +684,15 @@ pip install -r requirements.txt -->
 
 ## ▶️ How to Run
 
-### 1. Database Setup
+### 1. Unified Setup
 
-Ensure your database schema is up to date:
+Initialize database, seed data, and run all feature migrations in one step:
 
 ```bash
-python -m alembic upgrade head
+python -m scripts.setup_dev
 ```
 
-### 2. Start the Application
+### 4. Start the Application
 
 Launch the SoulSense interface:
 
@@ -372,37 +748,69 @@ python -m app.main
 
 **Security Features:**
 
-- Passwords are hashed using SHA-256 encryption
+- Passwords are hashed using bcrypt with 12 rounds
+- Legacy SHA-256 passwords are automatically upgraded on login
 - User sessions are managed securely
 - Each user's data is isolated and protected
 
 ---
 
-## 🧪 Running Tests
+## 🧪 Automated Testing & CI/CD
 
-From the project root:
+We maintain a comprehensive test suite to ensure application stability.
 
-```bash
-    python -m pytest -v
-```
+### 1. Running Tests Locally
 
-Tests use temporary SQLite databases and do not affect production data.
-
-### Running Outlier Detection Tests
+Run the full test suite with:
 
 ```bash
-    python -m pytest tests/test_outlier_detection.py -v
+python -m pytest tests/ -v
 ```
+
+This executes:
+
+- **Unit Tests**: Verifies UI logic (auth, exam flow) using mocks.
+- **Integration Tests**: Verifies database schemas and clustering logic.
+- **Migration Tests**: Verifies `alembic upgrade head` works on a fresh DB.
+
+### 2. Continuous Integration (GitHub Actions)
+
+This project uses **GitHub Actions** for CI. Every push to `main` or Pull Request triggers:
+
+- **Linting**: `flake8` checks for code style issues.
+- **Testing**: `pytest` runs the full suite in a headless environment.
+
+Configuration file: `.github/workflows/python-app.yml`
+
+### 3. Database Migrations
+
+We use **Alembic** for safe database schema updates.
+
+**Apply Migrations:**
+
+```bash
+python -m alembic upgrade head
+```
+
+**Create New Migration (after modifying models):**
+
+```bash
+python -m alembic revision --autogenerate -m "describe_change"
+```
+
+**Verify Migrations:**
+Our test suite includes `tests/test_migrations.py` which guarantees that migrations apply correctly to a fresh database.
 
 ---
 
-## 📊 Outlier Detection Feature
+## 📊 Outlier Detection Features
 
 ### Overview
 
 The outlier detection module identifies extreme or inconsistent emotional intelligence scores using advanced statistical methods.
 
 **Supported Methods:**
+
 - **Z-Score**: Identifies scores deviating significantly from mean
 - **IQR (Interquartile Range)**: Robust method for skewed distributions
 - **Modified Z-Score**: Uses median/MAD for robustness
@@ -435,7 +843,7 @@ python scripts/outlier_analysis.py --user john_doe --format json
 
 ```python
 from app.db import get_session
-from app.outlier_detection import OutlierDetector
+from app.analysis.outlier_detection import OutlierDetector
 
 detector = OutlierDetector()
 session = get_session()

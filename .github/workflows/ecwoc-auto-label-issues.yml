@@ -1,0 +1,78 @@
+name: Auto Apply ECWoC Label to All Issues
+
+on:
+  # Runs once automatically when workflow is added (on merge)
+  push:
+    branches:
+      - main
+      - master
+
+  # Runs for future issues
+  issues:
+    types:
+      - opened
+      - closed
+
+permissions:
+  issues: write
+
+jobs:
+  label-issues:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Apply ECWoC26 label
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const labelName = "ECWoC26";
+
+            async function addLabel(issueNumber, labels) {
+              if (!labels.includes(labelName)) {
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  labels: [labelName],
+                });
+                console.log(`✅ Added ECWoC to #${issueNumber}`);
+              }
+            }
+
+            // Case 1: New or closed issue
+            if (context.eventName === "issues") {
+              const issue = context.payload.issue;
+              const labels = issue.labels.map(l => l.name);
+              await addLabel(issue.number, labels);
+              return;
+            }
+
+            // Case 2: Workflow just added → label ALL existing issues
+            let page = 1;
+            const per_page = 100;
+
+            while (true) {
+              const { data: issues } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                state: "all",
+                per_page,
+                page,
+              });
+
+              if (issues.length === 0) break;
+
+              for (const issue of issues) {
+                // Skip pull requests
+                if (!issue.pull_request) {
+                  const labels = issue.labels.map(l => l.name);
+                  await addLabel(issue.number, labels);
+                }
+              }
+
+              page++;
+            }
+
+            console.log("🎉 ECWoC label applied to all past issues");

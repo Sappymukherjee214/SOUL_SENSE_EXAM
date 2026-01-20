@@ -25,9 +25,12 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Import app config for DB URL
+from app.config import DATABASE_URL
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = config.get_main_option("sqlalchemy.url")
+    url = DATABASE_URL # Use app config
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -40,15 +43,37 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    
+    # Logic to support both Tests (overridden config) and App (app.config)
+    # Check if we are running in a test environment
+    # The test runner sets the URL in the config object.
+    # Default Alembic command uses the .ini file value.
+    
+    ini_url = config.get_main_option("sqlalchemy.url")
+    
+    # If the URL in config is different from the hardcoded default in .ini, 
+    # it means it was overridden (e.g. by Test), so we trust it.
+    # Otherwise, we prefer the App's DATABASE_URL source of truth.
+    
+    # Hardcoded check for the default value in alembic.ini
+    # This is safer than checking for 'pytest' in modules
+    DEFAULT_INI_URL = "sqlite:///db/soulsense.db"
+    
+    if ini_url != DEFAULT_INI_URL:
+        # It's an override (Test)
+        target_url = ini_url
+    else:
+        # It's the default, so use App Config
+        target_url = DATABASE_URL
+        
+    from sqlalchemy import create_engine
+    connectable = create_engine(target_url)
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, 
+            target_metadata=target_metadata,
+            render_as_batch=True  # Fix for SQLite ALTER limitation
         )
 
         with context.begin_transaction():
