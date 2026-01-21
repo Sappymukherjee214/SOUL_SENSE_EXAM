@@ -980,10 +980,33 @@ class SoulSenseCLI:
             choice = self.get_input("Select option (1-2): ")
             
             if choice == '1':
-                new_val = self.get_input(f"Enter new question count (5-20, current: {self.num_questions}): ")
-                if new_val.isdigit() and 5 <= int(new_val) <= 20:
-                    self.num_questions = int(new_val)
-                    # Save to shared settings (same file as GUI)
+                # Loop until valid input provided or user cancels with 'b'
+                from app.validation import validate_range
+                while True:
+                    new_val = self.get_input(f"Enter new question count (1-20, current: {self.num_questions}) [b to cancel]: ")
+                    if new_val.lower() == 'b':
+                        break
+
+                    # Use validate_range to check numeric and bounds
+                    valid, msg = validate_range(new_val, 1, 20, "Question count")
+                    if not valid:
+                        print(colorize(f"Invalid: {msg}", Colors.YELLOW))
+                        continue
+
+                    # Ensure an integer value
+                    try:
+                        q_int = int(float(new_val))
+                    except (ValueError, TypeError):
+                        print(colorize("Please enter a whole number.", Colors.YELLOW))
+                        continue
+
+                    # Final bounds check after conversion (in case float like 3.5 was provided)
+                    if q_int < 1 or q_int > 20:
+                        print(colorize("Invalid value. Must be an integer between 1 and 20.", Colors.YELLOW))
+                        continue
+
+                    # Apply setting
+                    self.num_questions = q_int
                     try:
                         from app.utils import save_settings
                         self.settings["question_count"] = self.num_questions
@@ -992,10 +1015,9 @@ class SoulSenseCLI:
                         print(colorize("   (This setting is shared with GUI)", Colors.CYAN))
                     except Exception as e:
                         print(f"\n{colorize('Warning:', Colors.YELLOW)} Setting applied for this session but could not save: {e}")
+
                     self.get_input("\nPress Enter to continue...")
-                else:
-                    print("Invalid value. Must be between 5 and 20.")
-                    time.sleep(1)
+                    break
             elif choice == '2':
                 return
 
