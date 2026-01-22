@@ -500,7 +500,10 @@ class SoulSenseApp:
 
         # Destroy the root window to exit
         if hasattr(self, 'root') and self.root:
-            self.root.destroy()
+            try:
+                self.root.destroy()
+            except Exception:
+                pass  # Window already destroyed
 
 # --- Global Error Handlers ---
 
@@ -599,7 +602,13 @@ if __name__ == "__main__":
             app.graceful_shutdown()
 
         signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
+
+        # Try to register SIGTERM handler, but don't fail if it's not available
+        try:
+            signal.signal(signal.SIGTERM, signal_handler)
+        except (AttributeError, ValueError, OSError):
+            # SIGTERM may not be available on some platforms (e.g., older Windows)
+            app.logger.debug("SIGTERM not available on this platform, skipping registration")
 
         # Register atexit handler as backup
         atexit.register(app.graceful_shutdown)
