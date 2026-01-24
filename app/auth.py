@@ -1,6 +1,6 @@
 import bcrypt
 from datetime import datetime
-from app.db import get_session
+from app.db import safe_db_context
 from app.models import User
 import logging
 
@@ -51,23 +51,15 @@ class AuthManager:
             session.close()
     
     def login_user(self, username, password):
-        session = get_session()
-        try:
+        with safe_db_context() as session:
             user = session.query(User).filter_by(username=username).first()
-            
+
             if user and self.verify_password(password, user.password_hash):
                 user.last_login = datetime.utcnow().isoformat()
-                session.commit()
                 self.current_user = username
                 return True, "Login successful"
             else:
                 return False, "Invalid username or password"
-        
-        except Exception as e:
-            logging.error(f"Login failed: {e}")
-            return False, "Login failed"
-        finally:
-            session.close()
     
     def logout_user(self):
         self.current_user = None

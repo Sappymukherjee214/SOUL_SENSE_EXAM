@@ -163,23 +163,22 @@ class SoulSenseApp:
     def _load_user_settings(self, username: str) -> None:
         """Load settings from DB for user"""
         try:
-            from app.db import get_session
+            from app.db import safe_db_context
             from app.models import User
-            
-            session = get_session()
-            user_obj = session.query(User).filter_by(username=username).first()
-            if user_obj:
-                self.current_user_id = int(user_obj.id)
-                if user_obj.settings:
-                    self.settings = {
-                        "theme": user_obj.settings.theme,
-                        "question_count": user_obj.settings.question_count,
-                        "sound_enabled": user_obj.settings.sound_enabled
-                    }
-                    # Apply Theme immediately
-                    if self.settings.get("theme"):
-                        self.apply_theme(self.settings["theme"])
-            session.close()
+
+            with safe_db_context() as session:
+                user_obj = session.query(User).filter_by(username=username).first()
+                if user_obj:
+                    self.current_user_id = int(user_obj.id)
+                    if user_obj.settings:
+                        self.settings = {
+                            "theme": user_obj.settings.theme,
+                            "question_count": user_obj.settings.question_count,
+                            "sound_enabled": user_obj.settings.sound_enabled
+                        }
+                        # Apply Theme immediately
+                        if self.settings.get("theme"):
+                            self.apply_theme(self.settings["theme"])
         except Exception as e:
             self.logger.error(f"Error loading settings: {e}")
 
