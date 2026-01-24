@@ -175,30 +175,39 @@ def validate_environment_on_startup(env: str = "development") -> Dict[str, Any]:
     validator = EnvironmentValidator(env)
 
     # Define required variables based on environment
-    required_vars: Dict[str, Dict[str, Any]] = {
-        'APP_ENV': {'type': 'string'},
-        'DATABASE_URL': {'type': 'string'},
-        'JWT_SECRET_KEY': {'type': 'string'},
-    }
-
+    # Define variables
     if env in ['staging', 'production']:
-        required_vars.update({
+        required_vars = {
+            'APP_ENV': {'type': 'string'},
+            'DATABASE_URL': {'type': 'string'},
+            'JWT_SECRET_KEY': {'type': 'string'},
             'DATABASE_HOST': {'type': 'string'},
             'DATABASE_PORT': {'type': 'int', 'min': 1, 'max': 65535},
             'DATABASE_NAME': {'type': 'string'},
             'DATABASE_USER': {'type': 'string'},
             'DATABASE_PASSWORD': {'type': 'string'},
-        })
-
-    # Define optional variables
-    optional_vars = {
-        'HOST': {'type': 'string', 'default': '127.0.0.1'},
-        'PORT': {'type': 'int', 'default': 8000, 'min': 1, 'max': 65535},
-        'DEBUG': {'type': 'bool', 'default': env == 'development'},
-        'JWT_ALGORITHM': {'type': 'string', 'default': 'HS256'},
-        'JWT_EXPIRATION_HOURS': {'type': 'int', 'default': 24, 'min': 1},
-        'WELCOME_MESSAGE': {'type': 'string', 'default': 'Welcome to Soul Sense!'},
-    }
+        }
+        optional_vars = {
+            'HOST': {'type': 'string', 'default': '127.0.0.1'},
+            'PORT': {'type': 'int', 'default': 8000, 'min': 1, 'max': 65535},
+            'DEBUG': {'type': 'bool', 'default': False},
+            'JWT_ALGORITHM': {'type': 'string', 'default': 'HS256'},
+            'JWT_EXPIRATION_HOURS': {'type': 'int', 'default': 24, 'min': 1},
+        }
+    else:
+        # Development defaults (relaxed validation)
+        required_vars = {} 
+        optional_vars = {
+            'APP_ENV': {'type': 'string', 'default': 'development'},
+            'DATABASE_URL': {'type': 'string', 'default': 'sqlite:///../../data/soulsense.db'},
+            'JWT_SECRET_KEY': {'type': 'string', 'default': 'dev_jwt_secret'},
+            'HOST': {'type': 'string', 'default': '127.0.0.1'},
+            'PORT': {'type': 'int', 'default': 8000, 'min': 1, 'max': 65535},
+            'DEBUG': {'type': 'bool', 'default': True},
+            'JWT_ALGORITHM': {'type': 'string', 'default': 'HS256'},
+            'JWT_EXPIRATION_HOURS': {'type': 'int', 'default': 24, 'min': 1},
+            'WELCOME_MESSAGE': {'type': 'string', 'default': 'Welcome to Soul Sense!'},
+        }
 
     validated_vars = validator.validate_environment_variables(required_vars, optional_vars)
     summary = validator.get_validation_summary()
