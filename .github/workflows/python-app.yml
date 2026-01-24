@@ -69,5 +69,5 @@ jobs:
             exit 1
           fi
 
-          pytest tests/unit/
+          pytest -c pytest.ini tests/unit/
         working-directory: ./backend/fastapi

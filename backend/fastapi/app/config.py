@@ -8,9 +8,7 @@ from dotenv import load_dotenv
 from pydantic import Field, field_validator, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from ...core.validators import validate_environment_on_startup, log_environment_summary
-
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 BACKEND_DIR = ROOT_DIR / "backend"
 FASTAPI_DIR = BACKEND_DIR / "fastapi"
 ENV_FILE = ROOT_DIR / ".env"
@@ -21,6 +19,8 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 if str(FASTAPI_DIR) not in sys.path:
     sys.path.insert(0, str(FASTAPI_DIR))
+
+from backend.core.validators import validate_environment_on_startup, log_environment_summary
 
 load_dotenv(ENV_FILE)
 
@@ -43,6 +43,28 @@ class BaseAppSettings(BaseSettings):
     jwt_secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(32), description="JWT secret key")
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
     jwt_expiration_hours: int = Field(default=24, ge=1, description="JWT expiration hours")
+
+    # CORS Configuration
+    allowed_origins: str = Field(
+        default='["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:8000"]',
+        description="Allowed origins for CORS"
+    )
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse allowed_origins JSON string."""
+        import json
+        import logging
+        
+        logger = logging.getLogger("app.config")
+        
+        try:
+            return json.loads(self.allowed_origins)
+        except json.JSONDecodeError as e:
+            logger.warning(
+                f"Failed to parse allowed_origins JSON: '{self.allowed_origins}'. Error: {e}"
+            )
+            return []
 
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE),

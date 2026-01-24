@@ -1,7 +1,9 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from .config import get_settings_instance
-from .routers import health, assessments, auth, users, profiles, analytics, questions, journal
+from .api.v1.router import api_router as api_v1_router
+from .routers.health import router as health_router
 
 # Load and validate settings on import
 settings = get_settings_instance()
@@ -23,13 +25,21 @@ def create_app() -> FastAPI:
         redoc_url="/redoc"
     )
 
+    # Security Headers Middleware
+    from .middleware.security import SecurityHeadersMiddleware
+    app.add_middleware(SecurityHeadersMiddleware)
+
     # CORS middleware
+    # If in production, ensure we are not allowing all origins blindly unless intended
+    origins = settings.cors_origins
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-API-Version"],
+        max_age=3600, # Cache preflight requests for 1 hour
     )
     
     # Version header middleware

@@ -30,7 +30,8 @@ def test_health():
     """Test health endpoint."""
     response = requests.get(f"{BASE_URL}/api/v1/health")
     print_response("GET /health", response)
-    return response.status_code == 200
+    assert response.status_code == 200
+
 
 
 def test_questions():
@@ -42,22 +43,28 @@ def test_questions():
     # Test: Get all questions (limited)
     response = requests.get(f"{BASE_URL}/api/v1/questions", params={"limit": 5})
     print_response("GET /api/v1/questions?limit=5", response)
+    assert response.status_code == 200
     
     # Test: Get questions by age
     response = requests.get(f"{BASE_URL}/api/v1/questions", params={"age": 25, "limit": 10})
     print_response("GET /api/v1/questions?age=25&limit=10", response)
+    assert response.status_code == 200
     
     # Test: Get questions by age (alternative endpoint)
     response = requests.get(f"{BASE_URL}/api/v1/questions/by-age/30", params={"limit": 5})
     print_response("GET /api/v1/questions/by-age/30?limit=5", response)
+    assert response.status_code == 200
     
     # Test: Get categories
     response = requests.get(f"{BASE_URL}/api/v1/questions/categories")
     print_response("GET /api/v1/questions/categories", response)
+    assert response.status_code == 200
     
     # Test: Get specific question (if exists)
     response = requests.get(f"{BASE_URL}/api/v1/questions/1")
     print_response("GET /api/v1/questions/1", response)
+    # Note: validation depends on DB state, so we just check it doesn't crash (500)
+    assert response.status_code in [200, 404]
 
 
 def test_assessments():
@@ -69,14 +76,17 @@ def test_assessments():
     # Test: Get assessments (paginated)
     response = requests.get(f"{BASE_URL}/api/v1/assessments", params={"page": 1, "page_size": 5})
     print_response("GET /api/v1/assessments?page=1&page_size=5", response)
+    assert response.status_code == 200
     
     # Test: Get assessment stats
     response = requests.get(f"{BASE_URL}/api/v1/assessments/stats")
     print_response("GET /api/v1/assessments/stats", response)
+    assert response.status_code == 200
     
     # Test: Get specific assessment (if exists)
     response = requests.get(f"{BASE_URL}/api/v1/assessments/1")
     print_response("GET /api/v1/assessments/1", response)
+    assert response.status_code in [200, 404]
 
 
 def test_filters():
@@ -88,49 +98,14 @@ def test_filters():
     # Test: Filter assessments by username
     response = requests.get(f"{BASE_URL}/api/v1/assessments", params={"username": "testuser"})
     print_response("GET /api/v1/assessments?username=testuser", response)
+    assert response.status_code == 200
     
     # Test: Filter questions by category
     response = requests.get(f"{BASE_URL}/api/v1/questions", params={"category_id": 1, "limit": 5})
     print_response("GET /api/v1/questions?category_id=1&limit=5", response)
+    assert response.status_code == 200
     
     # Test: Invalid age (should return 400)
     response = requests.get(f"{BASE_URL}/api/v1/questions/by-age/5")
     print_response("GET /api/v1/questions/by-age/5 (Invalid age)", response)
-
-
-def run_all_tests():
-    """Run all API tests."""
-    print("\n" + "="*70)
-    print(" "*15 + "SOUL SENSE API TESTING")
-    print("="*70)
-    
-    # Check if server is running
-    try:
-        if not test_health():
-            print("\n❌ Server is not responding. Please start the FastAPI server:")
-            print("   cd backend/fastapi")
-            print("   uvicorn app.main:app --reload")
-            return
-    except requests.exceptions.ConnectionError:
-        print("\n❌ Cannot connect to server. Please start the FastAPI server:")
-        print("   cd backend/fastapi")
-        print("   uvicorn app.main:app --reload")
-        return
-    
-    print("\n✅ Server is running!\n")
-    
-    # Run tests
-    test_questions()
-    test_assessments()
-    test_filters()
-    
-    print("\n" + "="*70)
-    print("✅ Testing complete!")
-    print("\nInteractive documentation available at:")
-    print(f"  • Swagger UI: {BASE_URL}/docs")
-    print(f"  • ReDoc:      {BASE_URL}/redoc")
-    print("="*70 + "\n")
-
-
-if __name__ == "__main__":
-    run_all_tests()
+    assert response.status_code == 400
