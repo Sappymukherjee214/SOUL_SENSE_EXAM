@@ -53,8 +53,6 @@ def start_server(host="127.0.0.1", port=8000, reload=True):
     
     if reload:
         uvicorn_cmd.append("--reload")
-    else:
-        uvicorn_cmd.append("--no-reload")
 
     print(f"Running: {' '.join(uvicorn_cmd)}")
     
