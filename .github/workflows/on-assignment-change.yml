@@ -1,0 +1,94 @@
+name: Handle Assignment Changes
+
+on:
+  issues:
+    types: [assigned, unassigned]
+
+permissions:
+  issues: write
+
+jobs:
+  update-status-labels:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - name: Update Labels on Assignment Change
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const action = context.payload.action;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            console.log('Issue #' + issue.number + ' - Action: ' + action);
+
+            const currentLabels = issue.labels.map(function(l) { return l.name; });
+
+            if (action === 'assigned') {
+              // Someone was assigned - mark as in-progress
+              
+              // Remove available label if present
+              if (currentLabels.includes('status: available')) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner, repo,
+                    issue_number: issue.number,
+                    name: 'status: available'
+                  });
+                  console.log('Removed status: available');
+                } catch (e) {
+                  // Label not found
+                }
+              }
+              
+              // Add in-progress label if not present
+              if (!currentLabels.includes('status: in-progress')) {
+                await github.rest.issues.addLabels({
+                  owner, repo,
+                  issue_number: issue.number,
+                  labels: ['status: in-progress']
+                });
+                console.log('Added status: in-progress');
+              }
+            }
+
+            if (action === 'unassigned') {
+              // Someone was unassigned - check if anyone is still assigned
+              
+              // Fetch fresh issue data to get current assignees
+              const freshIssue = await github.rest.issues.get({
+                owner, repo,
+                issue_number: issue.number
+              });
+              
+              if (freshIssue.data.assignees.length === 0) {
+                // No one assigned anymore - mark as available
+                
+                // Remove in-progress label if present
+                if (currentLabels.includes('status: in-progress')) {
+                  try {
+                    await github.rest.issues.removeLabel({
+                      owner, repo,
+                      issue_number: issue.number,
+                      name: 'status: in-progress'
+                    });
+                    console.log('Removed status: in-progress');
+                  } catch (e) {
+                    // Label not found
+                  }
+                }
+                
+                // Add available label if not present
+                if (!currentLabels.includes('status: available')) {
+                  await github.rest.issues.addLabels({
+                    owner, repo,
+                    issue_number: issue.number,
+                    labels: ['status: available']
+                  });
+                  console.log('Added status: available');
+                }
+              } else {
+                console.log('Still has ' + freshIssue.data.assignees.length + ' assignees, keeping in-progress');
+              }
+            }

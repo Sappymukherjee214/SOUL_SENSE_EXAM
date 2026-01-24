@@ -2,7 +2,6 @@ name: Unassign inactive contributors
 
 on:
   schedule:
-    # Runs every 1 hour
     - cron: "0 * * * *"
 
 permissions:
@@ -19,8 +18,8 @@ jobs:
           script: |
             const now = new Date();
 
-            const WARNING_AFTER_HOURS = 15;   // Send warning
-            const UNASSIGN_AFTER_HOURS = 30;  // Unassign after warning window
+            const WARNING_AFTER_HOURS = 15;
+            const UNASSIGN_AFTER_HOURS = 30;
 
             const issues = await github.paginate(
               github.rest.issues.listForRepo,
@@ -33,50 +32,42 @@ jobs:
             );
 
             for (const issue of issues) {
-              // Skip PRs
               if (issue.pull_request) continue;
-
-              // Skip issues with no assignees
               if (!issue.assignees || issue.assignees.length === 0) continue;
 
               const lastUpdated = new Date(issue.updated_at);
               const diffHours = (now - lastUpdated) / (1000 * 60 * 60);
 
-              // Fetch comments to check for existing warning
               const comments = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
               });
 
-              const warningComment = comments.data.find(c =>
-                c.body.includes("⚠️ Inactivity Warning")
-              );
+              const warningComment = comments.data.find(function(c) {
+                return c.body.includes("Inactivity Warning");
+              });
 
               const assigneesMention = issue.assignees
-                .map(a => `@${a.login}`)
+                .map(function(a) { return '@' + a.login; })
                 .join(", ");
 
-              // 🔔 Send warning after 15 hours
               if (diffHours >= WARNING_AFTER_HOURS && !warningComment) {
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issue.number,
-                  body: `⚠️ **Inactivity Warning**
-
-${assigneesMention}, this issue has been inactive for **15 hours**.
-
-Please provide an update within the next **15 hours**, or you may be **automatically unassigned**.`
+                  body: '⚠️ **Inactivity Warning**\n\n' +
+                    assigneesMention + ', this issue has been inactive for **15 hours**.\n\n' +
+                    'Please provide an update within the next **15 hours**, or you may be **automatically unassigned**.'
                 });
 
-                console.log(`Warning sent for issue #${issue.number}`);
+                console.log('Warning sent for issue #' + issue.number);
                 continue;
               }
 
-              // 🚫 Unassign after 30 hours (only if warning was sent)
               if (diffHours >= UNASSIGN_AFTER_HOURS && warningComment) {
-                const assigneeLogins = issue.assignees.map(a => a.login);
+                const assigneeLogins = issue.assignees.map(function(a) { return a.login; });
 
                 await github.rest.issues.removeAssignees({
                   owner: context.repo.owner,
@@ -89,12 +80,11 @@ Please provide an update within the next **15 hours**, or you may be **automatic
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issue.number,
-                  body: `ℹ️ **Unassigned due to inactivity**
-
-You have been automatically unassigned after **30 hours of inactivity**.  
-Feel free to reassign yourself if you wish to continue working on this issue.`
+                  body: 'ℹ️ **Unassigned due to inactivity**\n\n' +
+                    'You have been automatically unassigned after **30 hours of inactivity**.\n' +
+                    'Feel free to reassign yourself if you wish to continue working on this issue.'
                 });
 
-                console.log(`Unassigned contributors from issue #${issue.number}`);
+                console.log('Unassigned contributors from issue #' + issue.number);
               }
             }

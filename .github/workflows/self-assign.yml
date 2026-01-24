@@ -24,11 +24,9 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            // Check if already assigned to someone else
-            const currentAssignees = issue.assignees.map(a => a.login);
+            const currentAssignees = issue.assignees.map(function(a) { return a.login; });
 
             if (currentAssignees.length > 0 && !currentAssignees.includes(commenter)) {
-              // Issue is assigned to someone else - suggest alternatives
               const allIssues = await github.rest.issues.listForRepo({
                 owner, repo,
                 state: 'open',
@@ -37,17 +35,17 @@ jobs:
               });
               
               const alternatives = allIssues.data
-                .filter(i => i.number !== issue.number)
+                .filter(function(i) { return i.number !== issue.number; })
                 .slice(0, 3)
-                .map(i => `#${i.number}`)
+                .map(function(i) { return '#' + i.number; })
                 .join(', ');
               
-              const altText = alternatives ? `\n\n**Available alternatives:** ${alternatives}` : '';
+              const altText = alternatives ? '\n\n**Available alternatives:** ' + alternatives : '';
               
               await github.rest.issues.createComment({
                 owner, repo,
                 issue_number: issue.number,
-                body: `⚠️ **Already assigned** to @${currentAssignees[0]}.\n\nPlease check with them or pick another issue.${altText}`
+                body: '⚠️ **Already assigned** to @' + currentAssignees[0] + '.\n\nPlease check with them or pick another issue.' + altText
               });
               
               await github.rest.reactions.createForIssueComment({
@@ -59,11 +57,10 @@ jobs:
             }
 
             if (currentAssignees.includes(commenter)) {
-              console.log(`${commenter} already assigned`);
+              console.log(commenter + ' already assigned');
               return;
             }
 
-            // Workload check - count user's current assignments
             const userIssues = await github.rest.issues.listForRepo({
               owner, repo,
               state: 'open',
@@ -71,13 +68,13 @@ jobs:
               per_page: 100
             });
 
-            const assignedCount = userIssues.data.filter(i => !i.pull_request).length;
+            const assignedCount = userIssues.data.filter(function(i) { return !i.pull_request; }).length;
 
             if (assignedCount >= 5) {
               await github.rest.issues.createComment({
                 owner, repo,
                 issue_number: issue.number,
-                body: `🚫 **Workload limit reached!** @${commenter}, you currently have **${assignedCount} issues** assigned.\n\nPlease complete some of your current work before taking new issues. This helps ensure fair distribution among all contributors.`
+                body: '🚫 **Workload limit reached!** @' + commenter + ', you currently have **' + assignedCount + ' issues** assigned.\n\nPlease complete some of your current work before taking new issues.'
               });
               
               await github.rest.reactions.createForIssueComment({
@@ -92,18 +89,16 @@ jobs:
               await github.rest.issues.createComment({
                 owner, repo,
                 issue_number: issue.number,
-                body: `⚠️ **Heads up!** @${commenter}, you have **${assignedCount} issues** assigned. Consider completing some before taking more.\n\n_Assigning anyway, but please be mindful of your workload._`
+                body: '⚠️ **Heads up!** @' + commenter + ', you have **' + assignedCount + ' issues** assigned. Consider completing some before taking more.'
               });
             }
 
-            // Assign the commenter
             await github.rest.issues.addAssignees({
               owner, repo,
               issue_number: issue.number,
               assignees: [commenter]
             });
 
-            // Update labels
             try {
               await github.rest.issues.removeLabel({
                 owner, repo,
@@ -111,7 +106,7 @@ jobs:
                 name: 'status: available'
               });
             } catch (e) {
-              console.log('Label "status: available" not found');
+              console.log('Label not found');
             }
 
             await github.rest.issues.addLabels({
@@ -120,7 +115,6 @@ jobs:
               labels: ['status: in-progress']
             });
 
-            // Add success reaction and confirmation
             await github.rest.reactions.createForIssueComment({
               owner, repo,
               comment_id: comment.id,
@@ -130,7 +124,7 @@ jobs:
             await github.rest.issues.createComment({
               owner, repo,
               issue_number: issue.number,
-              body: `✅ **Assigned to @${commenter}!**\n\n**Next steps:**\n1. Fork the repo (if you haven't)\n2. Create a branch for this issue\n3. Make your changes\n4. Open a PR referencing this issue\n\nGood luck! 🚀`
+              body: '✅ **Assigned to @' + commenter + '!**\n\n**Next steps:**\n1. Fork the repo\n2. Create a branch\n3. Make your changes\n4. Open a PR\n\nGood luck!'
             });
 
       - name: Process /unassign command
@@ -146,25 +140,22 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            // Check if user is actually assigned
-            const currentAssignees = issue.assignees.map(a => a.login);
+            const currentAssignees = issue.assignees.map(function(a) { return a.login; });
             if (!currentAssignees.includes(commenter)) {
               await github.rest.issues.createComment({
                 owner, repo,
                 issue_number: issue.number,
-                body: `ℹ️ @${commenter}, you are not currently assigned to this issue.`
+                body: 'ℹ️ @' + commenter + ', you are not currently assigned to this issue.'
               });
               return;
             }
 
-            // Remove assignment
             await github.rest.issues.removeAssignees({
               owner, repo,
               issue_number: issue.number,
               assignees: [commenter]
             });
 
-            // Update labels only if no other assignees remain
             const updatedIssue = await github.rest.issues.get({
               owner, repo,
               issue_number: issue.number
@@ -178,7 +169,7 @@ jobs:
                   name: 'status: in-progress'
                 });
               } catch (e) {
-                console.log('Label "status: in-progress" not found');
+                console.log('Label not found');
               }
 
               await github.rest.issues.addLabels({
@@ -191,7 +182,7 @@ jobs:
             await github.rest.issues.createComment({
               owner, repo,
               issue_number: issue.number,
-              body: `👋 @${commenter} has unassigned themselves. This issue is now available for others!`
+              body: '👋 @' + commenter + ' has unassigned themselves. This issue is now available!'
             });
 
             await github.rest.reactions.createForIssueComment({
@@ -212,7 +203,6 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            // Get user's assigned issues
             const userIssues = await github.rest.issues.listForRepo({
               owner, repo,
               state: 'open',
@@ -220,21 +210,21 @@ jobs:
               per_page: 20
             });
 
-            const issues = userIssues.data.filter(i => !i.pull_request);
+            const issues = userIssues.data.filter(function(i) { return !i.pull_request; });
 
             if (issues.length === 0) {
               await github.rest.issues.createComment({
                 owner, repo,
                 issue_number: context.payload.issue.number,
-                body: `📋 **Status for @${commenter}:**\n\nYou have **no issues** currently assigned. Use \`/assign\` on an issue to get started!`
+                body: '📋 **Status for @' + commenter + ':**\n\nYou have **no issues** currently assigned. Use `/assign` on an issue to get started!'
               });
               return;
             }
 
-            const issueList = issues.map(i => `- #${i.number}: ${i.title}`).join('\n');
+            const issueList = issues.map(function(i) { return '- #' + i.number + ': ' + i.title; }).join('\n');
 
             await github.rest.issues.createComment({
               owner, repo,
               issue_number: context.payload.issue.number,
-              body: `📋 **Status for @${commenter}:**\n\n**Assigned issues (${issues.length}):**\n${issueList}\n\n_Use \`/unassign\` to release an issue._`
+              body: '📋 **Status for @' + commenter + ':**\n\n**Assigned issues (' + issues.length + '):**\n' + issueList + '\n\n_Use `/unassign` to release an issue._'
             });
