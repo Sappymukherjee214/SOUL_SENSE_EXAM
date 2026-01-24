@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 from ..services.db_service import get_db, AssessmentService
-from ..models.schemas import (
+from ..schemas import (
     AssessmentListResponse,
     AssessmentResponse,
     AssessmentDetailResponse,

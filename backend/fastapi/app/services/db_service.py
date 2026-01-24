@@ -3,29 +3,10 @@ from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker, Session
 from typing import List, Optional, Tuple
 from datetime import datetime
-import sys
-from pathlib import Path
 
-# Add project root to path to import models
-import os
-import importlib.util
+# Import model classes from root_models module (handles namespace collision)
+from app.root_models import Base, Score, Response, Question, QuestionCategory
 
-# Get absolute path to SOUL_SENSE_EXAM/app/models.py
-current_dir = os.path.dirname(__file__)
-models_path = os.path.abspath(os.path.join(current_dir, '..', '..', '..', '..', 'app', 'models.py'))
-
-# Load the models module
-spec = importlib.util.spec_from_file_location("app.models", models_path)
-models_module = importlib.util.module_from_spec(spec)
-sys.modules['app.models'] = models_module
-spec.loader.exec_module(models_module)
-
-# Import the classes we need
-Base = models_module.Base
-Score = models_module.Score
-Response = models_module.Response
-Question = models_module.Question
-QuestionCategory = models_module.QuestionCategory
 from ..config import get_settings
 
 settings = get_settings()

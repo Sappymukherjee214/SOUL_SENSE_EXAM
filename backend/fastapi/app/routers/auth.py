@@ -1,19 +1,19 @@
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 
 from ..config import get_settings
-from ..models.schemas import UserCreate, Token, UserResponse
+from ..schemas import UserCreate, Token, UserResponse
 from ..services.db_service import get_db
-from app.models import User
+from app.root_models import User
 import bcrypt
 
 router = APIRouter()
 settings = get_settings()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -37,7 +37,7 @@ def authenticate_user(username: str, password: str):
         db.close()
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(hours=settings.jwt_expiration_hours))
     to_encode.update({"exp": expire, "sub": data.get("sub")})

@@ -12,7 +12,7 @@ Provides authenticated CRUD endpoints for all user profile types:
 from typing import Annotated
 from fastapi import APIRouter, Depends, status
 
-from ..models.schemas import (
+from ..schemas import (
     # User Settings
     UserSettingsCreate,
     UserSettingsUpdate,
@@ -37,9 +37,9 @@ from ..models.schemas import (
 from ..services.profile_service import ProfileService
 from ..routers.auth import get_current_user
 from ..services.db_service import get_db
-from app.models import User
+from app.root_models import User
 
-router = APIRouter(prefix="/profiles", tags=["Profiles"])
+router = APIRouter(tags=["Profiles"])
 
 
 def get_profile_service():

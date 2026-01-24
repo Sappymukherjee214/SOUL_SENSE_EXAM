@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response as FastApiResponse
 from sqlalchemy.orm import Session
 
-from ..models.schemas import (
+from ..schemas import (
     JournalCreate,
     JournalUpdate,
     JournalResponse,
@@ -30,9 +30,9 @@ from ..models.schemas import (
 from ..services.journal_service import JournalService, get_journal_prompts
 from ..services.db_service import get_db
 from ..routers.auth import get_current_user
-from app.models import User
+from app.root_models import User
 
-router = APIRouter(prefix="/v1/journal", tags=["Journal"])
+router = APIRouter(tags=["Journal"])
 
 
 def get_journal_service(db: Session = Depends(get_db)):

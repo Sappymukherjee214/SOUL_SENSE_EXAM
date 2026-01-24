@@ -7,7 +7,7 @@ Provides authenticated CRUD endpoints for user management.
 from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..models.schemas import (
+from ..schemas import (
     UserResponse,
     UserUpdate,
     UserDetail,
@@ -17,9 +17,9 @@ from ..services.user_service import UserService
 from ..services.profile_service import ProfileService
 from ..routers.auth import get_current_user
 from ..services.db_service import get_db
-from app.models import User
+from app.root_models import User
 
-router = APIRouter(prefix="/users", tags=["Users"])
+router = APIRouter(tags=["Users"])
 
 
 def get_user_service():

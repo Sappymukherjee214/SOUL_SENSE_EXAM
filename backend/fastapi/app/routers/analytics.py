@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from ..services.db_service import get_db
 from ..services.analytics_service import AnalyticsService
-from ..models.schemas import (
+from ..schemas import (
     AnalyticsSummary,
     TrendAnalytics,
     BenchmarkComparison,

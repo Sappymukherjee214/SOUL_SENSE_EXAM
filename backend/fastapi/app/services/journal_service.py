@@ -10,21 +10,15 @@ Handles business logic for journal entries including:
 
 import json
 import os
-import sys
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import List, Optional, Tuple
 
 from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-# Add project root to path for imports
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
-
-from app.models import JournalEntry, User
+# Import models from root_models module (handles namespace collision)
+from app.root_models import JournalEntry, User
 
 
 # ============================================================================
@@ -154,6 +148,7 @@ class JournalService:
             emotional_patterns=emotional_patterns,
             word_count=word_count,
             tags=self._parse_tags(tags),
+            privacy_level=privacy_level,
             entry_date=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             sleep_hours=sleep_hours,
             sleep_quality=sleep_quality,

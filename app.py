@@ -3,8 +3,14 @@ import tkinter as tk
 from tkinter import messagebox
 import time
 
+import os
+
 # ================= DATABASE SETUP =================
-conn = sqlite3.connect("soulsense_db.db")
+# Use absolute path relative to the project root for consistency
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "data", "soulsense.db")
+
+conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
 cursor.execute("""
