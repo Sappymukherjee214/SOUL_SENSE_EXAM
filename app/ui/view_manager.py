@@ -4,7 +4,7 @@ from app.ui.journal import JournalFeature
 from app.ui.assessments import AssessmentHub
 from app.ui.results import ResultsManager
 from app.ui.profile import UserProfileView
-from app.exam import ExamManager
+from app.ui.exam import ExamManager
 from app.logger import get_logger
 from typing import TYPE_CHECKING
 
