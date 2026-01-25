@@ -1,8 +1,10 @@
 import bcrypt
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.db import safe_db_context
 from app.models import User
 import logging
+import secrets
+import time
 
 class AuthManager:
     def __init__(self):
@@ -33,13 +35,12 @@ class AuthManager:
             return False, "Password must be at least 8 characters"
         if not self._validate_password_strength(password):
             return False, "Password must contain uppercase, lowercase, number and special character"
-        
-        session = get_session()
-        try:
+
+        with safe_db_context() as session:
             existing_user = session.query(User).filter_by(username=username).first()
             if existing_user:
                 return False, "Username already exists"
-            
+
             password_hash = self.hash_password(password)
             new_user = User(
                 username=username,
@@ -47,25 +48,19 @@ class AuthManager:
                 created_at=datetime.utcnow().isoformat()
             )
             session.add(new_user)
-            session.commit()
             return True, "Registration successful"
-        
-        except Exception as e:
-            session.rollback()
-            logging.error(f"Registration failed: {e}")
-            return False, "Registration failed"
-        finally:
-            session.close()
     
     def login_user(self, username, password):
-<<<<<<< HEAD
-        with safe_db_context() as session:
-=======
         # Check rate limiting
         if self._is_locked_out(username):
             return False, "Account temporarily locked due to failed attempts"
-            
-        try:
+
+        with safe_db_context() as session:
+            user = session.query(User).filter_by(username=username).first()
+            if user and self.verify_password(password, user.password_hash):
+                self._reset_failed_attempts(username)
+                self.current_user = user
+                self._generate_session_token()
                 return True, "Login successful"
             else:
                 self._record_failed_attempt(username)

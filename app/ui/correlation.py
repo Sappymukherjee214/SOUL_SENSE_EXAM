@@ -10,7 +10,7 @@ from matplotlib.figure import Figure
 
 # App imports
 from app.models import Score, JournalEntry
-from app.db import get_session
+from app.db import get_session, safe_db_context
 
 class CorrelationTab:
     def __init__(self, parent_frame, username):

@@ -13,7 +13,7 @@ from sqlalchemy import desc, text
 from app.i18n_manager import get_i18n
 from app.i18n_manager import get_i18n
 from app.models import JournalEntry, User
-from app.db import get_session
+from app.db import get_session, safe_db_context
 from app.services.journal_service import JournalService
 from app.validation import validate_required, validate_length, validate_range, sanitize_text, RANGES
 from app.validation import MAX_TEXT_LENGTH
