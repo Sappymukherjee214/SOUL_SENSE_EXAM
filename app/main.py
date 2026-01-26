@@ -1,4 +1,3 @@
-
 import signal
 import atexit
 import tkinter as tk
