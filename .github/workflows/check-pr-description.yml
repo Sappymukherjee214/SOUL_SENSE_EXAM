@@ -59,7 +59,7 @@ jobs:
               "\n\nPlease update the description.";
 
             if (isFork) {
-              core.warning("Fork detected. Skipping comment creation due to potential permission restrictions (403).\n\n" + feedback);
+              core.warning("Fork detected. Skipping comment creation to avoid 403 error.\n\n" + feedback);
               return;
             }
 
