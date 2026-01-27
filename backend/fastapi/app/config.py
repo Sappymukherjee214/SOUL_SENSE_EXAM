@@ -44,6 +44,11 @@ class BaseAppSettings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
     jwt_expiration_hours: int = Field(default=24, ge=1, description="JWT expiration hours")
 
+    # GitHub Configuration
+    github_token: Optional[str] = Field(default=None, description="GitHub Personal Access Token")
+    github_repo_owner: str = Field(default="Rohanrathod7", description="GitHub Repository Owner")
+    github_repo_name: str = Field(default="SOUL_SENSE_EXAM", description="GitHub Repository Name")
+
     # CORS Configuration
     allowed_origins: str = Field(
         default='["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:8000"]',

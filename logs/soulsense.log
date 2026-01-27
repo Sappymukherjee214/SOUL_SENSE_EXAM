@@ -1295,3 +1295,28 @@ AttributeError: 'SidebarNav' object has no attribute 'buttons'
 2026-01-27 17:18:54 - app.shutdown_handler - INFO - [shutdown_handler.py:56] - Initiating graceful application shutdown...
 2026-01-27 17:18:54 - app.shutdown_handler - INFO - [shutdown_handler.py:65] - Database session committed and removed successfully
 2026-01-27 17:18:54 - app.shutdown_handler - INFO - [shutdown_handler.py:70] - Application shutdown complete
+2026-01-27 18:41:16 - root - INFO - [logger.py:85] - Logging initialized.
+2026-01-27 18:41:16 - app.startup_checks - INFO - [startup_checks.py:302] - Running startup integrity checks...
+2026-01-27 18:41:16 - app.startup_checks - INFO - [startup_checks.py:272] - Config integrity check passed
+2026-01-27 18:41:16 - app.startup_checks - INFO - [startup_checks.py:320] - ✓ config_integrity: Configuration is valid
+2026-01-27 18:41:16 - app.startup_checks - INFO - [startup_checks.py:195] - Required files check passed
+2026-01-27 18:41:16 - app.startup_checks - INFO - [startup_checks.py:320] - ✓ required_files: All required files and directories present
+2026-01-27 18:41:16 - app.startup_checks - INFO - [startup_checks.py:121] - Database schema check passed
+2026-01-27 18:41:16 - app.startup_checks - INFO - [startup_checks.py:320] - ✓ database_schema: All required tables present
+2026-01-27 18:41:16 - app.startup_checks - INFO - [startup_checks.py:345] - Integrity checks complete: 3 passed, 0 warnings, 0 failed
+2026-01-27 18:41:16 - __main__ - INFO - [main.py:135] - Startup Integrity Check Results:
+========================================
+✓ config_integrity: Configuration is valid
+✓ required_files: All required files and directories present
+✓ database_schema: All required tables present
+========================================
+2026-01-27 18:41:16 - __main__ - INFO - [main.py:164] - Preloading questions into memory...
+2026-01-27 18:41:16 - app.questions - INFO - [questions.py:52] - Loaded 100 active questions into memory.
+2026-01-27 18:42:38 - app.services.exam_service - INFO - [exam_service.py:180] - Exam session started for user: rohan
+2026-01-27 18:43:01 - app.ui.app_initializer - INFO - [app_initializer.py:204] - Database session removed during logout
+2026-01-27 18:43:03 - app.shutdown_handler - INFO - [shutdown_handler.py:56] - Initiating graceful application shutdown...
+2026-01-27 18:43:03 - app.shutdown_handler - INFO - [shutdown_handler.py:65] - Database session committed and removed successfully
+2026-01-27 18:43:03 - app.shutdown_handler - INFO - [shutdown_handler.py:70] - Application shutdown complete
+2026-01-27 18:43:03 - app.shutdown_handler - INFO - [shutdown_handler.py:56] - Initiating graceful application shutdown...
+2026-01-27 18:43:03 - app.shutdown_handler - INFO - [shutdown_handler.py:65] - Database session committed and removed successfully
+2026-01-27 18:43:03 - app.shutdown_handler - INFO - [shutdown_handler.py:70] - Application shutdown complete
