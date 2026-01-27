@@ -6,9 +6,9 @@ import json
 import threading
 from unittest.mock import MagicMock, patch
 from app.startup_checks import run_all_checks, CheckStatus, check_config_integrity
-from app.models import get_session
+from app.db import get_session
 from sqlalchemy import text
-from app.main import SoulSenseApp
+from app.main_refactored import SoulSenseApp
 from app.config import CONFIG_PATH, DEFAULT_CONFIG
 from app.questions import initialize_questions, _ALL_QUESTIONS
 
@@ -36,8 +36,8 @@ def test_database_connection():
     except Exception as e:
         pytest.fail(f"Database connection failed: {e}")
 
-@patch("app.main.UIStyles")
-@patch("app.main.get_logger")
+@patch("app.ui.styles.UIStyles")
+@patch("app.logger.get_logger")
 @patch("tkinter.Tk")
 def test_app_initialization_verification(mock_tk, mock_logger, mock_styles):
     """
