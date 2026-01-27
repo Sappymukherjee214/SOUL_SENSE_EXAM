@@ -40,12 +40,19 @@ class SidebarNav(tk.Frame):
             self.header_frame, 
             text="❮", 
             font=self.app.ui_styles.get_font("sm", "bold"),
-            bg=self.app.colors.get("sidebar_bg"),
-            fg=self.app.colors.get("sidebar_divider"),
-            cursor="hand2"
+            bg=self.app.colors.get("sidebar_divider", "#4A5568"),
+            fg="white",
+            padx=8,
+            pady=2,
+            cursor="hand2",
+            relief="flat"
         )
-        self.toggle_btn.pack(side="top", anchor="e", padx=5)
+        self.toggle_btn.pack(side="top", anchor="e", padx=5, pady=(0, 5))
         self.toggle_btn.bind("<Button-1>", lambda e: self.toggle_collapse())
+        
+        # Hover effect for toggle
+        self.toggle_btn.bind("<Enter>", lambda e: self.toggle_btn.configure(bg=self.app.colors.get("sidebar_active", "#4C51BF")))
+        self.toggle_btn.bind("<Leave>", lambda e: self.toggle_btn.configure(bg=self.app.colors.get("sidebar_divider", "#4A5568")))
 
         # Main Header Content (Avatar + Name)
         self.header_content = tk.Frame(self.header_frame, bg=self.app.colors.get("sidebar_bg"))
@@ -290,49 +297,67 @@ class SidebarNav(tk.Frame):
         self.logout_text.configure(bg=bg_color)
 
     def toggle_collapse(self):
-        """Toggle between mini and full sidebar"""
+        """Toggle between mini and full sidebar with animation"""
         self.is_collapsed = not self.is_collapsed
-        new_width = self.collapsed_width if self.is_collapsed else self.expanded_width
+        target_width = self.collapsed_width if self.is_collapsed else self.expanded_width
         
-        # Update Container Width
-        self.configure(width=new_width)
-        
-        # Update Header
+        # Update Icon immediately
         self.toggle_btn.configure(text="❯" if self.is_collapsed else "❮")
+        
         if self.is_collapsed:
+            # Preparing for collapse: hide text early to avoid layout glitch
             self.info_frame.pack_forget()
             self.header_frame.configure(padx=0)
             self.avatar_canvas.pack(side="top", pady=10)
-        else:
+            
+            for item_id, widgets in self.buttons.items():
+                widgets["text"].pack_forget()
+                widgets["indicator"].pack_forget()
+                widgets["icon"].pack(side="top", pady=10, fill="none", expand=True)
+                
+            if hasattr(self, 'footer_frame'):
+                self.logout_text.pack_forget()
+                self.logout_icon.pack(side="top", pady=10, fill="none", expand=True)
+
+        self._animate_sidebar(target_width)
+
+    def _animate_sidebar(self, target_width):
+        """Step-based width animation"""
+        current_width = self.winfo_width()
+        step = 20 # Pixels per frame
+        
+        if abs(current_width - target_width) <= step:
+            self.configure(width=target_width)
+            self._finalize_toggle_state()
+            return
+
+        next_width = current_width + (step if target_width > current_width else -step)
+        self.configure(width=next_width)
+        self.after(10, lambda: self._animate_sidebar(target_width))
+
+    def _finalize_toggle_state(self):
+        """Finalize UI elements after animation finish"""
+        if not self.is_collapsed:
+            # Restoration for Expanded Mode
             self.avatar_canvas.pack_forget()
             self.avatar_canvas.pack(side="left", pady=0)
             self.info_frame.pack(side="left", padx=15, fill="both", expand=True)
             self.header_frame.configure(padx=10)
-
-        # Update Nav Items
-        for item_id, widgets in self.buttons.items():
-            # Clear all current packing to ensure order
-            widgets["indicator"].pack_forget()
-            widgets["icon"].pack_forget()
-            widgets["text"].pack_forget()
             
-            if self.is_collapsed:
-                widgets["frame"].configure(padx=0)
-                widgets["icon"].pack(side="top", pady=10, fill="none", expand=True)
-            else:
-                widgets["frame"].configure(padx=0)
+            for item_id, widgets in self.buttons.items():
+                # Clear and Repack to ensure order
+                widgets["indicator"].pack_forget()
+                widgets["icon"].pack_forget()
+                widgets["text"].pack_forget()
+                
                 widgets["indicator"].pack(side="left", fill="y", pady=8, padx=(0, 8))
                 widgets["icon"].pack(side="left", padx=5)
                 widgets["text"].pack(side="left", padx=10)
+                widgets["frame"].configure(padx=0)
 
-        # Update Footer
-        if hasattr(self, 'footer_frame'):
-            self.logout_icon.pack_forget()
-            self.logout_text.pack_forget()
-            
-            if self.is_collapsed:
-                self.logout_icon.pack(side="top", pady=10, fill="none", expand=True)
-            else:
+            if hasattr(self, 'footer_frame'):
+                self.logout_icon.pack_forget()
+                self.logout_text.pack_forget()
                 self.logout_icon.pack(side="left", padx=5)
                 self.logout_text.pack(side="left", padx=10)
 
