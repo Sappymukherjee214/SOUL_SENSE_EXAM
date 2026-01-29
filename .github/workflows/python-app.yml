@@ -32,7 +32,7 @@ jobs:
         run: mypy app/
 
       - name: Type Check Backend App
-        run: mypy app/
+        run: mypy .
         working-directory: ./backend/fastapi
 
       - name: Lint with flake8
