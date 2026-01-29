@@ -100,7 +100,7 @@ class AppInitializer:
         login_win.grab_set()
 
         # Prevent closing without login
-        login_win.protocol("WM_DELETE_WINDOW", lambda: self.app.root.destroy())
+        login_win.protocol("WM_DELETE_WINDOW", lambda: None)
 
         # Center popup
         login_win.update_idletasks()
@@ -163,14 +163,11 @@ class AppInitializer:
 
             if success:
                 self.app.username = user
-
-                # close popup first
                 login_win.grab_release()
                 login_win.destroy()
-
-                # load settings + init UI
                 self._load_user_settings(user)
                 self._post_login_init()
+
             else:
                 messagebox.showerror("Login Failed", msg)
 
