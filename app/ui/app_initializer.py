@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import messagebox   # ✅ FIX
 from app.ui.sidebar import SidebarNav
 from app.ui.styles import UIStyles
 from app.i18n_manager import get_i18n
@@ -7,12 +8,17 @@ from app.auth import AuthManager
 from app.logger import get_logger
 from typing import Optional, Dict, Any
 
+
 class AppInitializer:
     def __init__(self, app):
         self.app = app
         self.setup_ui()
         self.load_initial_data()
-        self.start_login_flow()
+        self.start_login_flow()   # ✅ now this will work
+
+    def start_login_flow(self):
+        """Start login flow on app launch"""
+        self.show_login_screen()
 
     def setup_ui(self):
         """Set up the main UI components"""
@@ -51,14 +57,19 @@ class AppInitializer:
         self.app.main_container.pack(fill="both", expand=True)
 
         # Sidebar (Initialized but hidden until login)
-        self.app.sidebar = SidebarNav(self.app.main_container, self.app, [
-            {"id": "home", "label": "Home", "icon": "🏠"},
-            {"id": "exam", "label": "Assessment", "icon": "🧠"},
-            {"id": "dashboard", "label": "Dashboard", "icon": "📊"},
-            {"id": "journal", "label": "Journal", "icon": "📝"},
-            {"id": "assessments", "label": "Deep Dive", "icon": "🔍"},
-            {"id": "history", "label": "History", "icon": "📚"},
-        ], on_change=self.app.switch_view)
+        self.app.sidebar = SidebarNav(
+            self.app.main_container,
+            self.app,
+            [
+                {"id": "home", "label": "Home", "icon": "🏠"},
+                {"id": "exam", "label": "Assessment", "icon": "🧠"},
+                {"id": "dashboard", "label": "Dashboard", "icon": "📊"},
+                {"id": "journal", "label": "Journal", "icon": "📝"},
+                {"id": "assessments", "label": "Deep Dive", "icon": "🔍"},
+                {"id": "history", "label": "History", "icon": "📚"},
+            ],
+            on_change=self.app.switch_view
+        )
 
         # Content Area
         self.app.content_area = tk.Frame(self.app.main_container, bg=self.app.colors["bg"])
@@ -73,8 +84,7 @@ class AppInitializer:
             self.app.questions = load_questions()
         except Exception as e:
             self.app.logger.error(f"Failed to load questions: {e}")
-            tk.messagebox.showerror("Error", f"Could not load questions: {e}")
-
+            messagebox.showerror("Error", f"Could not load questions: {e}")  # ✅ FIX
 
     def show_login_screen(self):
         """Show login popup on startup"""
@@ -95,23 +105,45 @@ class AppInitializer:
         login_win.geometry(f"+{x}+{y}")
 
         # Logo/Title
-        tk.Label(login_win, text="SoulSense AI", font=("Segoe UI", 24, "bold"),
-                 bg=self.app.colors["bg"], fg=self.app.colors["primary"]).pack(pady=(40, 10))
+        tk.Label(
+            login_win,
+            text="SoulSense AI",
+            font=("Segoe UI", 24, "bold"),
+            bg=self.app.colors["bg"],
+            fg=self.app.colors["primary"]
+        ).pack(pady=(40, 10))
 
-        tk.Label(login_win, text="Login to continue", font=("Segoe UI", 12),
-                 bg=self.app.colors["bg"], fg=self.app.colors["text_secondary"]).pack(pady=(0, 30))
+        tk.Label(
+            login_win,
+            text="Login to continue",
+            font=("Segoe UI", 12),
+            bg=self.app.colors["bg"],
+            fg=self.app.colors["text_secondary"]
+        ).pack(pady=(0, 30))
 
         # Form
         entry_frame = tk.Frame(login_win, bg=self.app.colors["bg"])
         entry_frame.pack(fill="x", padx=40)
 
-        tk.Label(entry_frame, text="Username", font=("Segoe UI", 10, "bold"),
-                 bg=self.app.colors["bg"], fg=self.app.colors["text_primary"]).pack(anchor="w")
+        tk.Label(
+            entry_frame,
+            text="Username",
+            font=("Segoe UI", 10, "bold"),
+            bg=self.app.colors["bg"],
+            fg=self.app.colors["text_primary"]
+        ).pack(anchor="w")
+
         username_entry = tk.Entry(entry_frame, font=("Segoe UI", 12))
         username_entry.pack(fill="x", pady=(5, 15))
 
-        tk.Label(entry_frame, text="Password", font=("Segoe UI", 10, "bold"),
-                 bg=self.app.colors["bg"], fg=self.app.colors["text_primary"]).pack(anchor="w")
+        tk.Label(
+            entry_frame,
+            text="Password",
+            font=("Segoe UI", 10, "bold"),
+            bg=self.app.colors["bg"],
+            fg=self.app.colors["text_primary"]
+        ).pack(anchor="w")
+
         password_entry = tk.Entry(entry_frame, font=("Segoe UI", 12), show="*")
         password_entry.pack(fill="x", pady=(5, 20))
 
@@ -120,7 +152,7 @@ class AppInitializer:
             pwd = password_entry.get().strip()
 
             if not user or not pwd:
-                tk.messagebox.showerror("Error", "Please enter username and password")
+                messagebox.showerror("Error", "Please enter username and password")
                 return
 
             success, msg = self.app.auth.login_user(user, pwd)
@@ -130,35 +162,48 @@ class AppInitializer:
                 login_win.destroy()
                 self._post_login_init()
             else:
-                tk.messagebox.showerror("Login Failed", msg)
+                messagebox.showerror("Login Failed", msg)
 
         def do_register():
             user = username_entry.get().strip()
             pwd = password_entry.get().strip()
 
             if not user or not pwd:
-                tk.messagebox.showerror("Error", "Please enter username and password")
+                messagebox.showerror("Error", "Please enter username and password")
                 return
 
             success, msg = self.app.auth.register_user(user, pwd)
             if success:
-                tk.messagebox.showinfo("Success", "Account created! You can now login.")
+                messagebox.showinfo("Success", "Account created! You can now login.")
             else:
-                tk.messagebox.showerror("Registration Failed", msg)
+                messagebox.showerror("Registration Failed", msg)
 
         # Buttons
-        tk.Button(login_win, text="Login", command=do_login,
-                 font=("Segoe UI", 12, "bold"), bg=self.app.colors["primary"], fg="white",
-                 width=20).pack(pady=10)
+        tk.Button(
+            login_win,
+            text="Login",
+            command=do_login,
+            font=("Segoe UI", 12, "bold"),
+            bg=self.app.colors["primary"],
+            fg="white",
+            width=20
+        ).pack(pady=10)
 
-        tk.Button(login_win, text="Create Account", command=do_register,
-                 font=("Segoe UI", 10), bg=self.app.colors["bg"], fg=self.app.colors["primary"],
-                 bd=0, cursor="hand2").pack()
+        tk.Button(
+            login_win,
+            text="Create Account",
+            command=do_register,
+            font=("Segoe UI", 10),
+            bg=self.app.colors["bg"],
+            fg=self.app.colors["primary"],
+            bd=0,
+            cursor="hand2"
+        ).pack()
 
     def _load_user_settings(self, username: str):
         """Load settings from DB for user"""
         try:
-            from app.db import get_session, safe_db_context
+            from app.db import safe_db_context
             from app.models import User
 
             with safe_db_context() as session:
@@ -171,9 +216,11 @@ class AppInitializer:
                             "question_count": user_obj.settings.question_count,
                             "sound_enabled": user_obj.settings.sound_enabled
                         }
-                        # Apply Theme immediately
+
+                        # ✅ FIX: Apply theme using ui_styles
                         if self.app.settings.get("theme"):
-                            self.app.apply_theme(self.app.settings["theme"])
+                            self.app.ui_styles.apply_theme(self.app.settings["theme"])
+
         except Exception as e:
             self.app.logger.error(f"Error loading settings: {e}")
 
@@ -210,5 +257,5 @@ class AppInitializer:
             for widget in self.app.content_area.winfo_children():
                 widget.destroy()
 
-        # Show Login Screen
+        # Show Login Screen again
         self.start_login_flow()
