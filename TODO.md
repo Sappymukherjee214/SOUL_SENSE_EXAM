@@ -1,29 +1,36 @@
-# Multi-Language Support Implementation - COMPLETED
+# AI-Powered EQ Insights Integration TODO
 
-## Tasks Completed
-- [x] Create settings table in app.py database for language preference
-- [x] Import and initialize i18n_manager in app.py
-- [x] Load saved language preference on app startup
-- [x] Replace hardcoded strings in splash screen with translations
-- [x] Replace hardcoded strings in user details screen with translations
-- [x] Add language selection dropdown in user details screen
-- [x] Replace hardcoded strings in quiz screen with translations
-- [x] Test UI layout with different languages
-- [x] Verify translations are complete and accurate
-- [x] Test right-to-left layout for Hindi if needed
+## Current Status
+- [x] Plan confirmed by user
+- [x] Create Insights Engine (app/ml/insights_generator.py)
+- [ ] Enhance Results Screen (app/ui/results.py)
+- [ ] Integrate with Existing ML (app/ml/predictor.py)
+- [ ] Add User Feedback Loop
+- [ ] Create Tests (tests/test_insights.py)
+- [ ] Train ML model on historical scores data
+- [ ] Test integration end-to-end
+- [ ] Implement feedback storage and refinement logic
 
-## Summary
-Multi-language support has been successfully implemented for the SoulSense desktop app. The app now supports English, Hindi, and Spanish with dynamic language switching.
+## Implementation Details
 
-### Key Features Added:
-- Language selection dropdown in user details screen
-- Persistent language preferences stored in database
-- All UI strings translated and dynamically loaded
-- Support for right-to-left languages (Hindi)
-- Complete translation coverage for all app screens
+### 1. Create Insights Engine (app/ml/insights_generator.py)
+- [ ] Analyze user data for trends using scikit-learn
+- [ ] Generate personalized improvement suggestions based on scores, strengths, and patterns
+- [ ] Train a simple ML model (regression) to predict EQ improvement paths
 
-### Files Modified:
-- app.py: Added i18n support, language selection, and replaced all hardcoded strings
+### 2. Enhance Results Screen (app/ui/results.py)
+- [ ] Add insights display section showing personalized recommendations
+- [ ] Integrate with existing ML analysis
+- [ ] Show next steps and actionable advice
 
-### Testing:
-Run `python app.py` to test the multi-language functionality. The language selection dropdown appears in the user details screen, and all text updates dynamically when a language is selected.
+### 3. Integrate with Existing ML (app/ml/predictor.py)
+- [ ] Extend predictor to include insights generation
+- [ ] Ensure consistency with current ML pipeline
+
+### 4. Add User Feedback Loop
+- [ ] Add feedback collection in results screen
+- [ ] Store feedback to refine recommendations over time
+
+### 5. Create Tests (tests/test_insights.py)
+- [ ] Test insight accuracy and edge cases
+- [ ] Validate ML model predictions
