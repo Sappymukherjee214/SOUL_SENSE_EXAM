@@ -165,9 +165,18 @@ _API will be available at http://localhost:8000. Use `--y` for non-interactive m
 #### **C. Web Frontend**
 
 ```bash
+backend: 
+
+cd backend/fastapi
+python start_server.py --y
+
+frontend:
+
 cd frontend-web
 npm install
 npm run dev
+
+
 ```
 
 _Web app will be available at http://localhost:3005. Requires Backend API to be running._

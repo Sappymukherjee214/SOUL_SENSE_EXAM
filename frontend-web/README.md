@@ -9,8 +9,16 @@ A modern Next.js 14 dashboard for the Soul Sense EQ Test platform.
 ### 1. Installation
 
 ```bash
+backend: 
+
+cd backend/fastapi
+python start_server.py --y
+
+frontend:
+
 cd frontend-web
 npm install
+npm run dev
 
 ```
 
