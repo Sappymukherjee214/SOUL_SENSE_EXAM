@@ -218,6 +218,34 @@ export default function RegisterPage() {
                   {showPassword ? 'Hide Password' : 'Show Password'}
                 </Button>
               </div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.45 }}
+              >
+                <FormField control={methods.control} name="acceptTerms" label="">
+                  {(field) => (
+                    <div className="flex items-center space-x-2 mb-4">
+                      <input
+                        type="checkbox"
+                        id="terms"
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        /* We can use our new Checkbox component too, but native input is safer for quick fix if imports are tricky */
+                      />
+                      <label
+                        htmlFor="terms"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        I accept the terms and conditions
+                      </label>
+                    </div>
+                  )}
+                </FormField>
+              </motion.div>
+
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
