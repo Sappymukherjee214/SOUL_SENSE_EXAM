@@ -11,19 +11,45 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from app.ui.dashboard import AnalyticsDashboard
 
 
+class MockTkinterParent:
+    """Mock class that mimics tkinter widget parent behavior"""
+    
+    def __init__(self):
+        self._last_child_ids = {}
+        self.tk = Mock()
+        self.tk.call = Mock(return_value='')
+        self._w = '.test_parent'
+        self._name = 'test_parent'
+        self.children = {}
+        self.master = None
+        
+    def configure(self, **kwargs):
+        """Mock configure method"""
+        pass
+    
+    def winfo_screenwidth(self):
+        return 1920
+    
+    def winfo_screenheight(self):
+        return 1080
+    
+    def winfo_width(self):
+        return 800
+    
+    def winfo_height(self):
+        return 600
+    
+    def __str__(self):
+        return self._w
+
+
 class TestProgressDashboard:
     """Test cases for the Progress Dashboard functionality"""
 
     @pytest.fixture
     def mock_parent(self):
-        """Create a mock parent widget"""
-        parent = Mock()
-        parent.configure = Mock()
-        parent._last_child_ids = {}
-        parent.tk = Mock()
-        parent.winfo_screenwidth = Mock(return_value=1920)
-        parent.winfo_screenheight = Mock(return_value=1080)
-        return parent
+        """Create a properly configured mock parent widget"""
+        return MockTkinterParent()
 
     @pytest.fixture
     def dashboard(self, mock_parent):
