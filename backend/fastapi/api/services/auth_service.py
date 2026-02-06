@@ -27,6 +27,35 @@ class AuthService:
     def __init__(self, db: Session = Depends(get_db)):
         self.db = db
 
+    def check_username_available(self, username: str) -> tuple[bool, str]:
+        """
+        Check if a username is available for registration.
+        Includes normalization, regex validation, reserved list check, and DB lookup.
+        """
+        import re
+        username_norm = username.strip().lower()
+        
+        # 1. Length check
+        if len(username_norm) < 3:
+            return False, "Username must be at least 3 characters"
+        if len(username_norm) > 20:
+            return False, "Username must not exceed 20 characters"
+            
+        # 2. Regex check
+        if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', username_norm):
+            return False, "Username must start with a letter and contain only alphanumeric characters and underscores"
+            
+        # 3. Reserved Words
+        reserved = {'admin', 'root', 'support', 'soulsense', 'system', 'official'}
+        if username_norm in reserved:
+            return False, "This username is reserved"
+            
+        # 4. DB Lookup
+        if self.db.query(User).filter(User.username == username_norm).first():
+            return False, "Username is already taken"
+            
+        return True, "Username is available"
+
     def hash_password(self, password: str) -> str:
         """Hash a password for storing."""
         salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)

@@ -106,6 +106,12 @@ class PasswordResetRequest(BaseModel):
         return v
 
 
+class UsernameAvailabilityResponse(BaseModel):
+    """Response for username availability check."""
+    available: bool
+    message: str
+
+
 class PasswordResetComplete(BaseModel):
     """Schema for completing password reset."""
     email: EmailStr
