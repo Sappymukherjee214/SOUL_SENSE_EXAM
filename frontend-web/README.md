@@ -45,6 +45,11 @@ This project uses **Tauri v2** to provide a native desktop experience:
 
 > [!NOTE]
 > **Port Management**: In Tauri mode, the shell automatically handles port 3005 (Frontend) and port 8000 (Backend). Do not run standalone servers simultaneously to avoid port conflicts.
+>
+> **Live Updates**:
+>
+> - **Frontend**: Saving files triggers **HMR** (instant updates in the window).
+> - **Backend**: Changes to Python code require a **rebuild** of the sidecar binary. Run `.\scripts\setup_tauri_env.ps1` from the root to update.
 
 ---
 

@@ -199,12 +199,20 @@ _Web app will be available at http://localhost:3005._
 
 For contributors, we provide a setup script to ensure your environment is ready for Tauri development:
 
-```powershell
+`powershell`bash
+
 # Windows (PowerShell)
+
 .\scripts\setup_tauri_env.ps1
-```
+
+````
 
 This script checks for Rust, installs the Tauri CLI, and verifies your configuration.
+
+> [!TIP]
+> **Development Workflow**:
+> - **Frontend Changes**: Reflected **instantly** in the Tauri window via HMR.
+> - **Backend Changes**: Require a **rebuild**. Rerun `.\scripts\setup_tauri_env.ps1` to sync Python logic.
 
 ---
 
@@ -249,7 +257,7 @@ journal = requests.post("http://localhost:8000/api/v1/journal", headers=headers,
     "content": "Today was productive but stressful...",
     "tags": ["work", "stress"]
 })
-```
+````
 
 #### CLI Tools
 
