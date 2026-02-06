@@ -2,7 +2,6 @@ import bcrypt
 import secrets
 import time
 from datetime import datetime, timedelta, UTC
-from datetime import datetime, timedelta, timezone
 from app.db import get_session
 from app.models import User, UserSession
 from app.security_config import PASSWORD_HASH_ROUNDS, LOCKOUT_DURATION_MINUTES
@@ -250,7 +249,6 @@ class AuthManager:
         if self.current_user is None:
             return False
         if self.session_expiry and datetime.now(UTC) > self.session_expiry:
-        if self.session_expiry and datetime.now(timezone.utc) > self.session_expiry:
             self.logout_user()
             return False
         return True
