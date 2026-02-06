@@ -4,9 +4,8 @@ from datetime import datetime
 from typing import List, Tuple
 from sqlalchemy.orm import Session
 from ..schemas import ExamResponseCreate, ExamResultCreate
-from ..root_models import User, Score
+from ..root_models import User, Score, Response
 from .db_service import get_db
-from app.models import Score, Response
 try:
     from app.auth.crypto import EncryptionManager
     CRYPTO_AVAILABLE = True

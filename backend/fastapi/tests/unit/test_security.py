@@ -1,11 +1,14 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
+from api.main import app
 
-client = TestClient(app)
+@pytest.fixture
+def client():
+    return TestClient(app)
 
-def test_security_headers_present():
+
+def test_security_headers_present(client):
     """Verify security headers are added to responses."""
     response = client.get("/api/v1/health")
     assert response.status_code == 200
@@ -15,7 +18,7 @@ def test_security_headers_present():
     assert headers["X-Content-Type-Options"] == "nosniff"
     assert headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
 
-def test_cors_allowed_origin():
+def test_cors_allowed_origin(client):
     """Verify CORS headers for allowed origin."""
     response = client.options(
         "/api/v1/health",
@@ -28,7 +31,7 @@ def test_cors_allowed_origin():
     assert response.headers["Access-Control-Allow-Origin"] == "http://localhost:3000"
     assert "GET" in response.headers["Access-Control-Allow-Methods"]
 
-def test_cors_disallowed_origin():
+def test_cors_disallowed_origin(client):
     """Verify disallowed origin does not receive CORS headers."""
     response = client.options(
         "/api/v1/health",
@@ -46,7 +49,7 @@ def test_cors_disallowed_origin():
     
     assert "Access-Control-Allow-Origin" not in response.headers
 
-def test_cors_credentials():
+def test_cors_credentials(client):
     """Verify credentials support."""
     response = client.options(
         "/api/v1/health",

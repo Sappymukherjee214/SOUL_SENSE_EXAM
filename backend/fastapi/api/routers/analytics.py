@@ -136,5 +136,57 @@ async def get_score_distribution(db: Session = Depends(get_db)):
     - 0-10, 11-20, 21-30, 31-40
     - Count and percentage for each range
     """
+
     distribution = AnalyticsService.get_score_distribution(db)
     return {"score_distribution": distribution}
+
+
+# ============================================================================
+# User Analytics Endpoints (PR 6.3)
+# ============================================================================
+
+from ..services.user_analytics_service import UserAnalyticsService
+from ..schemas import UserAnalyticsSummary, UserTrendsResponse
+from ..root_models import User
+from .auth import get_current_user
+
+@router.get("/me/summary", response_model=UserAnalyticsSummary)
+async def get_user_analytics_summary(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get personalized analytics summary for the current user.
+    
+    Returns:
+    - Total exams taken
+    - Average score
+    - Latest & Best scores
+    - Trends and consistency analysis
+    """
+    return UserAnalyticsService.get_dashboard_summary(db, current_user.id)
+
+
+@router.get("/me/trends", response_model=UserTrendsResponse)
+async def get_user_analytics_trends(
+    days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get time-series data for user charts.
+    
+    Params:
+    - days: Number of days to look back (default 30, max 365)
+    
+    Returns:
+    - EQ Score history
+    - Wellbeing metrics (Sleep, Stress, etc.)
+    """
+    eq_scores = UserAnalyticsService.get_eq_trends(db, current_user.id, days)
+    wellbeing = UserAnalyticsService.get_wellbeing_trends(db, current_user.id, days)
+    
+    return UserTrendsResponse(
+        eq_scores=eq_scores,
+        wellbeing=wellbeing
+    )

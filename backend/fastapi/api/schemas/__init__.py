@@ -161,6 +161,27 @@ class AssessmentStatsResponse(BaseModel):
     age_group_distribution: Dict[str, int]
 
 
+class ExamResponseCreate(BaseModel):
+    """Schema for saving a single question response (click)."""
+    question_id: int
+    value: int = Field(..., ge=1, le=4, description="Answer value (1-4)")
+    age_group: Optional[str] = Field(None, description="Age group context")
+    session_id: Optional[str] = Field(None, description="Exam session ID")
+
+
+class ExamResultCreate(BaseModel):
+    """Schema for submitting a completed exam score."""
+    total_score: int = Field(..., ge=0, le=100)
+    sentiment_score: float
+    reflection_text: Optional[str] = Field("", max_length=5000, description="User's reflection (will be encrypted)")
+    is_rushed: bool = False
+    is_inconsistent: bool = False
+    age: int = Field(..., ge=10, le=120)
+    age_group: str
+    detailed_age_group: str
+    session_id: Optional[str] = Field(None, description="Exam session ID")
+
+
 # ============================================================================
 # Question Schemas for API Router
 # ============================================================================
@@ -464,9 +485,71 @@ class CompleteProfileResponse(BaseModel):
     emotional_patterns: Optional[UserEmotionalPatternsResponse] = None
 
 
+
 # ============================================================================
-# Analytics Schemas
+# User Analytics Schemas (PR 6.3)
 # ============================================================================
+
+class UserAnalyticsSummary(BaseModel):
+    """Headline stats for the user dashboard."""
+    total_exams: int = Field(description="Total number of exams taken")
+    average_score: float = Field(description="Average score across all exams")
+    best_score: int = Field(description="Highest score achieved")
+    latest_score: int = Field(description="Most recent score")
+    sentiment_trend: str = Field(description="improving, declining, or stable")
+    streak_days: int = Field(default=0, description="Consecutive days with activity")
+    consistency_score: Optional[float] = Field(None, description="Coefficient of variation (lower is better)")
+
+
+class EQScorePoint(BaseModel):
+    """Single data point for EQ history charts."""
+    id: int
+    timestamp: str = Field(description="ISO 8601 UTC timestamp")
+    total_score: int
+    sentiment_score: Optional[float] = None
+
+
+class WellbeingPoint(BaseModel):
+    """Single data point for Wellbeing history (from Journal)."""
+    date: str = Field(description="YYYY-MM-DD date")
+    sleep_hours: Optional[float] = None
+    stress_level: Optional[int] = None
+    energy_level: Optional[int] = None
+    screen_time_mins: Optional[int] = None
+
+
+class UserTrendsResponse(BaseModel):
+    """Combined trends to reduce API roundtrips."""
+
+# ============================================================================
+# Deep Dive Schemas (PR 6.4)
+# ============================================================================
+
+class DeepDiveType(BaseModel):
+    """Metadata about an available deep dive assessment."""
+    id: str = Field(description="Unique identifier (e.g., 'career_clarity')")
+    label: str = Field(description="Human-readable title")
+    description: str = Field(description="Short description of purpose")
+    icon: str = Field(description="Emoji or icon identifier")
+
+class DeepDiveQuestion(BaseModel):
+    """A single question for a deep dive."""
+    id: int
+    text: str
+
+class DeepDiveSubmission(BaseModel):
+    """User submission for a deep dive."""
+    assessment_type: str
+    responses: Dict[str, int] = Field(description="Map of Question Text -> Score (1-5)")
+
+class DeepDiveResultResponse(BaseModel):
+    """Result summary for a deep dive."""
+    id: int
+    assessment_type: str
+    total_score: int
+    normalized_score: int = Field(description="Score normalized to 0-100")
+    timestamp: str = Field(description="ISO 8601 UTC timestamp")
+    details: Optional[Dict] = Field(None, description="Detailed breakdown if needed")
 
 class AgeGroupStats(BaseModel):
     """Aggregated statistics by age group"""
