@@ -124,11 +124,16 @@ class AppAuth:
         # Email validation error label for login (only shows for email-like input)
         login_email_error_label = tk.Label(entry_frame, text="", font=("Segoe UI", 8), 
                                            bg=self.app.colors["bg"], fg="#EF4444")
-        login_email_error_label.pack(anchor="w", pady=(0, 10))
+        login_email_error_label.pack(anchor="w", pady=(0, 2))
+        
+        # Email domain suggestion label (Issue #617)
+        login_email_suggestion_label = tk.Label(entry_frame, text="", font=("Segoe UI", 8, "italic"), 
+                                                bg=self.app.colors["bg"], fg="#3B82F6")
+        login_email_suggestion_label.pack(anchor="w", pady=(0, 5))
         
         # Real-time email validation for login (only if input looks like an email)
         def validate_login_email_realtime(event=None):
-            from app.validation import validate_email_strict
+            from app.validation import validate_email_strict, suggest_email_domain
             identifier = username_entry.get().strip()
             # Only validate if it looks like an email (contains @)
             if '@' in identifier:
@@ -137,11 +142,20 @@ class AppAuth:
                     login_email_error_label.config(text="")
                 else:
                     login_email_error_label.config(text=error_msg)
+                
+                # Check for domain suggestions (Issue #617)
+                suggestion = suggest_email_domain(identifier)
+                if suggestion:
+                    login_email_suggestion_label.config(text=f"💡 Did you mean {suggestion}?")
+                else:
+                    login_email_suggestion_label.config(text="")
             else:
                 login_email_error_label.config(text="")
+                login_email_suggestion_label.config(text="")
         
         username_entry.bind("<KeyRelease>", validate_login_email_realtime)
         username_entry.bind("<FocusOut>", validate_login_email_realtime)
+
 
         tk.Label(entry_frame, text="Password", font=("Segoe UI", 10, "bold"),
                  bg=self.app.colors["bg"], fg=self.app.colors["text_primary"]).pack(anchor="w")
@@ -574,12 +588,18 @@ class AppAuth:
                                      bg=self.app.colors.get("surface", "#FFFFFF"), fg="#EF4444")
         email_error_label.pack(anchor="w")
         
+        # Email domain suggestion label (Issue #617)
+        email_suggestion_label = tk.Label(em_frame, text="", font=("Segoe UI", 8, "italic"), 
+                                          bg=self.app.colors.get("surface", "#FFFFFF"), fg="#3B82F6")
+        email_suggestion_label.pack(anchor="w")
+        
         # Real-time email validation function
         def validate_email_realtime(event=None):
-            from app.validation import validate_email_strict
+            from app.validation import validate_email_strict, suggest_email_domain
             email = email_entry.get().strip()
             if not email:
                 email_error_label.config(text="")
+                email_suggestion_label.config(text="")
                 email_entry.config(highlightbackground=self.app.colors.get("border", "#E2E8F0"), highlightcolor=self.app.colors.get("border", "#E2E8F0"))
                 return
             is_valid, error_msg = validate_email_strict(email)
@@ -589,10 +609,18 @@ class AppAuth:
             else:
                 email_error_label.config(text=error_msg)
                 email_entry.config(highlightbackground="#EF4444", highlightcolor="#EF4444")
+            
+            # Check for domain suggestions (Issue #617)
+            suggestion = suggest_email_domain(email)
+            if suggestion:
+                email_suggestion_label.config(text=f"💡 Did you mean {suggestion}?")
+            else:
+                email_suggestion_label.config(text="")
         
         # Bind validation to key release and focus out events
         email_entry.bind("<KeyRelease>", validate_email_realtime)
         email_entry.bind("<FocusOut>", validate_email_realtime)
+
 
         # Row 2: Age & Gender
         ag_frame = tk.Frame(form_frame, bg=self.app.colors.get("surface", "#FFFFFF"))
