@@ -161,20 +161,34 @@ def mock_tk_variables(monkeypatch):
     monkeypatch.setattr("tkinter.BooleanVar", MockVar)
     monkeypatch.setattr("tkinter.DoubleVar", MockVar)
     
-    # Enhanced Mock Widget that supports cget and config
+        # Enhanced Mock Widget that supports cget and config
     class MockWidget(MagicMock):
         def __init__(self, master=None, **kwargs):
             super().__init__()
-            self._config = kwargs
+            self._config = {}
+            # Add missing methods that are called during window operations
+            self.transient = MagicMock()
+            self.grab_set = MagicMock()
+            self.geometry = MagicMock()
+            self.title = MagicMock()
+            self.resizable = MagicMock()
+            self.protocol = MagicMock()
+            self.focus_set = MagicMock()
+            self.pack = MagicMock()
+            self.grid = MagicMock()
+            self.place = MagicMock()
+            self.update_idletasks = MagicMock()
             
         def cget(self, key):
             return self._config.get(key, "")
             
         def configure(self, **kwargs):
             self._config.update(kwargs)
+            return None
             
         def config(self, **kwargs):
             self.configure(**kwargs)
+            return None
             
         def __getitem__(self, key):
              return self._config.get(key, "")
@@ -198,6 +212,8 @@ def mock_tk_variables(monkeypatch):
     monkeypatch.setattr("tkinter.Label", MockWidget)
     monkeypatch.setattr("tkinter.Entry", MockWidget)
     monkeypatch.setattr("tkinter.Button", MockWidget)
+    monkeypatch.setattr("tkinter.Checkbutton", MockWidget)  
+    monkeypatch.setattr("tkinter.OptionMenu", MockWidget)    
 
 @pytest.fixture
 def mock_app():
