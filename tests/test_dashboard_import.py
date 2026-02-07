@@ -83,6 +83,7 @@ class MockTkinterParent:
         return str(other) + str(self._w)
 
 
+@pytest.mark.serial
 class TestProgressDashboard:
     """Test cases for the Progress Dashboard functionality"""
 
