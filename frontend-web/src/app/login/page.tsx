@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Eye, EyeOff, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Form, FormField } from '@/components/forms';
 import { Button, Input } from '@/components/ui';
-import { AuthLayout, SocialLogin } from '@/components/auth';
+import { AuthLayout, SocialLogin, ForgotPasswordModal } from '@/components/auth';
 import { loginSchema } from '@/lib/validation';
 import { z } from 'zod';
 import { UseFormReturn } from 'react-hook-form';
@@ -30,26 +30,8 @@ export default function LoginPage() {
   // Lockout State
   const [lockoutTime, setLockoutTime] = useState<number>(0);
 
-  // CAPTCHA State
-  const [captchaCode, setCaptchaCode] = useState('');
-  const [userCaptchaInput, setUserCaptchaInput] = useState('');
-  const [captchaVerified, setCaptchaVerified] = useState(false);
-  const [captchaError, setCaptchaError] = useState('');
-  const [captchaAttempts, setCaptchaAttempts] = useState(0);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  const generateCaptcha = () => {
-    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    let result = '';
-    for (let i = 0; i < 5; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setCaptchaCode(result);
-    setUserCaptchaInput('');
-    setCaptchaVerified(false);
-    setCaptchaError('');
-    drawCaptcha(result);
-  };
+  // Forgot Password Modal State
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   useEffect(() => {
     generateCaptcha();
@@ -296,7 +278,8 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Enter your credentials to access your account">
+    <>
+      <AuthLayout title="Welcome back" subtitle="Enter your credentials to access your account">
       <Form
         schema={loginSchema}
         onSubmit={handleLoginSubmit}
@@ -454,12 +437,13 @@ export default function LoginPage() {
                   Remember me
                 </span>
               </label>
-              <Link
-                href="/forgot-password"
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
                 className="text-sm text-primary hover:text-primary/80 transition-colors"
               >
                 Forgot password?
-              </Link>
+              </button>
             </motion.div>
 
             <motion.div
@@ -514,7 +498,13 @@ export default function LoginPage() {
           </>
         )}
       </Form>
-    </AuthLayout>
+      </AuthLayout>
+
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+      />
+    </>
   );
 }
 
