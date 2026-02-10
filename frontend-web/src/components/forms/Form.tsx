@@ -17,11 +17,13 @@ export function Form<T extends FieldValues>({
   onSubmit,
   children,
   className = '',
+  defaultValues,
   ...formOptions
 }: FormProps<T>) {
   const methods = useForm<T>({
     ...formOptions,
     resolver: zodResolver(schema),
+    defaultValues: defaultValues || ({} as T),
   });
 
   const handleSubmit = methods.handleSubmit(async (data) => {
