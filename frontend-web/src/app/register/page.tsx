@@ -45,7 +45,6 @@ function RegisterFormContent({
     if (!trackedFields.current.has(fieldName)) {
       trackedFields.current.add(fieldName);
       analyticsApi.trackEvent({
-        anonymous_id: '', // Handled by client
         event_type: 'signup_workflow',
         event_name: 'field_focus',
         event_data: { field: fieldName },
@@ -413,7 +412,6 @@ export default function RegisterPage() {
   // Analytics: Track page view
   useEffect(() => {
     analyticsApi.trackEvent({
-      anonymous_id: '',
       event_type: 'signup_workflow',
       event_name: 'signup_view',
     });
@@ -424,7 +422,6 @@ export default function RegisterPage() {
 
     // Analytics: Track submit attempt
     analyticsApi.trackEvent({
-      anonymous_id: '',
       event_type: 'signup_workflow',
       event_name: 'signup_submit',
     });
@@ -436,7 +433,7 @@ export default function RegisterPage() {
         password: data.password,
         email: data.email || '',
         first_name: data.firstName,
-        last_name: data.lastName,
+        last_name: data.lastName || '',
         age: data.age,
         gender: data.gender,
       });
@@ -448,7 +445,6 @@ export default function RegisterPage() {
 
       // Analytics: Track success
       analyticsApi.trackEvent({
-        anonymous_id: '',
         event_type: 'signup_workflow',
         event_name: 'signup_success',
       });
@@ -483,7 +479,6 @@ export default function RegisterPage() {
 
         // Analytics: Track API error
         analyticsApi.trackEvent({
-          anonymous_id: '',
           event_type: 'signup_workflow',
           event_name: 'signup_error',
           event_data: { error: errorMessage || 'Registration failed' },
@@ -495,7 +490,6 @@ export default function RegisterPage() {
 
         // Analytics: Track Network error
         analyticsApi.trackEvent({
-          anonymous_id: '',
           event_type: 'signup_workflow',
           event_name: 'signup_network_error',
         });

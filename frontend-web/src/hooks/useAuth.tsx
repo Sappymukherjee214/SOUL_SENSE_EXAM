@@ -91,7 +91,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const session: UserSession = {
         user: {
           id: 'current',
-          email: result.email || (loginData.username.includes('@') ? loginData.username : ''),
+          email: (result.email ||
+            (loginData.username.includes('@') ? loginData.username : '')) as string,
           name: result.username || loginData.username.split('@')[0],
         },
         token: result.access_token,
@@ -120,7 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const session: UserSession = {
         user: {
           id: 'current',
-          email: result.email || '',
+          email: (result.email || '') as string,
           name: result.username || 'User',
         },
         token: result.access_token,

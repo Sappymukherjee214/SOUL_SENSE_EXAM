@@ -6,7 +6,12 @@ export const authApi = {
     password: string;
     captcha_input?: string;
     session_id?: string;
-  }): Promise<{ access_token: string; pre_auth_token?: string }> {
+  }): Promise<{
+    access_token: string;
+    pre_auth_token?: string;
+    email?: string;
+    username?: string;
+  }> {
     const payload = {
       identifier: data.username,
       password: data.password,
@@ -25,7 +30,7 @@ export const authApi = {
   async login2FA(data: {
     pre_auth_token: string;
     code: string;
-  }): Promise<{ access_token: string }> {
+  }): Promise<{ access_token: string; email?: string; username?: string }> {
     return apiClient('/auth/login/2fa', {
       method: 'POST',
       headers: {
