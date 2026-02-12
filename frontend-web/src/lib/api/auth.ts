@@ -1,28 +1,51 @@
-import { z } from 'zod';
-import { PasswordResetComplete } from '../validation/schemas';
-import { ApiError } from './errors';
-
-const API_Base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+import { apiClient } from './client';
 
 export const authApi = {
+  async login(data: {
+    username: string;
+    password: string;
+    captcha_input?: string;
+    session_id?: string;
+  }): Promise<{
+    access_token: string;
+    pre_auth_token?: string;
+    email?: string;
+    username?: string;
+  }> {
+    const payload = {
+      identifier: data.username,
+      password: data.password,
+      captcha_input: data.captcha_input,
+      session_id: data.session_id,
+    };
+    return apiClient('/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async login2FA(data: {
+    pre_auth_token: string;
+    code: string;
+  }): Promise<{ access_token: string; email?: string; username?: string }> {
+    return apiClient('/auth/login/2fa', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+  },
+
   async initiatePasswordReset(email: string): Promise<{ message: string }> {
-    const response = await fetch(`${API_Base}/auth/password-reset/initiate`, {
+    return apiClient('/auth/password-reset/initiate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     });
-
-    if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = { message: 'Network error or invalid JSON response' };
-      }
-      throw new ApiError(response.status, errorData);
-    }
-
-    return response.json();
   },
 
   async completePasswordReset(data: {
@@ -30,22 +53,49 @@ export const authApi = {
     otp_code: string;
     new_password: string;
   }): Promise<{ message: string }> {
-    const response = await fetch(`${API_Base}/auth/password-reset/complete`, {
+    return apiClient('/auth/password-reset/complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+  },
+  async getCaptcha(): Promise<{ captcha_code: string; session_id: string }> {
+    return apiClient('/auth/captcha', {
+      method: 'GET',
+    });
+  },
 
-    if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = { message: 'Network error or invalid JSON response' };
-      }
-      throw new ApiError(response.status, errorData);
-    }
+  async checkUsernameAvailability(
+    username: string
+  ): Promise<{ available: boolean; message: string }> {
+    return apiClient(`/auth/check-username?username=${encodeURIComponent(username)}`, {
+      method: 'GET',
+    });
+  },
 
-    return response.json();
+  async register(data: {
+    username: string;
+    password: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    age: number;
+    gender: string;
+  }): Promise<{ message: string }> {
+    // Map camelCase to snake_case for backend
+    const payload = {
+      username: data.username,
+      password: data.password,
+      email: data.email,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      age: data.age,
+      gender: data.gender,
+    };
+    return apiClient('/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
   },
 };

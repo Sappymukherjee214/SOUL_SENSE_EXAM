@@ -58,8 +58,18 @@ class UserCreate(BaseModel):
 
     @field_validator('password')
     @classmethod
-    def reject_weak_password(cls, v: str) -> str:
+    def validate_password_complexity(cls, v: str) -> str:
+        import re
         from ..utils.weak_passwords import WEAK_PASSWORDS
+        
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters')
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[0-9]', v):
+            raise ValueError('Password must contain at least one number')
+        if not re.search(r'[^A-Za-z0-9]', v):
+            raise ValueError('Password must contain at least one special character')
         if v.lower() in WEAK_PASSWORDS:
             raise ValueError('This password is too common. Please choose a stronger password.')
         return v
@@ -136,8 +146,18 @@ class PasswordResetComplete(BaseModel):
 
     @field_validator('new_password')
     @classmethod
-    def reject_weak_password(cls, v: str) -> str:
+    def validate_new_password_complexity(cls, v: str) -> str:
+        import re
         from ..utils.weak_passwords import WEAK_PASSWORDS
+        
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters')
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[0-9]', v):
+            raise ValueError('Password must contain at least one number')
+        if not re.search(r'[^A-Za-z0-9]', v):
+            raise ValueError('Password must contain at least one special character')
         if v.lower() in WEAK_PASSWORDS:
             raise ValueError('This password is too common. Please choose a stronger password.')
         return v
@@ -148,6 +168,22 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     refresh_token: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+
+
+class CaptchaResponse(BaseModel):
+    """Schema for CAPTCHA generation response."""
+    captcha_code: str = Field(..., description="The CAPTCHA code to display")
+    session_id: str = Field(..., description="Session ID for CAPTCHA validation")
+
+
+class LoginRequest(BaseModel):
+    """Schema for login request with CAPTCHA."""
+    identifier: str = Field(..., description="Username or email")
+    password: str = Field(..., description="User password")
+    captcha_input: str = Field(..., description="User's CAPTCHA input")
+    session_id: str = Field(..., description="Session ID from CAPTCHA generation")
 
 
 class TokenData(BaseModel):
@@ -687,6 +723,29 @@ class CompleteProfileResponse(BaseModel):
     emotional_patterns: Optional[UserEmotionalPatternsResponse] = None
 
 
+
+# ============================================================================
+# Core Analytics Schemas
+# ============================================================================
+
+class AnalyticsEventCreate(BaseModel):
+    """Schema for tracking frontend events (signup drop-off, etc)."""
+    anonymous_id: str = Field(..., min_length=10, description="Client-generated anonymous ID")
+    event_type: str = Field(..., max_length=50)
+    event_name: str = Field(..., max_length=100)
+    event_data: Optional[Dict[str, Any]] = Field(None, description="Metadata (No PII)")
+
+    @field_validator('event_data')
+    @classmethod
+    def validate_no_pii(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if v:
+            import json
+            s = json.dumps(v).lower()
+            forbidden = ['password', 'token', 'secret', 'credit_card']
+            for term in forbidden:
+                if term in s:
+                     raise ValueError(f"Potential PII detected: {term}")
+        return v
 
 # ============================================================================
 # User Analytics Schemas (PR 6.3)
