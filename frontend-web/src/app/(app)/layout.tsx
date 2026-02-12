@@ -3,7 +3,8 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 // Requirement: Use the existing auth context/hook
-import { useAuth } from '@/hooks/useAuth'; 
+import { useAuth } from '@/hooks/useAuth';
+import { Sidebar } from '@/components/app';
 
 export default function AppLayout({
   children,
@@ -35,26 +36,21 @@ export default function AppLayout({
     return null;
   }
 
-  // Requirement: Wrap children with sidebar and header components (placeholders)
+  // Requirement: Wrap children with sidebar and header components
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      
-      {/* SIDEBAR PLACEHOLDER */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-gray-200 bg-white dark:bg-gray-950 dark:border-gray-800 p-4">
-        <div className="text-sm font-medium text-gray-400 border-2 border-dashed border-gray-300 rounded-lg h-full flex items-center justify-center">
-          Sidebar Placeholder
-        </div>
-      </aside>
+    <div className="flex h-screen bg-background text-foreground">
+      {/* Sidebar Component */}
+      <Sidebar />
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         
-        {/* HEADER PLACEHOLDER */}
-        <header className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 dark:bg-gray-950 dark:border-gray-800 h-16">
+        {/* Header */}
+        <header className="flex items-center justify-between border-b bg-background px-6 py-4 h-16">
           <h1 className="text-xl font-semibold">Dashboard</h1>
-          <div className="w-8 h-8 bg-gray-200 rounded-full dark:bg-gray-800"></div>
+          <div className="h-8 w-8 rounded-full bg-muted"></div>
         </header>
 
-        {/* MAIN CONTENT AREA */}
+        {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           {children}
         </main>
