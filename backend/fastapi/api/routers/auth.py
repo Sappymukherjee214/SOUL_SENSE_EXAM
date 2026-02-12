@@ -142,6 +142,8 @@ async def login(
     )
     
     refresh_token = auth_service.create_refresh_token(user.id)
+    has_multiple_sessions = auth_service.has_multiple_active_sessions(user.id)
+
     
     # Set refresh token in HttpOnly cookie
     response.set_cookie(
@@ -153,7 +155,19 @@ async def login(
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
     
-    return Token(access_token=access_token, token_type="bearer", refresh_token=refresh_token)
+    # return Token(access_token=access_token, token_type="bearer", refresh_token=refresh_token)
+    return {
+    "access_token": access_token,
+    "token_type": "bearer",
+    "refresh_token": refresh_token,
+    "warnings": (
+        [{
+            "code": "MULTIPLE_SESSIONS_ACTIVE",
+            "message": "Your account is active on another device or browser."
+        }] if has_multiple_sessions else []
+    )
+}
+
 
 
 @router.post("/login/2fa", response_model=Token, responses={401: {"model": ErrorResponse}})
@@ -173,6 +187,8 @@ async def verify_2fa(
     )
     
     refresh_token = auth_service.create_refresh_token(user.id)
+    has_multiple_sessions = auth_service.has_multiple_active_sessions(user.id)
+
     
     response.set_cookie(
         key="refresh_token",
@@ -183,7 +199,19 @@ async def verify_2fa(
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
     
-    return Token(access_token=access_token, token_type="bearer", refresh_token=refresh_token)
+    # return Token(access_token=access_token, token_type="bearer", refresh_token=refresh_token)
+    return {
+    "access_token": access_token,
+    "token_type": "bearer",
+    "refresh_token": refresh_token,
+    "warnings": (
+        [{
+            "code": "MULTIPLE_SESSIONS_ACTIVE",
+            "message": "Your account is active on another device or browser."
+        }] if has_multiple_sessions else []
+    )
+}
+
 
 
 @router.post("/refresh", response_model=Token)
