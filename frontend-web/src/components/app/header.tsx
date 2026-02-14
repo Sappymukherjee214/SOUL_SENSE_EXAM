@@ -103,7 +103,6 @@ export const Header = React.forwardRef<HTMLHeaderElement, HeaderProps>(
                 aria-expanded={isDropdownOpen}
               >
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user?.avatarUrl} alt={user?.name} />
                   <AvatarFallback className="bg-blue-600 text-sm font-semibold text-white">
                     {getUserInitials(user?.name)}
                   </AvatarFallback>
