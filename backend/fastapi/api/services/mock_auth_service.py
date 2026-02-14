@@ -218,7 +218,7 @@ class MockAuthService:
         otp_code = MOCK_OTP_CODES.get(email, "123456")
         
         logger.info(f"🎭 Mock 2FA initiated for {email}. OTP: {otp_code}")
-        return pre_auth_token
+        return pre_auth_token, otp_code
 
     def verify_2fa_login(self, pre_auth_token: str, code: str) -> Optional[User]:
         """

@@ -16,7 +16,7 @@ os.environ["MOCK_AUTH_MODE"] = "true"
 os.environ["APP_ENV"] = "development"
 
 from backend.fastapi.api.services.mock_auth_service import MockAuthService, MOCK_USERS, MOCK_OTP_CODES
-from api.root_models import User
+from backend.fastapi.api.root_models import User
 
 
 class TestMockAuthService:
