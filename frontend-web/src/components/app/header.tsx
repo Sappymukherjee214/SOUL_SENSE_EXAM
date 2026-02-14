@@ -49,7 +49,7 @@ export const Header = React.forwardRef<HTMLHeaderElement, HeaderProps>(
 
     const handleLogout = async () => {
       setIsDropdownOpen(false);
-      logout();
+      await logout();
     };
 
     const handleNavigate = (path: string) => {
