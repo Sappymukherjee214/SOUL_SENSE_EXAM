@@ -56,7 +56,7 @@ export function MobileNav() {
       className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t border-border"
       aria-label="Mobile navigation"
     >
-      <div className="flex items-end justify-around h-20 px-2 pb-2 safe-area-inset-bottom">
+      <div className="flex items-end justify-around h-20 px-2 pb-2 pb-[env(safe-area-inset-bottom)]">
         {navigationItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
           const Icon = item.icon;
