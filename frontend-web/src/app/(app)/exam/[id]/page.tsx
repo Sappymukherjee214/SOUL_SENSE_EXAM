@@ -58,8 +58,8 @@ export default function ExamPage() {
   useEffect(() => {
     if (result) {
       completeExam();
-      // Redirect to results page
-      router.push('/results');
+      // Redirect to completion page
+      router.push('/exam/complete');
     }
   }, [result, completeExam, router]);
 
