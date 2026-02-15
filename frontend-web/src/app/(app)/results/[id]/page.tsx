@@ -85,10 +85,14 @@ export default function ResultDetailPage() {
   }
 
   // Transform categories data for CategoryBreakdown component
-  const categoryScores = result.categories.map(cat => ({
-    name: cat.name,
-    score: (cat.score / cat.max_score) * 100,
-  }));
+  const categoryScores = result.categories.map(cat => {
+    const maxScore = typeof cat.max_score === 'number' && cat.max_score > 0 ? cat.max_score : null;
+    const scorePercentage = maxScore ? (cat.score / maxScore) * 100 : 0;
+    return {
+      name: cat.name,
+      score: scorePercentage,
+    };
+  });
 
   return (
     <div className="space-y-8 pb-12">
