@@ -30,7 +30,7 @@ export const ExamProgress: React.FC<ExamProgressProps> = ({
   showQuestionDots = true,
 }) => {
   // Calculate progress percentage (0-100)
-  const progressPercentage = (answeredCount / total) * 100;
+  const progressPercentage = total > 0 ? (answeredCount / total) * 100 : 0;
 
   return (
     <div className={cn('w-full space-y-4', className)}>
