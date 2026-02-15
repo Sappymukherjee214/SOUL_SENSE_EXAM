@@ -13,7 +13,7 @@ interface HeaderProps {
   notificationCount?: number;
 }
 
-export const Header = React.forwardRef<HTMLHeaderElement, HeaderProps>(
+export const Header = React.forwardRef<HTMLElement, HeaderProps>(
   ({ className, notificationCount = 0 }, ref) => {
     const router = useRouter();
     const { user, logout } = useAuth();

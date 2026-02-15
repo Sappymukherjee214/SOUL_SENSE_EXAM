@@ -109,9 +109,10 @@ export function ToastProvider({
   );
 
   React.useEffect(() => {
+    const timeouts = timeoutsRef.current;
     return () => {
-      timeoutsRef.current.forEach((timeout: ReturnType<typeof setTimeout>) => clearTimeout(timeout));
-      timeoutsRef.current.clear();
+      timeouts.forEach((timeout: ReturnType<typeof setTimeout>) => clearTimeout(timeout));
+      timeouts.clear();
     };
   }, []);
 

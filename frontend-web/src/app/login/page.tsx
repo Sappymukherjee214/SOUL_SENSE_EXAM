@@ -230,7 +230,7 @@ export default function LoginPage() {
 
               {/* Description */}
               <p className="text-sm text-gray-600 text-center">
-                Please ensure you're logging in from a secure location. If you don't recognize these sessions, change your password immediately.
+                Please ensure you&apos;re logging in from a secure location. If you don&apos;t recognize these sessions, change your password immediately.
               </p>
 
               {/* Action Button */}

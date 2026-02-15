@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Question } from '@/lib/api/questions';
-import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
 interface QuestionCardProps {
@@ -93,7 +93,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               return (
                 <button
                   key={option.value}
-                  ref={(el) => (optionsRef.current[idx] = el)}
+                  ref={(el: HTMLButtonElement | null) => {
+                    optionsRef.current[idx] = el;
+                  }}
                   role="radio"
                   aria-checked={isSelected}
                   disabled={disabled}
