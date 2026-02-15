@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Send } from 'lucide-react';
 import { useExamStore } from '@/stores/examStore';
@@ -10,12 +10,14 @@ interface ExamNavigationProps {
   onSubmit: () => void;
   isSubmitting?: boolean;
   className?: string;
+  canGoNext?: boolean;
 }
 
 export const ExamNavigation: React.FC<ExamNavigationProps> = ({
   onSubmit,
   isSubmitting = false,
   className,
+  canGoNext = true,
 }) => {
   const {
     previousQuestion,
@@ -26,6 +28,23 @@ export const ExamNavigation: React.FC<ExamNavigationProps> = ({
 
   const isFirst = getIsFirstQuestion();
   const isLast = getIsLastQuestion();
+  
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+
+      if (e.key === 'ArrowLeft' && !isFirst) {
+        previousQuestion();
+      }
+      
+      if (e.key === 'ArrowRight' && canGoNext && !isLast) {
+        nextQuestion();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFirst, canGoNext, isLast, previousQuestion, nextQuestion]);
 
   return (
     <div className={cn('flex items-center justify-between', className)}>
@@ -43,7 +62,7 @@ export const ExamNavigation: React.FC<ExamNavigationProps> = ({
         {!isLast ? (
           <Button
             onClick={nextQuestion}
-            disabled={isSubmitting}
+            disabled={!canGoNext || isSubmitting}
             className="flex items-center gap-2"
           >
             Next
