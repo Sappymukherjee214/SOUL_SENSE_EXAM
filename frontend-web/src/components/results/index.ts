@@ -1,2 +1,2 @@
 export * from './history-chart';
-export * from './recommendation-card';
+export { default as RecommendationCard } from './recommendation-card';
