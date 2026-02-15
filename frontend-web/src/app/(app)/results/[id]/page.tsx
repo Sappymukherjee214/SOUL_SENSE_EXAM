@@ -12,8 +12,31 @@ import { ArrowLeft, Download, RefreshCw, Calendar, Clock } from 'lucide-react';
 export default function ResultDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const examId = parseInt(params.id as string);
-  
+  const rawId = params?.id as string | string[] | undefined;
+  const examId = rawId
+    ? parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10)
+    : NaN;
+
+  if (!examId || Number.isNaN(examId)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Invalid result</CardTitle>
+            <CardDescription>
+              The requested result ID is invalid. Please check the link and try again.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => router.push('/results')}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to results
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   const { result, isLoading, error } = useResults(examId);
 
   // Format date
