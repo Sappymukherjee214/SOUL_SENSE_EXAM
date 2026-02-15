@@ -29,8 +29,10 @@ Soul Sense is a comprehensive Emotional Intelligence (EQ) assessment application
 ### Installation
 1. Download the Soul Sense installer from the official website
 2. Run the installer and follow the on-screen instructions
-3. The app will automatically set up the database and question bank
+3. The app will automatically set up the database and question bank on first launch
 4. Launch Soul Sense from your desktop or start menu
+
+> **Note**: If running from source code, ensure Python 3.12+ is installed, install dependencies with `pip install -r requirements.txt`, and run with `python -m app.main`. The database setup occurs automatically when the application starts.
 
 ### First-Time Setup
 When you first open Soul Sense, you'll see a login screen.
