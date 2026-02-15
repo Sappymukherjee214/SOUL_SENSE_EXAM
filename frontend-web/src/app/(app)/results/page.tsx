@@ -84,8 +84,8 @@ export default function ResultsPage() {
   }, [sortKey, sortDirection, dateFrom, dateTo]);
 
   const filteredResults = useMemo(() => {
-    const fromDate = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
-    const toDate = dateTo ? new Date(`${dateTo}T23:59:59`) : null;
+    const fromDate = dateFrom ? new Date(`${dateFrom}T00:00:00Z`) : null;
+    const toDate = dateTo ? new Date(`${dateTo}T23:59:59.999Z`) : null;
 
     return results.filter((item) => {
       const completedDate = new Date(item.completedAt);
