@@ -79,7 +79,7 @@ async def register(
     user: UserCreate, 
     auth_service: AuthService = Depends()
 ):
-    from api.middleware.rate_limiter import registration_limiter
+    from ..middleware.rate_limiter import registration_limiter
     # Rate limit by IP
     is_limited, wait_time = registration_limiter.is_rate_limited(request.client.host)
     if is_limited:
@@ -107,7 +107,7 @@ async def login(
     request: Request,
     auth_service: AuthService = Depends()
 ):
-    from api.middleware.rate_limiter import login_limiter
+    from ..middleware.rate_limiter import login_limiter
     ip = request.client.host
     user_agent = request.headers.get("user-agent", "Unknown")
 
@@ -267,7 +267,7 @@ async def initiate_password_reset(
     reset_data: PasswordResetRequest, # Renamed to avoid name conflict with Request
     auth_service: AuthService = Depends()
 ):
-    from api.middleware.rate_limiter import password_reset_limiter
+    from ..middleware.rate_limiter import password_reset_limiter
     """
     Initiate the password reset flow.
     ALWAYS returns success message to prevent user enumeration.
@@ -304,7 +304,7 @@ async def complete_password_reset(
     req_obj: Request, # Need Request object for IP
     auth_service: AuthService = Depends()
 ):
-    from api.middleware.rate_limiter import password_reset_limiter
+    from ..middleware.rate_limiter import password_reset_limiter
     """
     Verify OTP and set new password.
     """

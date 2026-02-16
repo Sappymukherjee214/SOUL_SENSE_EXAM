@@ -2,8 +2,7 @@
 
 import React, { useState } from "react";
 import { ScoreGauge } from "@/components/results";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Slider } from "@/components/ui/slider";
+import { Card, CardContent, CardHeader, CardTitle, Slider } from "@/components/ui";
 
 export default function GaugeDemoPage() {
     const [score, setScore] = useState(75);
