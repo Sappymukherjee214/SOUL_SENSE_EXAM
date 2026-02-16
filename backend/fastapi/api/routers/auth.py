@@ -14,7 +14,6 @@ from ..exceptions import AuthException
 from ..root_models import User
 from ..exceptions import AuthException, APIException, RateLimitException
 # Rate limiters imported inline within routes to avoid potential circular/timing issues
-from api.root_models import User
 from sqlalchemy.orm import Session
 from cachetools import TTLCache
 
