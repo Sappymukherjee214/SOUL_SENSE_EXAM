@@ -31,11 +31,33 @@ export interface JournalAnalytics {
   streak_days: number;
 }
 
+export interface JournalFilters {
+  startDate?: string;
+  endDate?: string;
+  moodMin?: number;
+  moodMax?: number;
+  tags?: string[];
+  search?: string;
+}
+
 export const journalApi = {
-  async listEntries(page: number = 1, limit: number = 10): Promise<JournalListResponse> {
-    const skip = (page - 1) * limit;
-    return deduplicateRequest(`journal-list-${page}-${limit}`, () =>
-      apiClient(`/journal?skip=${skip}&limit=${limit}`, { retry: true })
+  async listEntries(page: number = 1, limit: number = 10, filters?: JournalFilters): Promise<JournalListResponse> {
+    const params = new URLSearchParams();
+    params.append('skip', ((page - 1) * limit).toString());
+    params.append('limit', limit.toString());
+    
+    if (filters?.startDate) params.append('start_date', filters.startDate);
+    if (filters?.endDate) params.append('end_date', filters.endDate);
+    if (filters?.moodMin !== undefined) params.append('mood_min', filters.moodMin.toString());
+    if (filters?.moodMax !== undefined) params.append('mood_max', filters.moodMax.toString());
+    if (filters?.tags?.length) params.append('tags', filters.tags.join(','));
+    if (filters?.search) params.append('search', filters.search);
+
+    const query = params.toString();
+    const url = `/journal${query ? `?${query}` : ''}`;
+    
+    return deduplicateRequest(`journal-list-${page}-${limit}-${JSON.stringify(filters)}`, () =>
+      apiClient(url, { retry: true })
     );
   },
 

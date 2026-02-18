@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useApi } from '@/hooks/useApi';
-import { journalApi, JournalEntry, CreateJournalEntry } from '@/lib/api/journal';
+import { useRouter } from 'next/navigation';
+import { useJournal } from '@/hooks/useJournal';
+import { journalApi, CreateJournalEntry, JournalFilters } from '@/lib/api/journal';
 import { ErrorDisplay, Skeleton } from '@/components/common';
-import { Button, Card, CardContent } from '@/components/ui';
+import { Button, Card, CardContent, Input, Slider } from '@/components/ui';
+import { JournalEntryCard } from '@/components/journal';
+import { MoodTrend } from '@/components/journal';
 import {
   BookOpen,
   Plus,
@@ -13,29 +16,30 @@ import {
   Search,
   X,
   ChevronDown,
-  Smile,
-  Meh,
-  Frown,
+  ChevronUp,
+  Filter,
   Sparkles,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const MOOD_ICONS = {
-  positive: { icon: Smile, color: 'text-green-500', bg: 'bg-green-500/10' },
-  neutral: { icon: Meh, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
-  negative: { icon: Frown, color: 'text-red-500', bg: 'bg-red-500/10' },
-};
-
-function getMoodCategory(score?: number) {
-  if (score == null) return 'neutral';
-  if (score >= 60) return 'positive';
-  if (score >= 40) return 'neutral';
-  return 'negative';
+// Adapt JournalEntry for JournalEntryCard
+function adaptEntry(entry: any) {
+  return {
+    id: entry.id,
+    content: entry.content,
+    mood_rating: entry.mood_score || (entry.sentiment_score ? Math.round((entry.sentiment_score + 1) * 5) : undefined),
+    tags: entry.tags || [],
+    sentiment_score: entry.sentiment_score,
+    created_at: entry.timestamp,
+    updated_at: entry.timestamp,
+  };
 }
 
 export default function JournalPage() {
-  const [page, setPage] = useState(1);
+  const router = useRouter();
   const [isNewEntryOpen, setIsNewEntryOpen] = useState(false);
+  const [isChartCollapsed, setIsChartCollapsed] = useState(false);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [newEntry, setNewEntry] = useState<CreateJournalEntry>({
     content: '',
     title: '',
@@ -43,17 +47,25 @@ export default function JournalPage() {
   });
   const [tagInput, setTagInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filters state
+  const [filters, setFilters] = useState<JournalFilters>({});
+  const [tempFilters, setTempFilters] = useState<JournalFilters>({});
 
   const {
-    data: journalData,
+    entries,
+    total,
     loading,
     error,
+    page,
+    totalPages,
+    hasNextPage,
+    hasPrevPage,
+    setPage,
+    setFilters: setJournalFilters,
     refetch,
-  } = useApi({
-    apiFn: () => journalApi.listEntries(page, 10),
-    deps: [page],
-  });
+    loadMore,
+  } = useJournal({ filters });
 
   const handleSubmit = useCallback(async () => {
     if (!newEntry.content.trim()) return;
@@ -82,39 +94,31 @@ export default function JournalPage() {
     setNewEntry((prev) => ({ ...prev, tags: prev.tags?.filter((t) => t !== tag) }));
   };
 
-  const handleDelete = useCallback(
-    async (id: number) => {
-      try {
-        await journalApi.deleteEntry(id);
-        refetch();
-      } catch {
-        // TODO: toast
-      }
-    },
-    [refetch]
-  );
-
-  const formatDate = (value: string) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return new Intl.DateTimeFormat('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(date);
+  const handleEntryClick = (entry: any) => {
+    router.push(`/journal/${entry.id}`);
   };
 
-  const entries = journalData?.entries ?? [];
-  const total = journalData?.total ?? 0;
-  const totalPages = Math.ceil(total / 10);
+  const handleApplyFilters = () => {
+    setJournalFilters(tempFilters);
+    setIsFiltersOpen(false);
+  };
+
+  const handleClearFilters = () => {
+    setTempFilters({});
+    setJournalFilters({});
+    setIsFiltersOpen(false);
+  };
+
+  const handleLoadMore = () => {
+    loadMore();
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="space-y-8 max-w-3xl mx-auto"
+      className="space-y-8 max-w-6xl mx-auto"
     >
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
@@ -153,12 +157,12 @@ export default function JournalPage() {
                     New Journal Entry
                   </span>
                 </div>
-                <input
+                <Input
                   type="text"
                   placeholder="Title (optional)"
                   value={newEntry.title}
                   onChange={(e) => setNewEntry((prev) => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border bg-muted/30 text-sm font-medium focus:ring-2 focus:ring-primary/40 outline-none transition-all placeholder:text-muted-foreground/60"
+                  className="rounded-xl"
                 />
                 <textarea
                   placeholder="What's on your mind today?"
@@ -172,13 +176,13 @@ export default function JournalPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Tag className="w-4 h-4 text-muted-foreground" />
-                    <input
+                    <Input
                       type="text"
                       placeholder="Add a tag and press Enter"
                       value={tagInput}
                       onChange={(e) => setTagInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                      className="flex-1 px-3 py-2 rounded-lg border bg-muted/20 text-sm outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+                      className="flex-1 rounded-lg"
                     />
                   </div>
                   {(newEntry.tags?.length ?? 0) > 0 && (
@@ -226,8 +230,152 @@ export default function JournalPage() {
         )}
       </AnimatePresence>
 
+      {/* Mood Trend Chart */}
+      <Card className="rounded-[2rem] border-none bg-background/60 backdrop-blur-xl shadow-xl shadow-black/5 overflow-hidden">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Mood Trends</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsChartCollapsed(!isChartCollapsed)}
+              className="rounded-full"
+            >
+              {isChartCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </Button>
+          </div>
+          <AnimatePresence>
+            {!isChartCollapsed && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <MoodTrend
+                  entries={entries.map(adaptEntry)}
+                  timeRange="30d"
+                  showAverage={true}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </CardContent>
+      </Card>
+
+      {/* Search and Filter Bar */}
+      <Card className="rounded-[2rem] border-none bg-background/60 backdrop-blur-xl shadow-lg shadow-black/5">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Filter className="w-5 h-5" />
+              Search & Filters
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+              className="rounded-full"
+            >
+              {isFiltersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </Button>
+          </div>
+
+          {/* Quick Search */}
+          <div className="flex gap-4 mb-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search entries..."
+                value={tempFilters.search || ''}
+                onChange={(e) => setTempFilters(prev => ({ ...prev, search: e.target.value }))}
+                className="pl-10 rounded-xl"
+                onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+              />
+            </div>
+            <Button onClick={handleApplyFilters} className="rounded-full px-6">
+              Apply Filters
+            </Button>
+            <Button variant="outline" onClick={handleClearFilters} className="rounded-full">
+              Clear
+            </Button>
+          </div>
+
+          {/* Advanced Filters */}
+          <AnimatePresence>
+            {isFiltersOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-4 pt-4 border-t"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Date Range */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Start Date</label>
+                    <Input
+                      type="date"
+                      value={tempFilters.startDate || ''}
+                      onChange={(e) => setTempFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="rounded-lg"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">End Date</label>
+                    <Input
+                      type="date"
+                      value={tempFilters.endDate || ''}
+                      onChange={(e) => setTempFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="rounded-lg"
+                    />
+                  </div>
+
+                  {/* Mood Range */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Min Mood ({tempFilters.moodMin || 0})</label>
+                    <Slider
+                      value={tempFilters.moodMin || 0}
+                      onChange={(value) => setTempFilters(prev => ({ ...prev, moodMin: value }))}
+                      max={100}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Max Mood ({tempFilters.moodMax || 100})</label>
+                    <Slider
+                      value={tempFilters.moodMax || 100}
+                      onChange={(value) => setTempFilters(prev => ({ ...prev, moodMax: value }))}
+                      max={100}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* Tags */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Tags (comma separated)</label>
+                  <Input
+                    placeholder="work, family, health"
+                    value={tempFilters.tags?.join(', ') || ''}
+                    onChange={(e) => setTempFilters(prev => ({
+                      ...prev,
+                      tags: e.target.value ? e.target.value.split(',').map(t => t.trim()) : undefined
+                    }))}
+                    className="rounded-lg"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </CardContent>
+      </Card>
+
       {/* Loading State */}
-      {loading && (
+      {loading && entries.length === 0 && (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="rounded-2xl border p-6 space-y-3">
@@ -264,97 +412,33 @@ export default function JournalPage() {
       {/* Entries List */}
       {!loading && entries.length > 0 && (
         <div className="space-y-4">
-          {entries.map((entry, index) => {
-            const mood = getMoodCategory(entry.sentiment_score ?? entry.mood_score);
-            const MoodIcon = MOOD_ICONS[mood].icon;
-
-            return (
-              <motion.div
-                key={entry.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <Card className="rounded-[2rem] border-none bg-background/60 backdrop-blur-xl shadow-lg shadow-black/5 hover:shadow-xl transition-shadow group">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0 space-y-3">
-                        {/* Title & Date */}
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl ${MOOD_ICONS[mood].bg}`}>
-                            <MoodIcon className={`w-4 h-4 ${MOOD_ICONS[mood].color}`} />
-                          </div>
-                          <div className="min-w-0">
-                            <h3 className="text-sm font-bold truncate">
-                              {entry.title || 'Untitled Entry'}
-                            </h3>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {formatDate(entry.timestamp)}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Content Preview */}
-                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
-                          {entry.content}
-                        </p>
-
-                        {/* Tags */}
-                        {entry.tags && entry.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {entry.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold"
-                              >
-                                #{tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Delete */}
-                      <button
-                        onClick={() => handleDelete(entry.id)}
-                        className="opacity-0 group-hover:opacity-100 p-2 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all"
-                        aria-label="Delete entry"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
+          {entries.map((entry, index) => (
+            <motion.div
+              key={entry.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+            >
+              <JournalEntryCard
+                entry={adaptEntry(entry)}
+                onClick={handleEntryClick}
+                variant="expanded"
+              />
+            </motion.div>
+          ))}
         </div>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-4">
+      {/* Load More / Pagination */}
+      {hasNextPage && (
+        <div className="flex justify-center">
           <Button
+            onClick={handleLoadMore}
+            disabled={loading}
             variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="rounded-full"
+            className="rounded-full px-8"
           >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground font-medium">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="rounded-full"
-          >
-            Next
+            {loading ? 'Loading...' : 'Load More'}
           </Button>
         </div>
       )}
