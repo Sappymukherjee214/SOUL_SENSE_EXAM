@@ -8,7 +8,11 @@ export interface JournalEntry {
   timestamp: string;
   sentiment_score?: number;
   mood_score?: number;
+  mood_rating?: number; // 1-10 scale
+  energy_level?: number; // 1-10 scale
+  stress_level?: number; // 1-10 scale
   tags?: string[];
+  patterns?: string[]; // AI-detected emotional patterns
 }
 
 export interface JournalListResponse {
@@ -22,6 +26,9 @@ export interface CreateJournalEntry {
   title?: string;
   content: string;
   tags?: string[];
+  mood_rating?: number;
+  energy_level?: number;
+  stress_level?: number;
 }
 
 export interface JournalAnalytics {
