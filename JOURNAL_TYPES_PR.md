@@ -27,26 +27,50 @@ This PR updates the Journal type definitions to align with the new API requireme
 - **Constants**: Centralized `PRESET_TAGS` in the types file and synchronized the library constants.
 - **Mock Data**: Updated demo page mock data to satisfy the new interface.
 
+Fixes: #
+
 ---
 
 ## 🔧 Type of Change
+Please mark the relevant option(s):
+
 - [ ] 🐛 Bug fix
 - [x] ✨ New feature
-- [x] ♻️ Refactor / Code cleanup
 - [ ] 📝 Documentation update
+- [x] ♻️ Refactor / Code cleanup
+- [ ] 🎨 UI / Styling change
+- [ ] 🚀 Other (please describe):
 
 ---
 
 ## 🧪 How Has This Been Tested?
-- [x] **Manual testing**: Verified the `/journal-demo` page to ensure the `JournalEntryCard` and charts still render correctly with the new data structure. Verified that TypeScript compilation passes for all modified files.
+Describe the tests you ran to verify your changes.
+
+- [x] Manual testing: Verified the `/journal-demo` page to ensure the `JournalEntryCard` and charts still render correctly with the new data structure. Verified that TypeScript compilation passes for all modified files.
+- [ ] Automated tests
+- [ ] Not tested (please explain why)
+
+---
+
+## 📸 Screenshots (if applicable)
+Add screenshots or screen recordings to show UI changes.
+*(Visuals available on /journal-demo page)*
 
 ---
 
 ## ✅ Checklist
+Please confirm the following:
+
 - [x] My code follows the project’s coding style
 - [x] I have tested my changes
-- [x] Field names match the new API specification (`mood_rating`, `created_at`)
-- [x] No breaking changes for other modules
+- [x] I have updated documentation where necessary
+- [x] This PR does not introduce breaking changes
+
+---
+
+## 📝 Additional Notes
+- Field names match the new API specification (`mood_rating`, `created_at`).
+- All preset tags are now lowercase as per requirements.
 
 ---
 
