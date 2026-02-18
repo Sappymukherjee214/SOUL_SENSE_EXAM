@@ -6,11 +6,13 @@ export interface JournalEntry {
   content: string;
   sentiment_score?: number;
   mood_score?: number;
-  energy_level?: number;
-  stress_level?: number;
+  mood_rating?: number; // 1-10 scale
+  energy_level?: number; // 1-10 scale
+  stress_level?: number; // 1-10 scale
   tags: string[];
   created_at: string;
   updated_at: string;
+  patterns?: string[]; // AI-detected patterns
 }
 
 export interface JournalListResponse {
@@ -26,6 +28,7 @@ export interface CreateJournalEntry {
   privacy_level?: string;
   energy_level?: number;
   stress_level?: number;
+  mood_rating?: number;
 }
 
 export interface JournalAnalytics {
