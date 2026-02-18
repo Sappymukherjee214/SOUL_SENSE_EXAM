@@ -29,12 +29,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
 const MOOD_ICONS = {
-  positive: { icon: Smile, color: 'text-green-500', bg: 'bg-green-500/10', emoji: '😊' },
-  neutral: { icon: Meh, color: 'text-yellow-500', bg: 'bg-yellow-500/10', emoji: '😐' },
-  negative: { icon: Frown, color: 'text-red-500', bg: 'bg-red-500/10', emoji: '😢' },
+  positive: { icon: Smile, color: 'text-green-500', bg: 'bg-green-500/10' },
+  neutral: { icon: Meh, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
+  negative: { icon: Frown, color: 'text-red-500', bg: 'bg-red-500/10' },
 };
 
-const MOOD_EMOJIS = ['😢', '😕', '😐', '🙂', '😊', '😄', '🤗', '😍', '🤩', '🥳'];
+const MOOD_LABELS = ['Very Low', 'Low', 'Neutral', 'Good', 'Great', 'Excellent', 'Amazing', 'Fantastic', 'Outstanding', 'Perfect'];
 
 function getMoodCategory(score?: number) {
   if (score == null) return 'neutral';
@@ -218,7 +218,7 @@ export default function JournalEntryDetailPage() {
 
   const mood = getMoodCategory(entry.mood_rating || entry.mood_score);
   const MoodIcon = MOOD_ICONS[mood].icon;
-  const moodEmoji = entry.mood_rating ? MOOD_EMOJIS[entry.mood_rating - 1] : MOOD_ICONS[mood].emoji;
+  const moodLabel = entry.mood_rating ? MOOD_LABELS[entry.mood_rating - 1] : 'Not rated';
 
   return (
     <motion.div
@@ -316,9 +316,9 @@ export default function JournalEntryDetailPage() {
                       step={1}
                       className="flex-1"
                     />
-                    <div className="flex items-center gap-2 min-w-[60px]">
-                      <span className="text-2xl">{MOOD_EMOJIS[(editForm.mood_rating || 5) - 1]}</span>
-                      <span className="text-sm font-medium">{editForm.mood_rating || 5}/10</span>
+                    <div className="flex items-center gap-2 min-w-[100px]">
+                      <span className="text-sm font-medium">{MOOD_LABELS[(editForm.mood_rating || 5) - 1]}</span>
+                      <span className="text-xs text-muted-foreground">({editForm.mood_rating || 5}/10)</span>
                     </div>
                   </div>
                 </div>
@@ -444,18 +444,20 @@ export default function JournalEntryDetailPage() {
             {/* Mood & Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6 bg-muted/30 rounded-2xl">
               <div className="text-center space-y-2">
-                <div className="text-4xl">{moodEmoji}</div>
+                <div className={`p-3 rounded-xl ${MOOD_ICONS[mood].bg} w-fit mx-auto`}>
+                  <MoodIcon className={`w-6 h-6 ${MOOD_ICONS[mood].color}`} />
+                </div>
                 <div className="text-sm font-medium">Mood</div>
                 <div className="text-xs text-muted-foreground">
-                  {entry.mood_rating || entry.mood_score || 'Not rated'}
-                  {entry.mood_rating && '/10'}
+                  {moodLabel}
+                  {entry.mood_rating && ` (${entry.mood_rating}/10)`}
                 </div>
               </div>
 
               {entry.energy_level && (
                 <div className="text-center space-y-2">
-                  <div className="text-4xl">
-                    {entry.energy_level >= 7 ? '🔋' : entry.energy_level >= 4 ? '🪫' : '🪫'}
+                  <div className="p-3 rounded-xl bg-blue-500/10 w-fit mx-auto">
+                    <Battery className="w-6 h-6 text-blue-500" />
                   </div>
                   <div className="text-sm font-medium">Energy</div>
                   <div className="text-xs text-muted-foreground">{entry.energy_level}/10</div>
@@ -464,8 +466,8 @@ export default function JournalEntryDetailPage() {
 
               {entry.stress_level && (
                 <div className="text-center space-y-2">
-                  <div className="text-4xl">
-                    {entry.stress_level >= 7 ? '⚡' : entry.stress_level >= 4 ? '💫' : '😌'}
+                  <div className="p-3 rounded-xl bg-orange-500/10 w-fit mx-auto">
+                    <Zap className="w-6 h-6 text-orange-500" />
                   </div>
                   <div className="text-sm font-medium">Stress</div>
                   <div className="text-xs text-muted-foreground">{entry.stress_level}/10</div>
