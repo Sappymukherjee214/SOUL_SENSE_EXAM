@@ -1,3 +1,4 @@
+
 import {useState, useEffect, useCallback} from "react";
 
 export interface JournalEntry {
@@ -193,4 +194,3 @@ export function useJournal(initialParams: JournalQueryParams = {}) {
         updateEntry,
         deleteEntry,
     };
-}
