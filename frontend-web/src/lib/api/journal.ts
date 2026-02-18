@@ -3,9 +3,7 @@ import { deduplicateRequest } from '../utils/requestUtils';
 
 export interface JournalEntry {
   id: number;
-  title?: string;
   content: string;
-  timestamp: string;
   sentiment_score?: number;
   mood_score?: number;
   mood_rating?: number; // 1-10 scale
@@ -23,7 +21,6 @@ export interface JournalListResponse {
 }
 
 export interface CreateJournalEntry {
-  title?: string;
   content: string;
   tags?: string[];
   mood_rating?: number;
