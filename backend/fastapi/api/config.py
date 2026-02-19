@@ -56,7 +56,7 @@ class BaseAppSettings(BaseSettings):
 
     # CORS Configuration
     allowed_origins: str = Field(
-        default='["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:8000", "http://localhost:3005", "http://127.0.0.1:3005", "tauri://localhost"]',
+        default='["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:8000", "http://localhost:3005", "http://127.0.0.1:3005", "tauri://localhost", "http://localhost:1420"]',
         description="Allowed origins for CORS"
     )
 

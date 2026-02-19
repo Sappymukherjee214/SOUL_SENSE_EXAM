@@ -10,6 +10,8 @@ import {
   getExpiryTimestamp,
 } from '@/lib/utils/sessionStorage';
 import { authApi } from '@/lib/api/auth';
+import { Loader } from '@/components/ui';
+import { isValidCallbackUrl } from '@/lib/utils/url';
 
 interface AuthContextType {
   user: UserSession['user'] | null;
@@ -23,10 +25,20 @@ interface AuthContextType {
       captcha_input?: string;
       session_id?: string;
     },
-    rememberMe: boolean
+    rememberMe: boolean,
+    shouldRedirect?: boolean,
+    redirectTo?: string,
+    stayLoadingOnSuccess?: boolean
   ) => Promise<any>;
-  login2FA: (data: { pre_auth_token: string; code: string }, rememberMe: boolean) => Promise<void>;
+  login2FA: (
+    data: { pre_auth_token: string; code: string },
+    rememberMe: boolean,
+    shouldRedirect?: boolean,
+    redirectTo?: string,
+    stayLoadingOnSuccess?: boolean
+  ) => Promise<any>;
   logout: () => void;
+  setIsLoading: (loading: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,26 +49,65 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isMockMode, setIsMockMode] = useState(false);
   const router = useRouter();
 
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
-    // Check for existing session on mount
-    const session = getSession();
-    if (session) {
-      console.log('Session restored:', session.user.email);
-      setUser(session.user);
-    }
+    setMounted(true);
+    const initAuth = async () => {
+      try {
+        // 1. Check if server has restarted
+        await checkServerInstance();
 
-    // Check if backend is in mock mode (from main)
-    checkMockMode();
+        // 2. Check for existing session
+        const session = getSession();
+        if (session) {
+          setUser(session.user);
+        }
 
-    // Small delay to ensure state propagates before layout checks
-    const timer = setTimeout(() => setIsLoading(false), 50);
-    return () => clearTimeout(timer);
+        // 3. Check if backend is in mock mode
+        await checkMockMode();
+      } catch (e) {
+        console.warn('Auth initialization error:', e);
+      } finally {
+        // Small delay to ensure state propagates
+        const timer = setTimeout(() => setIsLoading(false), 50);
+        return () => clearTimeout(timer);
+      }
+    };
+
+    initAuth();
   }, []);
+
+  const checkServerInstance = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/v1/auth/server-id`, {
+        method: 'GET',
+      });
+
+      if (response.ok) {
+        const { server_id } = await response.json();
+        const storedId = localStorage.getItem('soul_sense_server_instance_id');
+
+        if (storedId && server_id && storedId !== server_id) {
+          console.log('🔄 Server restart detected. Clearing stale session.');
+          clearSession();
+          setUser(null);
+        }
+
+        if (server_id) {
+          localStorage.setItem('soul_sense_server_instance_id', server_id);
+        }
+      }
+    } catch (error) {
+      console.warn('Could not verify server instance:', error);
+    }
+  };
 
   const checkMockMode = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/v1/health`, {
+      const response = await fetch(`${apiUrl}/health`, {
         method: 'GET',
       });
 
@@ -76,7 +127,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       captcha_input?: string;
       session_id?: string;
     },
-    rememberMe: boolean
+    rememberMe: boolean,
+    shouldRedirect = true,
+    redirectTo = '/',
+    stayLoadingOnSuccess = false
   ) => {
     setIsLoading(true);
     try {
@@ -86,43 +140,58 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return result; // 2FA Required
       }
 
-      console.log('useAuth: Login successful, result:', !!result.access_token);
-
       const session: UserSession = {
         user: {
-          id: 'current',
+          id: result.id?.toString() || 'current',
           email: (result.email ||
             (loginData.username.includes('@') ? loginData.username : '')) as string,
           name: result.username || loginData.username.split('@')[0],
+          username: result.username,
+          created_at: result.created_at,
         },
         token: result.access_token,
         expiresAt: getExpiryTimestamp(),
       };
 
-      console.log('useAuth: Saving session for:', session.user.email || session.user.name);
       saveSession(session, rememberMe);
       setUser(session.user);
 
-      console.log('useAuth: Navigation to /community triggered');
-      router.push('/community');
+      if (shouldRedirect) {
+        const finalRedirect = isValidCallbackUrl(redirectTo) ? redirectTo : '/';
+        console.log(`useAuth: Navigation to ${finalRedirect} triggered`);
+        router.push(finalRedirect);
+      }
+
+      // If we are redirecting and want to stay loading, we don't clear it here
+      if (stayLoadingOnSuccess) return result;
+
+      setIsLoading(false);
+      return result;
     } catch (error) {
+      setIsLoading(false);
       console.error('Login failed:', error);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const login2FA = async (data: { pre_auth_token: string; code: string }, rememberMe: boolean) => {
+  const login2FA = async (
+    data: { pre_auth_token: string; code: string },
+    rememberMe: boolean,
+    shouldRedirect = true,
+    redirectTo = '/',
+    stayLoadingOnSuccess = false
+  ) => {
     setIsLoading(true);
     try {
       const result = await authApi.login2FA(data);
 
       const session: UserSession = {
         user: {
-          id: 'current',
+          id: result.id?.toString() || 'current',
           email: (result.email || '') as string,
           name: result.username || 'User',
+          username: result.username,
+          created_at: result.created_at,
         },
         token: result.access_token,
         expiresAt: getExpiryTimestamp(),
@@ -130,12 +199,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       saveSession(session, rememberMe);
       setUser(session.user);
-      router.push('/community');
+
+      if (shouldRedirect) {
+        const finalRedirect = isValidCallbackUrl(redirectTo) ? redirectTo : '/';
+        router.push(finalRedirect);
+      }
+
+      if (stayLoadingOnSuccess) return result;
+
+      setIsLoading(false);
+      return result;
     } catch (error) {
       console.error('2FA verification failed:', error);
       throw error;
     } finally {
-      setIsLoading(false);
+      if (!stayLoadingOnSuccess) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -159,6 +239,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     router.push('/login');
   };
 
+  // ... existing code ...
+
+  if (!mounted) {
+    return <Loader fullScreen text="Bootstrapping..." />;
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -169,9 +255,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         login2FA,
         logout,
+        setIsLoading,
       }}
     >
-      {!isLoading && children}
+      {isLoading ? <Loader fullScreen text="Authenticating..." /> : children}
     </AuthContext.Provider>
   );
 };
