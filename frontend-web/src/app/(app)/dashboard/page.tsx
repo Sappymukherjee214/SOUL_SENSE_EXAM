@@ -121,9 +121,19 @@ export default function DashboardPage() {
         {data.insights.map((insight, idx) => (
           <SectionWrapper key={`insight-${idx}`} isLoading={loading} error={error} onRetry={fetchData}>
             <InsightCard
-              title={insight.title}
-              description={insight.description}
-              type={insight.type as any}
+              insight={{
+                title: insight.title,
+                content: insight.description,
+                type: insight.type as any,
+                actionLabel: insight.type === 'tip' ? 'View Guide' : 'Analyze Pattern'
+              }}
+              onDismiss={() => {
+                setData(prev => ({
+                  ...prev,
+                  insights: prev.insights.filter((_, i) => i !== idx)
+                }));
+              }}
+              onAction={(ins) => console.log('Action for:', ins.title)}
               className="md:col-span-1"
             />
           </SectionWrapper>
@@ -132,9 +142,11 @@ export default function DashboardPage() {
         {/* Additional Insight or Filler */}
         <SectionWrapper isLoading={loading} error={error} onRetry={fetchData}>
           <InsightCard
-            title="Security & Privacy"
-            description="Your data is encrypted and only accessible by you. We prioritize your privacy."
-            type="safety"
+            insight={{
+              title: "Security & Privacy",
+              content: "Your data is encrypted and only accessible by you. We prioritize your privacy.",
+              type: "safety" as any, // safety is handled by the component or defaults
+            }}
             className="md:col-span-1"
           />
         </SectionWrapper>
