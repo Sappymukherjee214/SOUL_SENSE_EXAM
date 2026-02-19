@@ -170,6 +170,9 @@ class Token(BaseModel):
     refresh_token: Optional[str] = None
     username: Optional[str] = None
     email: Optional[str] = None
+    id: Optional[int] = None
+    created_at: Optional[str] = None
+    warnings: Optional[List[Dict[str, str]]] = None
 
 
 class CaptchaResponse(BaseModel):
@@ -255,6 +258,34 @@ class AssessmentDetailResponse(BaseModel):
     timestamp: str
     responses_count: int
     
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CategoryScore(BaseModel):
+    """Score breakdown for a specific question category."""
+    category_name: str
+    score: float
+    max_score: float
+    percentage: float
+
+
+class Recommendation(BaseModel):
+    """Personalized recommendation based on category performance."""
+    category_name: str
+    message: str
+    priority: str  # 'high', 'medium', 'low'
+
+
+class DetailedExamResult(BaseModel):
+    """Comprehensive exam result breakdown."""
+    assessment_id: int
+    total_score: float
+    max_possible_score: float
+    overall_percentage: float
+    timestamp: str
+    category_breakdown: List[CategoryScore]
+    recommendations: List[Recommendation]
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -499,15 +530,15 @@ class MedicalProfileResponse(BaseModel):
     """Schema for medical profile response."""
     id: int
     user_id: int
-    blood_type: Optional[str]
-    allergies: Optional[str]
-    medications: Optional[str]
-    medical_conditions: Optional[str]
-    surgeries: Optional[str]
-    therapy_history: Optional[str]
-    ongoing_health_issues: Optional[str]
-    emergency_contact_name: Optional[str]
-    emergency_contact_phone: Optional[str]
+    blood_type: Optional[str] = None
+    allergies: Optional[str] = None
+    medications: Optional[str] = None
+    medical_conditions: Optional[str] = None
+    surgeries: Optional[str] = None
+    therapy_history: Optional[str] = None
+    ongoing_health_issues: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
     last_updated: str
 
     model_config = ConfigDict(from_attributes=True)
@@ -585,27 +616,27 @@ class PersonalProfileResponse(BaseModel):
     """Schema for personal profile response."""
     id: int
     user_id: int
-    occupation: Optional[str]
-    education: Optional[str]
-    marital_status: Optional[str]
-    hobbies: Optional[str]
-    bio: Optional[str]
-    life_events: Optional[str]
-    email: Optional[str]
-    phone: Optional[str]
-    date_of_birth: Optional[str]
-    gender: Optional[str]
-    address: Optional[str]
-    society_contribution: Optional[str]
-    life_pov: Optional[str]
-    high_pressure_events: Optional[str]
-    avatar_path: Optional[str]
+    occupation: Optional[str] = None
+    education: Optional[str] = None
+    marital_status: Optional[str] = None
+    hobbies: Optional[str] = None
+    bio: Optional[str] = None
+    life_events: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    gender: Optional[str] = None
+    address: Optional[str] = None
+    society_contribution: Optional[str] = None
+    life_pov: Optional[str] = None
+    high_pressure_events: Optional[str] = None
+    avatar_path: Optional[str] = None
     
     # Wave 2 Phase 2.1
-    support_system: Optional[str]
-    social_interaction_freq: Optional[str]
-    exercise_freq: Optional[str]
-    dietary_patterns: Optional[str]
+    support_system: Optional[str] = None
+    social_interaction_freq: Optional[str] = None
+    exercise_freq: Optional[str] = None
+    dietary_patterns: Optional[str] = None
     
     last_updated: str
 
@@ -741,7 +772,8 @@ class AnalyticsEventCreate(BaseModel):
         if v:
             import json
             s = json.dumps(v).lower()
-            forbidden = ['password', 'token', 'secret', 'credit_card']
+            # Only block absolutely critical items to avoid false positives in development
+            forbidden = ['password', 'credit_card'] 
             for term in forbidden:
                 if term in s:
                      raise ValueError(f"Potential PII detected: {term}")

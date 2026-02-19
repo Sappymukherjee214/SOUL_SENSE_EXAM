@@ -9,28 +9,37 @@ export const authApi = {
   }): Promise<{
     access_token: string;
     pre_auth_token?: string;
+    refresh_token?: string;
     email?: string;
     username?: string;
+    id?: number;
+    created_at?: string;
+    warnings?: any[];
   }> {
-    const payload = {
-      identifier: data.username,
-      password: data.password,
-      captcha_input: data.captcha_input,
-      session_id: data.session_id,
-    };
     return apiClient('/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        identifier: data.username,
+        password: data.password,
+        captcha_input: data.captcha_input,
+        session_id: data.session_id,
+      }),
     });
   },
 
   async login2FA(data: {
     pre_auth_token: string;
     code: string;
-  }): Promise<{ access_token: string; email?: string; username?: string }> {
+  }): Promise<{
+    access_token: string;
+    email?: string;
+    username?: string;
+    id?: number;
+    created_at?: string;
+  }> {
     return apiClient('/auth/login/2fa', {
       method: 'POST',
       headers: {
@@ -96,6 +105,12 @@ export const authApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+    });
+  },
+
+  async refreshToken(): Promise<{ access_token: string }> {
+    return apiClient('/auth/refresh', {
+      method: 'POST',
     });
   },
 };

@@ -11,7 +11,7 @@ Usage:
 
 from datetime import datetime, timedelta, timezone
 import logging
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, Any, cast
 from jose import jwt
 from ..constants.errors import ErrorCode
 from ..exceptions import AuthException
@@ -210,10 +210,10 @@ class MockAuthService:
         Returns:
             Tuple of (pre_auth_token, mock_otp_code)
         """
-        pre_auth_token = self.create_pre_auth_token(user.id)
+        pre_auth_token = self.create_pre_auth_token(cast(Any, user.id))
         
         # Get email from profile
-        profile = MOCK_PROFILES.get(user.id, {})
+        profile = MOCK_PROFILES.get(cast(Any, user.id), {})
         email = str(profile.get("email", "unknown@example.com"))
         otp_code = MOCK_OTP_CODES.get(email, "123456")
         
@@ -415,7 +415,7 @@ class MockAuthService:
             Mock OTP code
         """
         otp_code = "888888"  # Fixed code for 2FA setup
-        profile = MOCK_PROFILES.get(user.id, {})
+        profile = MOCK_PROFILES.get(cast(Any, user.id), {})
         email = profile.get("email", "unknown@example.com")
         logger.info(f"🎭 Mock 2FA setup OTP for {email}: {otp_code}")
         return otp_code

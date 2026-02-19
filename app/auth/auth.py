@@ -186,13 +186,11 @@ class AuthManager:
                         session_id=session_id,
                         user_id=user.id,
                         username=user.username,
-                        created_at=now_iso,
-                        last_accessed=now_iso,
+                        created_at=now,
+                        last_activity=now,
                         is_active=True
                     )
                     session.add(new_session)
-                    
-                    # Audit success (Legacy LoginAttempt + New AuditLog)
                     self._record_login_attempt(session, id_lower, True)
                     AuditService.log_event(user.id, "LOGIN", details={"method": "password"}, db_session=session)
                     session.commit()
