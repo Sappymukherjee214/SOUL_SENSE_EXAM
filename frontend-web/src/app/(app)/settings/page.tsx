@@ -6,11 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { Skeleton } from '@/components/ui';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
-import { ThemeToggle } from '@/components/settings/ThemeToggle';
-import { NotificationSettings } from '@/components/settings/NotificationSettings';
-import { PrivacySettings } from '@/components/settings/PrivacySettings';
-import { AccountSettings } from '@/components/settings/AccountSettings';
-import { AboutSettings } from '@/components/settings/AboutSettings';
+import {
+  ThemeToggle,
+  NotificationSettings,
+  PrivacySettings,
+  AccountSettings,
+  AboutSettings,
+} from '@/components/settings';
 import { cn } from '@/lib/utils';
 import { CheckCircle, AlertCircle, Settings as SettingsIcon } from 'lucide-react';
 
@@ -31,7 +33,7 @@ export default function SettingsPage() {
   // Handle URL hash for direct tab links
   useEffect(() => {
     const hash = window.location.hash.replace('#', '');
-    if (hash && tabs.some(tab => tab.id === hash)) {
+    if (hash && tabs.some((tab) => tab.id === hash)) {
       setActiveTab(hash);
     }
   }, []);
@@ -100,11 +102,7 @@ export default function SettingsPage() {
               <p className="font-medium">Error loading settings</p>
             </div>
             <p className="text-red-500 mt-2">{error}</p>
-            <Button
-              onClick={() => window.location.reload()}
-              className="mt-4"
-              variant="outline"
-            >
+            <Button onClick={() => window.location.reload()} className="mt-4" variant="outline">
               Try Again
             </Button>
           </CardContent>
@@ -162,59 +160,45 @@ export default function SettingsPage() {
       </div>
 
       {/* Settings Content */}
-      <div className={cn(
-        "grid gap-6",
-        isMobile ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-4"
-      )}>
+      <div className={cn('grid gap-6', isMobile ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-4')}>
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}
-          orientation={isMobile ? "horizontal" : "vertical"}
-          className={cn(
-            "w-full",
-            isMobile ? "" : "lg:col-span-1"
-          )}
+          orientation={isMobile ? 'horizontal' : 'vertical'}
+          className={cn('w-full', isMobile ? '' : 'lg:col-span-1')}
         >
-          <TabsList className={cn(
-            "grid w-full",
-            isMobile
-              ? "grid-cols-5 h-auto p-1"
-              : "grid-cols-1 h-auto p-2 space-y-1 bg-transparent"
-          )}>
+          <TabsList
+            className={cn(
+              'grid w-full',
+              isMobile
+                ? 'grid-cols-5 h-auto p-1'
+                : 'grid-cols-1 h-auto p-2 space-y-1 bg-transparent'
+            )}
+          >
             {tabs.map((tab) => (
               <TabsTrigger
                 key={tab.id}
                 value={tab.id}
                 className={cn(
-                  "flex items-center gap-3 justify-start p-3 h-auto",
-                  isMobile ? "flex-col text-xs" : "text-left",
-                  activeTab === tab.id && "bg-primary text-primary-foreground"
+                  'flex items-center gap-3 justify-start p-3 h-auto',
+                  isMobile ? 'flex-col text-xs' : 'text-left',
+                  activeTab === tab.id && 'bg-primary text-primary-foreground'
                 )}
               >
                 <span className="text-lg">{tab.icon}</span>
-                <span className={cn(isMobile ? "text-xs" : "text-sm")}>
-                  {tab.label}
-                </span>
+                <span className={cn(isMobile ? 'text-xs' : 'text-sm')}>{tab.label}</span>
               </TabsTrigger>
             ))}
           </TabsList>
 
-          <div className={cn(
-            "lg:col-span-3",
-            isMobile ? "mt-6" : ""
-          )}>
+          <div className={cn('lg:col-span-3', isMobile ? 'mt-6' : '')}>
             <TabsContent value="appearance" className="mt-0">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    🎨 Appearance
-                  </CardTitle>
+                  <CardTitle className="flex items-center gap-2">🎨 Appearance</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ThemeToggle
-                    settings={settings}
-                    onChange={handleSettingChange}
-                  />
+                  <ThemeToggle settings={settings} onChange={handleSettingChange} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -222,15 +206,10 @@ export default function SettingsPage() {
             <TabsContent value="notifications" className="mt-0">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    🔔 Notifications
-                  </CardTitle>
+                  <CardTitle className="flex items-center gap-2">🔔 Notifications</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <NotificationSettings
-                    settings={settings}
-                    onChange={handleSettingChange}
-                  />
+                  <NotificationSettings settings={settings} onChange={handleSettingChange} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -238,15 +217,10 @@ export default function SettingsPage() {
             <TabsContent value="privacy" className="mt-0">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    🔒 Privacy & Data
-                  </CardTitle>
+                  <CardTitle className="flex items-center gap-2">🔒 Privacy & Data</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <PrivacySettings
-                    settings={settings}
-                    onChange={handleSettingChange}
-                  />
+                  <PrivacySettings settings={settings} onChange={handleSettingChange} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -254,15 +228,10 @@ export default function SettingsPage() {
             <TabsContent value="account" className="mt-0">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    👤 Account
-                  </CardTitle>
+                  <CardTitle className="flex items-center gap-2">👤 Account</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <AccountSettings
-                    settings={settings}
-                    onChange={handleSettingChange}
-                  />
+                  <AccountSettings settings={settings} onChange={handleSettingChange} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -270,9 +239,7 @@ export default function SettingsPage() {
             <TabsContent value="about" className="mt-0">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    ℹ️ About
-                  </CardTitle>
+                  <CardTitle className="flex items-center gap-2">ℹ️ About</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <AboutSettings />

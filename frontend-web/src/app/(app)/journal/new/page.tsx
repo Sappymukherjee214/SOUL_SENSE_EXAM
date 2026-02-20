@@ -6,12 +6,8 @@ import { format } from 'date-fns';
 import { ArrowLeft, Save, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { MoodSlider } from '@/components/journal/mood-slider';
-import { TagSelector } from '@/components/journal/tag-selector';
-import JournalEditor from '@/components/journal/journal-editor';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { useToast } from '@/components/ui/toast';
+import { MoodSlider, TagSelector, JournalEditor } from '@/components/journal';
+import { Button, Card, CardContent, useToast } from '@/components/ui';
 import { journalApi } from '@/lib/api/journal';
 import { JournalEntryCreate } from '@/types/journal';
 
@@ -89,15 +85,15 @@ export default function NewJournalEntryPage() {
   }, [hasUnsavedChanges]);
 
   const handleContentChange = (content: string) => {
-    setEntry(prev => ({ ...prev, content }));
+    setEntry((prev) => ({ ...prev, content }));
   };
 
   const handleMoodChange = (mood_rating: number) => {
-    setEntry(prev => ({ ...prev, mood_rating }));
+    setEntry((prev) => ({ ...prev, mood_rating }));
   };
 
   const handleTagsChange = (tags: string[]) => {
-    setEntry(prev => ({ ...prev, tags }));
+    setEntry((prev) => ({ ...prev, tags }));
   };
 
   const handleSubmit = async () => {
@@ -144,9 +140,7 @@ export default function NewJournalEntryPage() {
 
   const handleCancel = () => {
     if (hasUnsavedChanges) {
-      const confirmed = window.confirm(
-        'You have unsaved changes. Are you sure you want to leave?'
-      );
+      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to leave?');
       if (!confirmed) return;
     }
 

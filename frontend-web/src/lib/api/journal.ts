@@ -3,6 +3,7 @@ import { deduplicateRequest } from '../utils/requestUtils';
 
 export interface JournalEntry {
   id: number;
+  title?: string;
   content: string;
   sentiment_score?: number;
   mood_score?: number;
@@ -12,6 +13,7 @@ export interface JournalEntry {
   tags: string[];
   created_at: string;
   updated_at: string;
+  timestamp?: string; // used in journal page.tsx
   patterns?: string[]; // AI-detected patterns
 }
 
@@ -23,12 +25,12 @@ export interface JournalListResponse {
 }
 
 export interface CreateJournalEntry {
+  title?: string;
   content: string;
   tags?: string[];
   mood_rating?: number;
   energy_level?: number;
   stress_level?: number;
-  mood_rating?: number;
 }
 
 export interface JournalAnalytics {
@@ -48,11 +50,15 @@ export interface JournalFilters {
 }
 
 export const journalApi = {
-  async listEntries(page: number = 1, limit: number = 10, filters?: JournalFilters): Promise<JournalListResponse> {
+  async listEntries(
+    page: number = 1,
+    limit: number = 10,
+    filters?: JournalFilters
+  ): Promise<JournalListResponse> {
     const params = new URLSearchParams();
     params.append('skip', ((page - 1) * limit).toString());
     params.append('limit', limit.toString());
-    
+
     if (filters?.startDate) params.append('start_date', filters.startDate);
     if (filters?.endDate) params.append('end_date', filters.endDate);
     if (filters?.moodMin !== undefined) params.append('mood_min', filters.moodMin.toString());
@@ -62,7 +68,7 @@ export const journalApi = {
 
     const query = params.toString();
     const url = `/journal${query ? `?${query}` : ''}`;
-    
+
     return deduplicateRequest(`journal-list-${page}-${limit}-${JSON.stringify(filters)}`, () =>
       apiClient(url, { retry: true })
     );

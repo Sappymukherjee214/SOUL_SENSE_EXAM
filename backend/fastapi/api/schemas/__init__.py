@@ -565,6 +565,9 @@ class PersonalProfileCreate(BaseModel):
     life_pov: Optional[str] = None
     high_pressure_events: Optional[str] = None
     avatar_path: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    age: Optional[int] = None
     
     # Wave 2 Phase 2.1
     support_system: Optional[str] = None
@@ -590,6 +593,9 @@ class PersonalProfileUpdate(BaseModel):
     life_pov: Optional[str] = None
     high_pressure_events: Optional[str] = None
     avatar_path: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    age: Optional[int] = None
     
     # Wave 2 Phase 2.1
     support_system: Optional[str] = None
@@ -631,6 +637,9 @@ class PersonalProfileResponse(BaseModel):
     life_pov: Optional[str] = None
     high_pressure_events: Optional[str] = None
     avatar_path: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    age: Optional[int] = None
     
     # Wave 2 Phase 2.1
     support_system: Optional[str] = None

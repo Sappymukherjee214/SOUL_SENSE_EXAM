@@ -1,36 +1,49 @@
 /**
  * EXAMPLE: How to integrate ExportPDF component in Results Detail Page
- * 
+ *
  * This shows how to update the existing results/[id]/page.tsx to use
  * the new ExportPDF component instead of the placeholder handleExport.
- * 
+ *
  * NOTE: This is a reference implementation. Use the patterns shown here
  * to update your own results pages.
  */
 
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useResults } from '@/hooks/useResults';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { 
-  ScoreGauge, 
-  CategoryBreakdown, 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Button,
+  Skeleton,
+} from '@/components/ui';
+import {
+  ScoreGauge,
+  CategoryBreakdown,
   RecommendationCard,
-  ExportPDF  // NEW: Import the ExportPDF component
+  ExportPDF, // NEW: Import the ExportPDF component
 } from '@/components/results';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, RefreshCw, Calendar, Clock } from 'lucide-react';
 
 export default function ResultDetailPage() {
   const params = useParams();
   const router = useRouter();
   const rawId = params?.id as string | string[] | undefined;
-  const examId = rawId
-    ? parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10)
-    : NaN;
+  const examId = rawId ? parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10) : NaN;
+
+  // CHANGED: Use fetchDetailedResult hook before early return
+  const { detailedResult, loading, error, fetchDetailedResult } = useResults();
+
+  useEffect(() => {
+    if (examId && !detailedResult) {
+      fetchDetailedResult(examId);
+    }
+  }, [examId, detailedResult, fetchDetailedResult]);
 
   if (!examId || Number.isNaN(examId)) {
     return (
@@ -52,15 +65,6 @@ export default function ResultDetailPage() {
       </div>
     );
   }
-
-  // CHANGED: Use fetchDetailedResult hook instead of passing examId directly
-  const { detailedResult, loading, error, fetchDetailedResult } = useResults();
-
-  React.useEffect(() => {
-    if (examId && !detailedResult) {
-      fetchDetailedResult(examId);
-    }
-  }, [examId, detailedResult, fetchDetailedResult]);
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -118,9 +122,7 @@ export default function ResultDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => router.push('/results')}>
-              View All Results
-            </Button>
+            <Button onClick={() => router.push('/results')}>View All Results</Button>
           </CardContent>
         </Card>
       </div>
@@ -128,7 +130,7 @@ export default function ResultDetailPage() {
   }
 
   // Transform categories data for CategoryBreakdown component
-  const categoryScores = detailedResult.category_breakdown.map(cat => ({
+  const categoryScores = detailedResult.category_breakdown.map((cat) => ({
     name: cat.category_name,
     score: cat.percentage,
   }));
@@ -141,15 +143,15 @@ export default function ResultDetailPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Results
         </Button>
-        
+
         <div className="flex gap-2 no-print">
           <Button variant="outline" onClick={handleRetake}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Retake Exam
           </Button>
-          
+
           {/* NEW: ExportPDF Component - replaces handleExport button */}
-          <ExportPDF 
+          <ExportPDF
             result={detailedResult}
             userName="Student Name" // Replace with actual user name from state/auth
             variant="default"
@@ -169,10 +171,9 @@ export default function ResultDetailPage() {
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
             <span>
-              {detailedResult.duration_seconds 
-                ? formatDuration(detailedResult.duration_seconds) 
-                : 'N/A'
-              }
+              {detailedResult.duration_seconds
+                ? formatDuration(detailedResult.duration_seconds)
+                : 'N/A'}
             </span>
           </div>
         </div>
@@ -185,8 +186,8 @@ export default function ResultDetailPage() {
           <CardDescription>Your comprehensive emotional intelligence score</CardDescription>
         </CardHeader>
         <CardContent className="pt-8 pb-8 flex justify-center">
-          <ScoreGauge 
-            score={detailedResult.overall_percentage} 
+          <ScoreGauge
+            score={detailedResult.overall_percentage}
             size="lg"
             label="Overall Score"
             animated
@@ -204,11 +205,7 @@ export default function ResultDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
-            <CategoryBreakdown 
-              categories={categoryScores}
-              showLabels
-              animated
-            />
+            <CategoryBreakdown categories={categoryScores} showLabels animated />
           </CardContent>
         </Card>
       )}
@@ -224,8 +221,8 @@ export default function ResultDetailPage() {
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {detailedResult.recommendations.map((recommendation, index) => (
-              <RecommendationCard 
-                key={`${recommendation.category_name}-${index}`} 
+              <RecommendationCard
+                key={`${recommendation.category_name}-${index}`}
                 recommendation={recommendation}
               />
             ))}
@@ -235,17 +232,13 @@ export default function ResultDetailPage() {
 
       {/* Action Buttons (Mobile-friendly, bottom) */}
       <div className="flex flex-col sm:flex-row gap-3 no-print pt-4 border-t">
-        <Button 
-          variant="outline" 
-          onClick={handleRetake}
-          className="flex-1"
-        >
+        <Button variant="outline" onClick={handleRetake} className="flex-1">
           <RefreshCw className="mr-2 h-4 w-4" />
           Retake Exam
         </Button>
-        
+
         {/* NEW: ExportPDF Component - also shown at bottom for mobile users */}
-        <ExportPDF 
+        <ExportPDF
           result={detailedResult}
           userName="Student Name"
           variant="default"
@@ -260,12 +253,12 @@ export default function ResultDetailPage() {
           .no-print {
             display: none !important;
           }
-          
+
           body {
             print-color-adjust: exact;
             -webkit-print-color-adjust: exact;
           }
-          
+
           @page {
             margin: 1cm;
           }

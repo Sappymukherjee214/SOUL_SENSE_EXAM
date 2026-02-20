@@ -232,7 +232,11 @@ export default function ExamPage() {
 
         {/* Progress */}
         <div className="mb-6">
-          <ExamProgress />
+          <ExamProgress
+            current={currentIndex + 1}
+            total={questions.length}
+            answeredCount={getAnsweredCount()}
+          />
         </div>
 
         {/* Question Card */}

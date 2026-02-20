@@ -145,14 +145,70 @@ export const profileApi = {
   },
 
   async getUserProfile(): Promise<UserProfile> {
-    return deduplicateRequest('profile-me', () => apiClient<UserProfile>('/profiles/me'));
+    return deduplicateRequest('profile-me', async () => {
+      const data = await apiClient<any>('/users/me/complete');
+      return {
+        id: data.user.id,
+        user_id: data.user.id,
+        first_name: data.personal_profile?.first_name || '',
+        last_name: data.personal_profile?.last_name || '',
+        bio: data.personal_profile?.bio || '',
+        age: data.personal_profile?.age || 0,
+        gender: data.personal_profile?.gender || '',
+        avatar_url: data.personal_profile?.avatar_path || '',
+        goals: {
+          short_term: data.strengths?.short_term_goals || '',
+          long_term: data.strengths?.long_term_vision || '',
+        },
+        preferences: {
+          notification_frequency: 'daily',
+          theme: data.settings?.theme || 'system',
+        },
+        created_at: data.user.created_at,
+        updated_at: data.personal_profile?.last_updated || data.user.created_at,
+      };
+    });
   },
 
   async updateUserProfile(data: UpdateUserProfile): Promise<UserProfile> {
-    return apiClient<UserProfile>('/profiles/me', {
+    // 1. Update personal profile
+    await apiClient('/profiles/personal', {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        first_name: data.first_name,
+        last_name: data.last_name,
+        bio: data.bio,
+        age: data.age,
+        gender: data.gender,
+      }),
     });
+
+    // 2. Update strengths
+    if (data.goals) {
+      await apiClient('/profiles/strengths', {
+        method: 'PUT',
+        body: JSON.stringify({
+          short_term_goals: data.goals.short_term,
+          long_term_vision: data.goals.long_term,
+        }),
+      });
+    }
+
+    // 3. Update settings
+    if (data.preferences) {
+      const settingsValidData: Record<string, any> = {};
+      if (data.preferences.theme && ['light', 'dark'].includes(data.preferences.theme)) {
+        settingsValidData.theme = data.preferences.theme;
+      }
+      if (Object.keys(settingsValidData).length > 0) {
+        await apiClient('/profiles/settings', {
+          method: 'PUT',
+          body: JSON.stringify(settingsValidData),
+        });
+      }
+    }
+
+    return this.getUserProfile();
   },
 
   async uploadAvatar(file: File): Promise<{ avatar_url: string }> {

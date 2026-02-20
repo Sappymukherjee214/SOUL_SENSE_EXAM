@@ -1,21 +1,33 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useResults } from '@/hooks/useResults';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Button,
+  Skeleton,
+} from '@/components/ui';
 import { ScoreGauge, CategoryBreakdown, RecommendationCard } from '@/components/results';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Download, RefreshCw, Calendar, Clock } from 'lucide-react';
 
 export default function ResultDetailPage() {
   const params = useParams();
   const router = useRouter();
   const rawId = params?.id as string | string[] | undefined;
-  const examId = rawId
-    ? parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10)
-    : NaN;
+  const examId = rawId ? parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10) : NaN;
+
+  const { detailedResult: result, loading: isLoading, error, fetchDetailedResult } = useResults();
+
+  useEffect(() => {
+    if (examId && !Number.isNaN(examId)) {
+      fetchDetailedResult(examId);
+    }
+  }, [examId, fetchDetailedResult]);
 
   if (!examId || Number.isNaN(examId)) {
     return (
@@ -37,7 +49,6 @@ export default function ResultDetailPage() {
       </div>
     );
   }
-  const { result, isLoading, error } = useResults(examId);
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -98,9 +109,7 @@ export default function ResultDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => router.push('/results')}>
-              View All Results
-            </Button>
+            <Button onClick={() => router.push('/results')}>View All Results</Button>
           </CardContent>
         </Card>
       </div>
@@ -108,7 +117,7 @@ export default function ResultDetailPage() {
   }
 
   // Transform categories data for CategoryBreakdown component
-  const categoryScores = result.categories.map(cat => {
+  const categoryScores = result.categories.map((cat) => {
     const maxScore = typeof cat.max_score === 'number' && cat.max_score > 0 ? cat.max_score : null;
     const scorePercentage = maxScore ? (cat.score / maxScore) * 100 : 0;
     return {
@@ -125,7 +134,7 @@ export default function ResultDetailPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Results
         </Button>
-        
+
         <div className="flex gap-2 no-print">
           <Button variant="outline" onClick={handleRetake}>
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -164,8 +173,8 @@ export default function ResultDetailPage() {
           <CardDescription>Your comprehensive emotional intelligence score</CardDescription>
         </CardHeader>
         <CardContent className="pt-8 pb-8 flex justify-center">
-          <ScoreGauge 
-            score={result.overall_score || result.total_score || 0} 
+          <ScoreGauge
+            score={result.overall_score || result.total_score || 0}
             size="lg"
             label="Overall Score"
             animated
@@ -183,11 +192,7 @@ export default function ResultDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
-            <CategoryBreakdown 
-              categories={categoryScores}
-              showLabels
-              animated
-            />
+            <CategoryBreakdown categories={categoryScores} showLabels animated />
           </CardContent>
         </Card>
       )}
@@ -203,8 +208,8 @@ export default function ResultDetailPage() {
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {result.recommendations.map((recommendation, index) => (
-              <RecommendationCard 
-                key={`${recommendation.id}-${index}`} 
+              <RecommendationCard
+                key={`${recommendation.id}-${index}`}
                 recommendation={recommendation}
               />
             ))}
@@ -229,19 +234,11 @@ export default function ResultDetailPage() {
 
       {/* Action Buttons (Mobile-friendly, bottom) */}
       <div className="flex flex-col sm:flex-row gap-3 no-print pt-4 border-t">
-        <Button 
-          variant="outline" 
-          onClick={handleRetake}
-          className="flex-1"
-        >
+        <Button variant="outline" onClick={handleRetake} className="flex-1">
           <RefreshCw className="mr-2 h-4 w-4" />
           Retake Exam
         </Button>
-        <Button 
-          variant="default"
-          onClick={handleExport}
-          className="flex-1"
-        >
+        <Button variant="default" onClick={handleExport} className="flex-1">
           <Download className="mr-2 h-4 w-4" />
           Export as PDF
         </Button>
@@ -253,12 +250,12 @@ export default function ResultDetailPage() {
           .no-print {
             display: none !important;
           }
-          
+
           body {
             print-color-adjust: exact;
             -webkit-print-color-adjust: exact;
           }
-          
+
           @page {
             margin: 1cm;
           }

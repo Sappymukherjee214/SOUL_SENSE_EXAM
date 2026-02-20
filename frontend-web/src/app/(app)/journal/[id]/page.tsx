@@ -34,7 +34,18 @@ const MOOD_ICONS = {
   negative: { icon: Frown, color: 'text-red-500', bg: 'bg-red-500/10' },
 };
 
-const MOOD_LABELS = ['Very Low', 'Low', 'Neutral', 'Good', 'Great', 'Excellent', 'Amazing', 'Fantastic', 'Outstanding', 'Perfect'];
+const MOOD_LABELS = [
+  'Very Low',
+  'Low',
+  'Neutral',
+  'Good',
+  'Great',
+  'Excellent',
+  'Amazing',
+  'Fantastic',
+  'Outstanding',
+  'Perfect',
+];
 
 function getMoodCategory(score?: number) {
   if (score == null) return 'neutral';
@@ -236,21 +247,13 @@ export default function JournalEntryDetailPage() {
           </Button>
         </Link>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleShare}
-            className="rounded-full"
-          >
+          <Button variant="outline" onClick={handleShare} className="rounded-full">
             <Share2 className="w-4 h-4 mr-2" />
             Share
           </Button>
           {!isEditing && (
             <>
-              <Button
-                variant="outline"
-                onClick={handleEdit}
-                className="rounded-full"
-              >
+              <Button variant="outline" onClick={handleEdit} className="rounded-full">
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
               </Button>
@@ -317,8 +320,12 @@ export default function JournalEntryDetailPage() {
                       className="flex-1"
                     />
                     <div className="flex items-center gap-2 min-w-[100px]">
-                      <span className="text-sm font-medium">{MOOD_LABELS[(editForm.mood_rating || 5) - 1]}</span>
-                      <span className="text-xs text-muted-foreground">({editForm.mood_rating || 5}/10)</span>
+                      <span className="text-sm font-medium">
+                        {MOOD_LABELS[(editForm.mood_rating || 5) - 1]}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        ({editForm.mood_rating || 5}/10)
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -332,7 +339,9 @@ export default function JournalEntryDetailPage() {
                   <div className="flex items-center gap-4">
                     <Slider
                       value={editForm.energy_level || 5}
-                      onChange={(value) => setEditForm((prev) => ({ ...prev, energy_level: value }))}
+                      onChange={(value) =>
+                        setEditForm((prev) => ({ ...prev, energy_level: value }))
+                      }
                       max={10}
                       min={1}
                       step={1}
@@ -353,7 +362,9 @@ export default function JournalEntryDetailPage() {
                   <div className="flex items-center gap-4">
                     <Slider
                       value={editForm.stress_level || 5}
-                      onChange={(value) => setEditForm((prev) => ({ ...prev, stress_level: value }))}
+                      onChange={(value) =>
+                        setEditForm((prev) => ({ ...prev, stress_level: value }))
+                      }
                       max={10}
                       min={1}
                       step={1}
@@ -402,11 +413,7 @@ export default function JournalEntryDetailPage() {
                 </div>
 
                 <div className="flex justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={handleCancelEdit}
-                    className="rounded-full"
-                  >
+                  <Button variant="outline" onClick={handleCancelEdit} className="rounded-full">
                     Cancel
                   </Button>
                   <Button
@@ -432,12 +439,12 @@ export default function JournalEntryDetailPage() {
           <CardContent className="p-8 space-y-6">
             {/* Title & Date */}
             <div className="space-y-4">
-              <h1 className="text-3xl font-bold">
-                {entry.title || 'Untitled Entry'}
-              </h1>
+              <h1 className="text-3xl font-bold">{entry.title || 'Untitled Entry'}</h1>
               <div className="flex items-center gap-3 text-muted-foreground">
                 <Calendar className="w-5 h-5" />
-                <span className="text-lg">{formatDate(entry.timestamp)}</span>
+                <span className="text-lg">
+                  {formatDate(entry.timestamp || entry.created_at || new Date().toISOString())}
+                </span>
               </div>
             </div>
 
@@ -482,7 +489,9 @@ export default function JournalEntryDetailPage() {
                 <div className="flex-1">
                   <div className="text-sm font-medium">Sentiment Analysis</div>
                   <div className={`text-sm ${getSentimentColor(entry.sentiment_score)}`}>
-                    {getSentimentLabel(entry.sentiment_score)} ({entry.sentiment_score > 0 ? '+' : ''}{(entry.sentiment_score * 100).toFixed(0)}%)
+                    {getSentimentLabel(entry.sentiment_score)} (
+                    {entry.sentiment_score > 0 ? '+' : ''}
+                    {(entry.sentiment_score * 100).toFixed(0)}%)
                   </div>
                 </div>
                 {entry.sentiment_score > 0 ? (
@@ -537,8 +546,7 @@ export default function JournalEntryDetailPage() {
                       key={tag}
                       className="flex items-center gap-1 px-3 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium"
                     >
-                      <Tag className="w-4 h-4" />
-                      #{tag}
+                      <Tag className="w-4 h-4" />#{tag}
                     </span>
                   ))}
                 </div>

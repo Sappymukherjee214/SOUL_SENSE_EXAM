@@ -4,14 +4,14 @@ import { useState, useCallback } from 'react';
 import { useApi } from './useApi';
 import { profileApi, UserProfile, UpdateUserProfile } from '@/lib/api/profile';
 
-interface UseProfileReturn {
+export interface UseProfileReturn {
   profile: UserProfile | null;
   isLoading: boolean;
   error: string | null;
   updateProfile: (data: UpdateUserProfile) => Promise<void>;
   uploadAvatar: (file: File) => Promise<void>;
   deleteAvatar: () => Promise<void>;
-  refetch: () => void;
+  refetch: () => Promise<void>;
 }
 
 export function useProfile(): UseProfileReturn {
@@ -28,39 +28,45 @@ export function useProfile(): UseProfileReturn {
     immediate: true,
   });
 
-  const updateProfile = useCallback(async (data: UpdateUserProfile) => {
-    setUpdateLoading(true);
-    setUpdateError(null);
+  const updateProfile = useCallback(
+    async (data: UpdateUserProfile) => {
+      setUpdateLoading(true);
+      setUpdateError(null);
 
-    try {
-      await profileApi.updateUserProfile(data);
-      // Refetch the profile after successful update
-      await refetch();
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to update profile';
-      setUpdateError(errorMessage);
-      throw error;
-    } finally {
-      setUpdateLoading(false);
-    }
-  }, [refetch]);
+      try {
+        await profileApi.updateUserProfile(data);
+        // Refetch the profile after successful update
+        await refetch();
+      } catch (error: any) {
+        const errorMessage = error?.message || 'Failed to update profile';
+        setUpdateError(errorMessage);
+        throw error;
+      } finally {
+        setUpdateLoading(false);
+      }
+    },
+    [refetch]
+  );
 
-  const uploadAvatar = useCallback(async (file: File) => {
-    setUpdateLoading(true);
-    setUpdateError(null);
+  const uploadAvatar = useCallback(
+    async (file: File) => {
+      setUpdateLoading(true);
+      setUpdateError(null);
 
-    try {
-      await profileApi.uploadAvatar(file);
-      // Refetch the profile after successful upload
-      await refetch();
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to upload avatar';
-      setUpdateError(errorMessage);
-      throw error;
-    } finally {
-      setUpdateLoading(false);
-    }
-  }, [refetch]);
+      try {
+        await profileApi.uploadAvatar(file);
+        // Refetch the profile after successful upload
+        await refetch();
+      } catch (error: any) {
+        const errorMessage = error?.message || 'Failed to upload avatar';
+        setUpdateError(errorMessage);
+        throw error;
+      } finally {
+        setUpdateLoading(false);
+      }
+    },
+    [refetch]
+  );
 
   const deleteAvatar = useCallback(async () => {
     setUpdateLoading(true);
@@ -76,43 +82,6 @@ export function useProfile(): UseProfileReturn {
       throw error;
     } finally {
       setUpdateLoading(false);
-import { profileApi, PersonalProfile, UpdatePersonalProfile } from '@/lib/api/profile';
-import { useApi } from './useApi';
-
-export interface UseProfileResult {
-  profile: PersonalProfile | null;
-  loading: boolean;
-  error: string | null;
-  updateProfile: (data: UpdatePersonalProfile) => Promise<void>;
-  refetch: () => Promise<void>;
-}
-
-/**
- * Hook for managing user profile data
- */
-export function useProfile(): UseProfileResult {
-  const [updating, setUpdating] = useState(false);
-
-  const {
-    data: profile,
-    loading,
-    error,
-    refetch,
-  } = useApi({
-    apiFn: () => profileApi.getPersonalProfile(),
-    deps: [],
-  });
-
-  const updateProfile = useCallback(async (data: UpdatePersonalProfile) => {
-    setUpdating(true);
-    try {
-      await profileApi.updatePersonalProfile(data);
-      // Refetch profile data after successful update
-      await refetch();
-    } catch (err) {
-      throw err;
-    } finally {
-      setUpdating(false);
     }
   }, [refetch]);
 

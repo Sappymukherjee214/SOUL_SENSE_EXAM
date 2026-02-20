@@ -27,7 +27,9 @@ function adaptEntry(entry: any) {
   return {
     id: entry.id,
     content: entry.content,
-    mood_rating: entry.mood_score || (entry.sentiment_score ? Math.round((entry.sentiment_score + 1) * 5) : undefined),
+    mood_rating:
+      entry.mood_score ||
+      (entry.sentiment_score ? Math.round((entry.sentiment_score + 1) * 5) : undefined),
     tags: entry.tags || [],
     sentiment_score: entry.sentiment_score,
     created_at: entry.timestamp,
@@ -241,7 +243,11 @@ export default function JournalPage() {
               onClick={() => setIsChartCollapsed(!isChartCollapsed)}
               className="rounded-full"
             >
-              {isChartCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              {isChartCollapsed ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronUp className="w-4 h-4" />
+              )}
             </Button>
           </div>
           <AnimatePresence>
@@ -252,11 +258,7 @@ export default function JournalPage() {
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <MoodTrend
-                  entries={entries.map(adaptEntry)}
-                  timeRange="30d"
-                  showAverage={true}
-                />
+                <MoodTrend entries={entries.map(adaptEntry)} timeRange="30d" showAverage={true} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -277,7 +279,11 @@ export default function JournalPage() {
               onClick={() => setIsFiltersOpen(!isFiltersOpen)}
               className="rounded-full"
             >
-              {isFiltersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {isFiltersOpen ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
             </Button>
           </div>
 
@@ -288,7 +294,7 @@ export default function JournalPage() {
               <Input
                 placeholder="Search entries..."
                 value={tempFilters.search || ''}
-                onChange={(e) => setTempFilters(prev => ({ ...prev, search: e.target.value }))}
+                onChange={(e) => setTempFilters((prev) => ({ ...prev, search: e.target.value }))}
                 className="pl-10 rounded-xl"
                 onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
               />
@@ -318,7 +324,9 @@ export default function JournalPage() {
                     <Input
                       type="date"
                       value={tempFilters.startDate || ''}
-                      onChange={(e) => setTempFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                      onChange={(e) =>
+                        setTempFilters((prev) => ({ ...prev, startDate: e.target.value }))
+                      }
                       className="rounded-lg"
                     />
                   </div>
@@ -327,27 +335,33 @@ export default function JournalPage() {
                     <Input
                       type="date"
                       value={tempFilters.endDate || ''}
-                      onChange={(e) => setTempFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                      onChange={(e) =>
+                        setTempFilters((prev) => ({ ...prev, endDate: e.target.value }))
+                      }
                       className="rounded-lg"
                     />
                   </div>
 
                   {/* Mood Range */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Min Mood ({tempFilters.moodMin || 0})</label>
+                    <label className="text-sm font-medium">
+                      Min Mood ({tempFilters.moodMin || 0})
+                    </label>
                     <Slider
                       value={tempFilters.moodMin || 0}
-                      onChange={(value) => setTempFilters(prev => ({ ...prev, moodMin: value }))}
+                      onChange={(value) => setTempFilters((prev) => ({ ...prev, moodMin: value }))}
                       max={100}
                       step={1}
                       className="w-full"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Max Mood ({tempFilters.moodMax || 100})</label>
+                    <label className="text-sm font-medium">
+                      Max Mood ({tempFilters.moodMax || 100})
+                    </label>
                     <Slider
                       value={tempFilters.moodMax || 100}
-                      onChange={(value) => setTempFilters(prev => ({ ...prev, moodMax: value }))}
+                      onChange={(value) => setTempFilters((prev) => ({ ...prev, moodMax: value }))}
                       max={100}
                       step={1}
                       className="w-full"
@@ -361,10 +375,14 @@ export default function JournalPage() {
                   <Input
                     placeholder="work, family, health"
                     value={tempFilters.tags?.join(', ') || ''}
-                    onChange={(e) => setTempFilters(prev => ({
-                      ...prev,
-                      tags: e.target.value ? e.target.value.split(',').map(t => t.trim()) : undefined
-                    }))}
+                    onChange={(e) =>
+                      setTempFilters((prev) => ({
+                        ...prev,
+                        tags: e.target.value
+                          ? e.target.value.split(',').map((t) => t.trim())
+                          : undefined,
+                      }))
+                    }
                     className="rounded-lg"
                   />
                 </div>
@@ -399,7 +417,8 @@ export default function JournalPage() {
             </div>
             <h3 className="text-lg font-bold">No journal entries yet</h3>
             <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-              Start your reflection journey. Tap "New Entry" to write your first journal entry.
+              Start your reflection journey. Tap &quot;New Entry&quot; to write your first journal
+              entry.
             </p>
             <Button onClick={() => setIsNewEntryOpen(true)} className="rounded-full px-6 mt-2">
               <Plus className="w-4 h-4 mr-2" />

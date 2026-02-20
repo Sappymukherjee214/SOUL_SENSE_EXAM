@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { ProfileCard } from '@/components/profile/profile-card';
-import { ProfileForm } from '@/components/profile/profile-form';
+import { ProfileCard, ProfileForm } from '@/components/profile';
 import { Button } from '@/components/ui';
 import { Card, CardContent } from '@/components/ui';
 import { Skeleton } from '@/components/ui';
@@ -70,9 +69,11 @@ export default function ProfilePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Profile</h1>
-          <p className="text-muted-foreground">Manage your personal information and view your progress</p>
+          <p className="text-muted-foreground">
+            Manage your personal information and view your progress
+          </p>
         </div>
-        <Button onClick={handleEditToggle} variant={isEditing ? "outline" : "default"}>
+        <Button onClick={handleEditToggle} variant={isEditing ? 'outline' : 'default'}>
           ✏️ {isEditing ? 'Cancel Edit' : 'Edit Profile'}
         </Button>
       </div>
@@ -91,9 +92,9 @@ export default function ProfilePage() {
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <ProfileCard 
-                      profile={profile} 
-                      user={user} 
+                    <ProfileCard
+                      profile={profile}
+                      user={user}
                       variant="full"
                       editable={true}
                       onEdit={handleEditToggle}
@@ -150,9 +151,7 @@ export default function ProfilePage() {
           <div className="grid grid-cols-1 gap-4">
             <Card className="rounded-3xl border-none shadow-lg hover:scale-105 transition-transform">
               <CardContent className="p-6 text-center">
-                <div className="mx-auto p-3 rounded-2xl bg-blue-500/10 w-fit mb-3">
-                  🎯
-                </div>
+                <div className="mx-auto p-3 rounded-2xl bg-blue-500/10 w-fit mb-3">🎯</div>
                 <p className="text-3xl font-black text-foreground">{examHistory?.total || 0}</p>
                 <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
                   Total Exams
@@ -162,10 +161,10 @@ export default function ProfilePage() {
 
             <Card className="rounded-3xl border-none shadow-lg hover:scale-105 transition-transform">
               <CardContent className="p-6 text-center">
-                <div className="mx-auto p-3 rounded-2xl bg-green-500/10 w-fit mb-3">
-                  📖
-                </div>
-                <p className="text-3xl font-black text-foreground">{journalAnalytics?.total_entries || 0}</p>
+                <div className="mx-auto p-3 rounded-2xl bg-green-500/10 w-fit mb-3">📖</div>
+                <p className="text-3xl font-black text-foreground">
+                  {journalAnalytics?.total_entries || 0}
+                </p>
                 <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
                   Journal Entries
                 </p>
@@ -174,10 +173,10 @@ export default function ProfilePage() {
 
             <Card className="rounded-3xl border-none shadow-lg hover:scale-105 transition-transform">
               <CardContent className="p-6 text-center">
-                <div className="mx-auto p-3 rounded-2xl bg-orange-500/10 w-fit mb-3">
-                  🏆
-                </div>
-                <p className="text-3xl font-black text-foreground">{journalAnalytics?.streak_days || 0}</p>
+                <div className="mx-auto p-3 rounded-2xl bg-orange-500/10 w-fit mb-3">🏆</div>
+                <p className="text-3xl font-black text-foreground">
+                  {journalAnalytics?.streak_days || 0}
+                </p>
                 <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
                   Streak Days
                 </p>

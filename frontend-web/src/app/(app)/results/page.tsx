@@ -3,9 +3,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { HistoryChart, ExamResult as ChartResult } from '@/components/results';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+} from '@/components/ui';
 import { useResults } from '@/hooks/useResults';
 
 type NormalizedResult = {
@@ -17,7 +23,9 @@ type NormalizedResult = {
 
 const PAGE_SIZE = 6;
 
-const normalizeResults = (raw: { id: number; completed_at: string; overall_score: number; duration_seconds: number }[]): NormalizedResult[] => {
+const normalizeResults = (
+  raw: { id: number; completed_at: string; overall_score: number; duration_seconds: number }[]
+): NormalizedResult[] => {
   return raw
     .map((item) => ({
       id: String(item.id),
@@ -54,10 +62,20 @@ const getScoreTone = (score: number) => {
 };
 
 export default function ResultsPage() {
-  const { results: apiResults, history, isLoading, error } = useResults({
-    historyPage: 1,
-    historyPageSize: 100,
+  const {
+    history: apiResults,
+    loading: isLoading,
+    error,
+    fetchHistory,
+    totalCount,
+  } = useResults({
+    initialPage: 1,
+    initialPageSize: 100,
   });
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
   const [results, setResults] = useState<NormalizedResult[]>([]);
   const [sortKey, setSortKey] = useState<'date' | 'score'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -111,10 +129,7 @@ export default function ResultsPage() {
   }, [filteredResults, sortKey, sortDirection]);
 
   const totalPages = Math.max(1, Math.ceil(sortedResults.length / PAGE_SIZE));
-  const pagedResults = sortedResults.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
+  const pagedResults = sortedResults.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const chartResults: ChartResult[] = useMemo(() => {
     return filteredResults.map((item) => ({
@@ -232,10 +247,13 @@ export default function ResultsPage() {
                 />
               </div>
               {(dateFrom || dateTo) && (
-                <Button variant="ghost" onClick={() => {
-                  setDateFrom('');
-                  setDateTo('');
-                }}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setDateFrom('');
+                    setDateTo('');
+                  }}
+                >
                   Clear dates
                 </Button>
               )}
@@ -270,11 +288,7 @@ export default function ResultsPage() {
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">
                     {pagedResults.map((result) => (
-                      <Link
-                        key={result.id}
-                        href={`/results/${result.id}`}
-                        className="group"
-                      >
+                      <Link key={result.id} href={`/results/${result.id}`} className="group">
                         <Card className="h-full border-slate-200 bg-white/90 transition-all hover:-translate-y-1 hover:shadow-lg">
                           <CardHeader className="space-y-3">
                             <div className="flex items-center justify-between gap-4">
@@ -310,7 +324,7 @@ export default function ResultsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm text-muted-foreground">
                     Showing {pagedResults.length} of {sortedResults.length} results
-                    {history ? ` (${history.total} total)` : ''}
+                    {totalCount > 0 ? ` (${totalCount} total)` : ''}
                   </p>
                   <div className="flex items-center gap-2">
                     <Button
@@ -336,72 +350,6 @@ export default function ResultsPage() {
             )}
           </CardContent>
         </Card>
-      </div>
-
-      {/* High-Priority Recommendations Section */}
-      {highPriorityRecs.length > 0 && (
-        <section>
-          <div className="mb-4">
-            <h2 className="text-2xl font-bold">Top Priorities</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Focus on these high-priority recommendations for maximum impact
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {highPriorityRecs.map((rec, index) => (
-              <RecommendationCard
-                key={`high-${rec.category_name}-${index}`}
-                recommendation={rec}
-                showAnimation={true}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* All Recommendations Section */}
-      {recommendations.length > 0 ? (
-        <section>
-          <div className="mb-4">
-            <h2 className="text-2xl font-bold">All Recommendations</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Personalized insights based on your assessment results
-            </p>
-          </div>
-          <div className="space-y-4">
-            {recommendations.map((rec, index) => (
-              <RecommendationCard
-                key={`${rec.category_name}-${index}`}
-                recommendation={rec}
-                showAnimation={true}
-              />
-            ))}
-          </div>
-        </section>
-      ) : (
-        <EmptyState
-          title="No Recommendations Available"
-          description="Complete an assessment to receive personalized recommendations."
-        />
-      )}
-
-      {/* Next Steps */}
-      <div className="rounded-lg border bg-muted/50 p-6">
-        <h3 className="font-semibold mb-2">What&apos;s Next?</h3>
-        <ul className="space-y-2 text-sm text-muted-foreground">
-          <li className="flex items-start gap-2">
-            <span className="text-blue-500 mt-0.5">•</span>
-            <span>Review each recommendation and click to expand for more details</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-blue-500 mt-0.5">•</span>
-            <span>Start with high-priority items for the most significant improvement</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-blue-500 mt-0.5">•</span>
-            <span>Retake the assessment in 2-4 weeks to track your progress</span>
-          </li>
-        </ul>
       </div>
     </div>
   );

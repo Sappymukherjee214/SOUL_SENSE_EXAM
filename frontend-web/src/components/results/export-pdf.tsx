@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui';
 import { Download, Loader2 } from 'lucide-react';
 import { useResults } from '@/hooks/useResults';
 import { DetailedExamResult, CategoryScore, Recommendation } from '@/types/results';
@@ -74,7 +74,7 @@ export const ExportPDF: React.FC<ExportPDFProps> = ({
       if (!resultData && resultId) {
         try {
           await fetchDetailedResult(resultId);
-          resultData = detailedResult;
+          resultData = detailedResult || undefined;
         } catch (err) {
           throw new Error('Failed to fetch exam results');
         }
@@ -180,11 +180,7 @@ export const ExportPDF: React.FC<ExportPDFProps> = ({
         className={cn('gap-2', className)}
         title={error || 'Export results as PDF'}
       >
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Download className="h-4 w-4" />
-        )}
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
         {showText && (loading ? 'Generating...' : 'Export PDF')}
       </Button>
       {error && (
