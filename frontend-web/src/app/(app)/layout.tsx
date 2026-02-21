@@ -1,22 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Sidebar, Header } from '@/components/app';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      const callbackUrl = encodeURIComponent(pathname);
-      router.push(`/login?callbackUrl=${callbackUrl}`);
-    }
-  }, [isLoading, isAuthenticated, router, pathname]);
 
   if (isLoading) {
     return (
