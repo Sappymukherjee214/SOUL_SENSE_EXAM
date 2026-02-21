@@ -109,20 +109,30 @@ def create_app() -> FastAPI:
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         logger = logging.getLogger("api.main")
-        logger.error(f"Global Exception: {exc}")
-        traceback.print_exc()
         
-        # Don't leak raw exception info in production
-        error_msg = str(exc) if settings.debug else "An unexpected error occurred"
+        if settings.debug:
+            # Safe for local dev: print full traceback to stdout and log error details
+            traceback.print_exc()
+            logger.error(f"Unhandled Exception: {exc}")
+            error_details = {"error": str(exc), "type": type(exc).__name__}
+            message = f"Internal Server Error: {exc}"
+        else:
+            # Production: Log the error safely without stdout pollution, 
+            # preserving traceback in structured logs via exc_info=True
+            logger.error("Internal Server Error occurred", exc_info=True)
+            # strictly zero code artifacts or tracebacks in production response
+            error_details = None
+            message = "Internal Server Error"
         
         return JSONResponse(
             status_code=500,
             content={
                 "code": ErrorCode.INTERNAL_SERVER_ERROR.value,
-                "message": "Internal Server Error",
-                "details": {"error": error_msg} if settings.debug else None
+                "message": message,
+                "details": error_details
             }
         )
+
 
     # Root endpoint - version discovery
     @app.get("/", tags=["Root"])

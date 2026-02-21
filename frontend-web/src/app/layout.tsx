@@ -6,6 +6,8 @@ import { ToastProvider } from '@/components/ui';
 import { NetworkErrorBanner } from '@/components/common';
 import { AuthProvider } from '@/hooks/useAuth';
 import { WebVitalsMonitor } from '@/components/monitoring/WebVitalsMonitor';
+import { OfflineBanner } from '@/components/offline';
+import { register } from '@/lib/offline';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
 
@@ -50,6 +52,17 @@ export const metadata: Metadata = {
     width: 'device-width',
     initialScale: 1,
     maximumScale: 5,
+  manifest: '/manifest.json',
+  themeColor: '#8b5cf6',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Soul Sense',
   },
 };
 
@@ -66,12 +79,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           <ToastProvider>
             <AuthProvider>
+              <OfflineBanner />
               <NetworkErrorBanner />
               <NavbarController />
               {children}
             </AuthProvider>
           </ToastProvider>
         </ThemeProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined') {
+                ${register.toString()}
+                register();
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );
