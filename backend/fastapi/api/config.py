@@ -45,7 +45,7 @@ class BaseAppSettings(BaseSettings):
     deletion_grace_period_days: int = Field(default=30, ge=0, description="Grace period for account deletion in days")
 
     # JWT configuration
-    jwt_secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(32), description="JWT secret key")
+    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32), description="JWT secret key")
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
     jwt_expiration_hours: int = Field(default=24, ge=1, description="JWT expiration hours")
 
@@ -88,6 +88,11 @@ class BaseAppSettings(BaseSettings):
         case_sensitive=False,
     )
 
+    @property
+    def is_production(self) -> bool:
+        """Check if environment is production."""
+        return self.app_env.lower() == "production"
+
     @field_validator('app_env')
     @classmethod
     def validate_app_env(cls, v: str) -> str:
@@ -106,11 +111,11 @@ class BaseAppSettings(BaseSettings):
             raise ValueError('database_url must be a valid database URL')
         return v
 
-    @field_validator('jwt_secret_key')
+    @field_validator('SECRET_KEY')
     @classmethod
-    def validate_jwt_secret_key(cls, v: str) -> str:
+    def validate_secret_key_entropy(cls, v: str) -> str:
         if len(v) < 32:
-            raise ValueError('jwt_secret_key must be at least 32 characters long')
+            raise ValueError("SECRET_KEY is cryptographically weak. It must be at least 32 characters long.")
         return v
 
 
@@ -118,6 +123,7 @@ class DevelopmentSettings(BaseAppSettings):
     """Settings for development environment."""
 
     debug: bool = True
+    SECRET_KEY: str = Field(default="dev_jwt_secret_key_for_development_only_not_secure", description="Development JWT key")
     mock_auth_mode: bool = True
     jwt_secret_key: str = Field(default="dev_jwt_secret_key_for_development_only_not_secure", description="Development JWT key")
 
