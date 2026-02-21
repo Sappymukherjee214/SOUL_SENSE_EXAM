@@ -3,9 +3,11 @@ import asyncio
 import logging
 import traceback
 import uuid
+import time
 from fastapi.responses import JSONResponse
 # Triggering reload for new community routes
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from .config import get_settings_instance
 from .api.v1.router import api_router as api_v1_router
@@ -22,6 +24,41 @@ class VersionHeaderMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to track API response times and performance metrics.
+    Logs slow requests and adds performance headers.
+    """
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.time()
+
+        # Process request
+        response = await call_next(request)
+
+        # Calculate duration
+        process_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+
+        # Add performance header
+        response.headers["X-Process-Time"] = f"{process_time:.2f}"
+
+        # Log slow requests (> 500ms)
+        if process_time > 500:
+            logger = logging.getLogger("api.performance")
+            logger.warning(
+                f"Slow request: {request.method} {request.url.path} took {process_time:.2f}ms"
+            )
+
+        # Log all requests in debug mode
+        settings = get_settings_instance()
+        if settings.debug:
+            logger = logging.getLogger("api.requests")
+            logger.info(
+                f"{request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.2f}ms"
+            )
+
+        return response
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="SoulSense API",
@@ -31,13 +68,19 @@ def create_app() -> FastAPI:
         redoc_url="/redoc"
     )
 
+    # Performance Monitoring Middleware (inner-most for accurate timing)
+    app.add_middleware(PerformanceMonitoringMiddleware)
+
+    # GZip compression middleware for response optimization
+    app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=6)
+
     # Security Headers Middleware
     from .middleware.security import SecurityHeadersMiddleware
     app.add_middleware(SecurityHeadersMiddleware)
 
     # Register V1 API Router
     app.include_router(api_v1_router, prefix="/api/v1")
-    
+
     # Register Health endpoints at root level for orchestration
     app.include_router(health_router, tags=["Health"])
 
@@ -66,20 +109,30 @@ def create_app() -> FastAPI:
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         logger = logging.getLogger("api.main")
-        logger.error(f"Global Exception: {exc}")
-        traceback.print_exc()
         
-        # Don't leak raw exception info in production
-        error_msg = str(exc) if settings.debug else "An unexpected error occurred"
+        if settings.debug:
+            # Safe for local dev: print full traceback to stdout and log error details
+            traceback.print_exc()
+            logger.error(f"Unhandled Exception: {exc}")
+            error_details = {"error": str(exc), "type": type(exc).__name__}
+            message = f"Internal Server Error: {exc}"
+        else:
+            # Production: Log the error safely without stdout pollution, 
+            # preserving traceback in structured logs via exc_info=True
+            logger.error("Internal Server Error occurred", exc_info=True)
+            # strictly zero code artifacts or tracebacks in production response
+            error_details = None
+            message = "Internal Server Error"
         
         return JSONResponse(
             status_code=500,
             content={
                 "code": ErrorCode.INTERNAL_SERVER_ERROR.value,
-                "message": "Internal Server Error",
-                "details": {"error": error_msg} if settings.debug else None
+                "message": message,
+                "details": error_details
             }
         )
+
 
     # Root endpoint - version discovery
     @app.get("/", tags=["Root"])

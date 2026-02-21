@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage, Button, Input } from '@/components
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { SyncButton } from '@/components/offline';
 
 interface HeaderProps {
   className?: string;
@@ -99,6 +100,8 @@ export const Header = React.forwardRef<HTMLElement, HeaderProps>(
 
           {/* Right side - Notifications and User menu */}
           <div className="flex items-center gap-2 sm:gap-4">
+            <SyncButton />
+
             <button
               onClick={() => handleNavigate('/notifications')}
               className="relative rounded-full p-2 text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-95"
