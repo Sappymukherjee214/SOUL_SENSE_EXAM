@@ -463,7 +463,7 @@ class AuthService:
             logger.error(f"Traceback: {traceback.format_exc()}")
             return False, None, "An internal error occurred. Please try again later."
 
-    def create_refresh_token(self, user_id: int) -> str:
+    def create_refresh_token(self, user_id: int, commit: bool = True) -> str:
         """
         Generate a secure refresh token, hash it, and store it in the DB.
         """
@@ -478,7 +478,8 @@ class AuthService:
             expires_at=expires_at
         )
         self.db.add(db_token)
-        self.db.commit()
+        if commit:
+            self.db.commit()
         
         return token
     
@@ -495,6 +496,7 @@ class AuthService:
     def refresh_access_token(self, refresh_token: str) -> Tuple[str, str]:
         """
         Validate a refresh token and return a new access token + new refresh token (Rotation).
+        Uses atomic transaction to ensure old token revocation and new token creation succeed together.
         """
         token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
         
@@ -512,23 +514,35 @@ class AuthService:
                 message="Invalid or expired refresh token"
             )
             
-        # Token Rotation: Invalidate the current one immediately
-        db_token.is_revoked = True
-        self.db.commit()
-        
-        # Get user
+        # Get user first to validate
         user = self.db.query(User).filter(User.id == db_token.user_id).first()
         if not user:
              raise AuthException(
                 code=ErrorCode.AUTH_INVALID_TOKEN,
                 message="User associated with token no longer exists"
             )
-            
-        # Create new tokens
-        access_token = self.create_access_token(data={"sub": user.username})
-        new_refresh_token = self.create_refresh_token(user.id)
         
-        return access_token, new_refresh_token
+        try:
+            # Token Rotation: Invalidate the current one
+            db_token.is_revoked = True
+            
+            # Create new tokens (added to session but not committed yet)
+            access_token = self.create_access_token(data={"sub": user.username})
+            new_refresh_token = self.create_refresh_token(user.id, commit=False)
+            
+            # Atomic commit: both revocation and new token creation
+            self.db.commit()
+            
+            return access_token, new_refresh_token
+            
+        except Exception as e:
+            # Rollback on any error to maintain data integrity
+            self.db.rollback()
+            logger.error(f"Failed to rotate refresh token for user {db_token.user_id}: {str(e)}")
+            raise AuthException(
+                code=ErrorCode.AUTH_TOKEN_ROTATION_FAILED,
+                message="Token rotation failed. Please try logging in again."
+            )
 
     def revoke_refresh_token(self, refresh_token: str) -> None:
         """Manually revoke a refresh token (e.g., on logout)."""

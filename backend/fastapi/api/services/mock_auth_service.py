@@ -306,12 +306,13 @@ class MockAuthService:
         user.email = user_data.email
         return True, user, "User registered successfully (Mock)"
 
-    def create_refresh_token(self, user_id: int) -> str:
+    def create_refresh_token(self, user_id: int, commit: bool = True) -> str:
         """
         Create a mock refresh token.
         
         Args:
             user_id: User ID
+            commit: Ignored in mock implementation
             
         Returns:
             Refresh token string
