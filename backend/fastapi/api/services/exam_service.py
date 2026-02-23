@@ -8,7 +8,7 @@ from ..root_models import User, Score, Response
 from .db_service import get_db
 from .gamification_service import GamificationService
 try:
-    from app.auth.crypto import EncryptionManager
+    from .crypto import EncryptionManager
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False

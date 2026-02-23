@@ -16,7 +16,7 @@ from ..schemas import (
     CompleteProfileResponse,
     AuditLogResponse
 )
-from app.services.audit_service import AuditService
+from ..services.audit_service import AuditService
 from ..services.user_service import UserService
 from ..services.profile_service import ProfileService
 from ..routers.auth import get_current_user
