@@ -19,6 +19,7 @@ from ..config import get_settings
 from ..constants.errors import ErrorCode
 from ..constants.security_constants import BCRYPT_ROUNDS, REFRESH_TOKEN_EXPIRE_DAYS
 from ..exceptions import AuthException
+from .audit_service import AuditService
 
 settings = get_settings()
 
@@ -143,7 +144,6 @@ class AuthService:
         self.update_last_login(user.id)
         
         # SoulSense Audit Log
-        from app.services.audit_service import AuditService
         AuditService.log_event(
             user.id,
             "LOGIN",
@@ -200,8 +200,8 @@ class AuthService:
         """
         Generate OTP, send email, and return pre_auth_token.
         """
-        from app.auth.otp_manager import OTPManager
-        from app.services.email_service import EmailService
+        from .otp_manager import OTPManager
+        from .email_service import EmailService
         
         # 1. Generate OTP
         code, _ = OTPManager.generate_otp(user.id, "LOGIN_CHALLENGE", db_session=self.db)
@@ -231,7 +231,7 @@ class AuthService:
         Returns User if successful, raises AuthException otherwise.
         """
         from jose import jwt, JWTError
-        from app.auth.otp_manager import OTPManager
+        from .otp_manager import OTPManager
         
         try:
             # 1. Verify Token
@@ -257,7 +257,6 @@ class AuthService:
             self.update_last_login(user.id)
             
             # SoulSense Audit Log
-            from app.services.audit_service import AuditService
             AuditService.log_event(
                 user.id,
                 "LOGIN_2FA",
@@ -280,8 +279,8 @@ class AuthService:
 
     def send_2fa_setup_otp(self, user: User) -> bool:
         """Generate and send OTP for 2FA setup."""
-        from app.auth.otp_manager import OTPManager
-        from app.services.email_service import EmailService
+        from .otp_manager import OTPManager
+        from .email_service import EmailService
         
         code, _ = OTPManager.generate_otp(user.id, "2FA_SETUP", db_session=self.db)
         if not code:
@@ -301,7 +300,7 @@ class AuthService:
 
     def enable_2fa(self, user_id: int, code: str) -> bool:
         """Verify code and enable 2FA."""
-        from app.auth.otp_manager import OTPManager
+        from .otp_manager import OTPManager
         
         if OTPManager.verify_otp(user_id, code, "2FA_SETUP", db_session=self.db):
             user = self.db.query(User).filter(User.id == user_id).first()
@@ -575,8 +574,8 @@ class AuthService:
         2. Generate OTP.
         3. Send OTP (Mock).
         """
-        from app.auth.otp_manager import OTPManager
-        from app.services.email_service import EmailService
+        from .otp_manager import OTPManager
+        from .email_service import EmailService
 
         try:
             email_lower = email.lower().strip()
@@ -617,7 +616,7 @@ class AuthService:
         1. Verify OTP.
         2. Update Password.
         """
-        from app.auth.otp_manager import OTPManager
+        from .otp_manager import OTPManager
         from ..utils.weak_passwords import WEAK_PASSWORDS
         
         # Block weak/common passwords

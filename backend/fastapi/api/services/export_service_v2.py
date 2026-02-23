@@ -30,8 +30,8 @@ from ..root_models import (
     UserEmotionalPatterns, SatisfactionRecord,
     AssessmentResult, Response, ExportRecord
 )
-from app.utils.file_validation import sanitize_filename, validate_file_path
-from app.utils.atomic import atomic_write
+from ..utils.file_validation import sanitize_filename, validate_file_path
+from ..utils.atomic import atomic_write
 
 logger = logging.getLogger(__name__)
 
