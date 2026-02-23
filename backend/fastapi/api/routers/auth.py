@@ -133,7 +133,7 @@ async def register(
     return {"message": message}
 
 
-@router.post("/login", response_model=Token, responses={401: {"model": ErrorResponse}, 202: {"model": TwoFactorAuthRequiredResponse}})
+@router.post("/login", response_model=Token, responses={400: {"model": ErrorResponse}, 401: {"model": ErrorResponse}, 202: {"model": TwoFactorAuthRequiredResponse}})
 async def login(
     response: Response,
     login_request: LoginRequest, 
@@ -147,8 +147,8 @@ async def login(
     # 1. Start with CAPTCHA Validation (Before Rate Limiting to prevent spam cheapness)
     if not captcha_service.validate_captcha(login_request.session_id, login_request.captcha_input):
          raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "AUTH003", "message": "Invalid CAPTCHA"}
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The CAPTCHA validation failed. Please refresh the CAPTCHA and try again."
         )
 
     # 2. Rate Limit by IP
