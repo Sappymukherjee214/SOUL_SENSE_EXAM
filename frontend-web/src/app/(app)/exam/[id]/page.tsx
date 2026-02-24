@@ -233,7 +233,7 @@ export default function ExamPage() {
         {/* Progress */}
         <div className="mb-6">
           <ExamProgress
-            current={currentIndex + 1}
+            current={currentQuestionIndex + 1}
             total={questions.length}
             answeredCount={getAnsweredCount()}
           />
@@ -242,7 +242,7 @@ export default function ExamPage() {
         {/* Question Card */}
         <AnimatePresence mode="wait">
           <motion.div
-            key={currentIndex}
+            key={currentQuestionIndex}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -253,7 +253,7 @@ export default function ExamPage() {
               selectedValue={answers[currentQuestion.id]}
               onSelect={handleAnswerSelect}
               totalQuestions={questions.length}
-              currentIndex={currentIndex + 1}
+              currentIndex={currentQuestionIndex + 1}
               disabled={isSubmitting}
             />
           </motion.div>
