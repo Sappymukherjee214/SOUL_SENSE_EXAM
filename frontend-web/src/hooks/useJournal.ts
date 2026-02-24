@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 export interface JournalEntry {
   id: number;
@@ -31,11 +32,9 @@ interface JournalResponse {
 const API_BASE = '/api/v1/journal';
 
 export function useJournal(initialParams: JournalQueryParams = {}) {
-  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const queryClient = useQueryClient();
   const [entry, setEntry] = useState<JournalEntry | null>(null);
-  const [total, setTotal] = useState(0);
   const [params, setParams] = useState<JournalQueryParams>(initialParams);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   //build query string
@@ -54,25 +53,19 @@ export function useJournal(initialParams: JournalQueryParams = {}) {
     });
     return query.toString();
   };
-  //Fetch list
-  const fetchEntries = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
 
-    try {
+  const { data: journalData, isLoading, refetch } = useQuery({
+    queryKey: ['journal', 'entries', params],
+    queryFn: async () => {
       const queryString = buildQueryString(params);
       const res = await fetch(`${API_BASE}?${queryString}`);
       if (!res.ok) throw new Error('Failed to fetch entries');
+      return res.json() as Promise<JournalResponse>;
+    },
+  });
 
-      const data: JournalResponse = await res.json();
-      setEntries(data.entries);
-      setTotal(data.total);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [params]);
+  const entries = journalData?.entries || [];
+  const total = journalData?.total || 0;
 
   //Fetch single entry
   const fetchEntry = async (id: number) => {

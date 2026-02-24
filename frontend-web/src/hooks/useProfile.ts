@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useApi } from './useApi';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { profileApi, UserProfile, UpdateUserProfile } from '@/lib/api/profile';
 
 export interface UseProfileReturn {
@@ -15,17 +15,18 @@ export interface UseProfileReturn {
 }
 
 export function useProfile(): UseProfileReturn {
+  const queryClient = useQueryClient();
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
   const {
     data: profile,
-    loading: fetchLoading,
+    isLoading: fetchLoading,
     error: fetchError,
     refetch,
-  } = useApi({
-    apiFn: () => profileApi.getUserProfile(),
-    immediate: true,
+  } = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => profileApi.getUserProfile(),
   });
 
   const updateProfile = useCallback(
@@ -35,8 +36,8 @@ export function useProfile(): UseProfileReturn {
 
       try {
         await profileApi.updateUserProfile(data);
-        // Refetch the profile after successful update
-        await refetch();
+        // Invalidate and refetch the profile after successful update
+        await queryClient.invalidateQueries({ queryKey: ['profile'] });
       } catch (error: any) {
         const errorMessage = error?.message || 'Failed to update profile';
         setUpdateError(errorMessage);
@@ -45,7 +46,7 @@ export function useProfile(): UseProfileReturn {
         setUpdateLoading(false);
       }
     },
-    [refetch]
+    [queryClient]
   );
 
   const uploadAvatar = useCallback(

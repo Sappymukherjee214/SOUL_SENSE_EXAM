@@ -9,6 +9,7 @@ import { WebVitalsMonitor } from '@/components/monitoring';
 import { SkipLinks } from '@/components/accessibility';
 import { OfflineBanner } from '@/components/offline';
 import { register } from '@/lib/offline';
+import { Providers } from './providers';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
 
@@ -74,25 +75,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
         <WebVitalsMonitor />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <SkipLinks />
-          <ToastProvider>
-            <AuthProvider>
-              <OfflineBanner />
-              <NetworkErrorBanner />
-              <NavbarController />
-              <div id="main-content" role="main" tabIndex={-1}>
-                {children}
-              </div>
-              <BottomNavigation />
-            </AuthProvider>
-          </ToastProvider>
-        </ThemeProvider>
+        <Providers>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <SkipLinks />
+            <ToastProvider>
+              <AuthProvider>
+                <OfflineBanner />
+                <NetworkErrorBanner />
+                <NavbarController />
+                <div id="main-content" role="main" tabIndex={-1}>
+                  {children}
+                </div>
+                <BottomNavigation />
+              </AuthProvider>
+            </ToastProvider>
+          </ThemeProvider>
+        </Providers>
         <script
           dangerouslySetInnerHTML={{
             __html: `
