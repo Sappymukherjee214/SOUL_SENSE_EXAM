@@ -170,7 +170,7 @@ class Token(BaseModel):
     refresh_token: Optional[str] = None
     username: Optional[str] = None
     email: Optional[str] = None
-    id: Optional[int] = None
+    id: int
     created_at: Optional[str] = None
     warnings: Optional[List[Dict[str, str]]] = None
 
