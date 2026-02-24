@@ -16,3 +16,4 @@ export * from './mood-widget';
 export * from './recent-activity';
 export * from './insight-card';
 export * from './section-wrapper';
+export { default as DashboardCharts } from './dashboard-charts';

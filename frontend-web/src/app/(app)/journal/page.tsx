@@ -8,6 +8,7 @@ import { ErrorDisplay, Skeleton } from '@/components/common';
 import { Button, Card, CardContent, Input, Slider } from '@/components/ui';
 import { JournalEntryCard } from '@/components/journal';
 import { MoodTrend } from '@/components/journal';
+import { JournalListContainer } from '@/components/journal';
 import {
   BookOpen,
   Plus,
@@ -67,7 +68,7 @@ export default function JournalPage() {
     setFilters: setJournalFilters,
     refetch,
     loadMore,
-  } = useJournal(filters);
+  } = useJournal(filters, true);
 
   const handleSubmit = useCallback(async () => {
     if (!newEntry.content.trim()) return;
@@ -392,19 +393,6 @@ export default function JournalPage() {
         </CardContent>
       </Card>
 
-      {/* Loading State */}
-      {loading && entries.length === 0 && (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-2xl border p-6 space-y-3">
-              <Skeleton className="h-5 w-40" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Error State */}
       {error && <ErrorDisplay message={error} onRetry={refetch} />}
 
@@ -429,23 +417,11 @@ export default function JournalPage() {
       )}
 
       {/* Entries List */}
-      {!loading && entries.length > 0 && (
-        <div className="space-y-4">
-          {entries.map((entry, index) => (
-            <motion.div
-              key={entry.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <JournalEntryCard
-                entry={adaptEntry(entry)}
-                onClick={handleEntryClick}
-                variant="expanded"
-              />
-            </motion.div>
-          ))}
-        </div>
+      {!error && entries.length > 0 && (
+        <JournalListContainer
+          entries={entries}
+          onEntryClick={handleEntryClick}
+        />
       )}
 
       {/* Load More / Pagination */}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { ProfileCard, ProfileForm } from '@/components/profile';
@@ -8,7 +8,6 @@ import { Button } from '@/components/ui';
 import { Card, CardContent } from '@/components/ui';
 import { Skeleton } from '@/components/ui';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useApi } from '@/hooks/useApi';
 import { resultsApi } from '@/lib/api/results';
 import { journalApi } from '@/lib/api/journal';
 
@@ -19,14 +18,14 @@ export default function ProfilePage() {
   const { profile, isLoading: loading, error, updateProfile, refetch } = useProfile();
   const [isEditing, setIsEditing] = useState(false);
 
-  const { data: examHistory } = useApi({
-    apiFn: () => resultsApi.getHistory(1, 1),
-    deps: [],
+  const { data: examHistory } = useQuery({
+    queryKey: ['profile', 'exam-history'],
+    queryFn: () => resultsApi.getHistory(1, 1),
   });
 
-  const { data: journalAnalytics } = useApi({
-    apiFn: () => journalApi.getAnalytics(),
-    deps: [],
+  const { data: journalAnalytics } = useQuery({
+    queryKey: ['profile', 'journal-analytics'],
+    queryFn: () => journalApi.getAnalytics(),
   });
 
   const handleEditToggle = () => {
