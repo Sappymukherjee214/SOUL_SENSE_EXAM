@@ -11,6 +11,7 @@ interface ExamState {
   examError: string | null;
   isLoading: boolean;
   isReviewing: boolean; // New state for review screen
+  currentExamId: string | null; // ID of current exam session
   _hasHydrated: boolean; // For handling Next.js hydration
 
   // Actions
@@ -23,6 +24,7 @@ interface ExamState {
   resetExam: () => void;
   setHasHydrated: (state: boolean) => void;
   setIsReviewing: (isReviewing: boolean) => void; // New action to toggle review mode
+  setCurrentExamId: (examId: string) => void; // New action to set exam ID
 
   // Selectors (Getters)
   getCurrentQuestion: () => Question | null;
@@ -44,6 +46,7 @@ export const useExamStore = create<ExamState>()(
       examError: null,
       isLoading: false,
       isReviewing: false, // Initialize review state
+      currentExamId: null, // Initialize exam ID
       _hasHydrated: false,
 
       setQuestions: (questions, examId) => {
@@ -109,11 +112,14 @@ export const useExamStore = create<ExamState>()(
           examError: null,
           isLoading: false,
           isReviewing: false, // Reset review state
+          currentExamId: null, // Reset exam ID
         })),
 
       setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       setIsReviewing: (isReviewing: boolean) => set({ isReviewing }),
+
+      setCurrentExamId: (examId: string) => set({ currentExamId: examId }),
 
       // Selectors
       getCurrentQuestion: () => {

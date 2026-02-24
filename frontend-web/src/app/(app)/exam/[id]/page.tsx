@@ -8,6 +8,8 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useQuestions } from '@/hooks/useQuestions';
 import { useExamStore } from '@/stores/examStore';
 import { useExamSubmit } from '@/hooks/useExamSubmit';
+import { useAutoSaveExam } from '@/hooks/useAutoSave';
+import { examsApi } from '@/lib/api/exams';
 import { ExamTimer, ExamProgress, ExamNavigation, QuestionCard, ReviewScreen } from '@/components/exam';
 import { Button, Skeleton, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 
@@ -34,9 +36,11 @@ export default function ExamPage() {
     completeExam,
     resetExam,
     setIsReviewing,
+    setCurrentExamId,
   } = useExamStore();
 
-  // API hooks
+  // Auto-save hook
+  const { cancelAutoSave } = useAutoSaveExam();
   const {
     questions: apiQuestions,
     isLoading,
@@ -49,12 +53,35 @@ export default function ExamPage() {
 
   const { submitExam, isSubmitting, error: submitError, result } = useExamSubmit();
 
-  // Load questions on mount
+  // Load questions on mount and set exam ID
   useEffect(() => {
     if (apiQuestions.length > 0 && questions.length === 0) {
-      setQuestions(apiQuestions, examId);
+      setQuestions(apiQuestions);
+      setCurrentExamId(examId);
     }
-  }, [apiQuestions, questions.length, setQuestions, examId]);
+  }, [apiQuestions, questions.length, setQuestions, setCurrentExamId, examId]);
+
+  // Load draft answers on mount if no local answers exist
+  useEffect(() => {
+    const loadDraft = async () => {
+      if (questions.length > 0 && Object.keys(answers).length === 0) {
+        try {
+          const draft = await examsApi.getDraft(examId);
+          if (draft && draft.answers) {
+            // Hydrate answers from draft
+            Object.entries(draft.answers).forEach(([questionId, value]) => {
+              setAnswer(parseInt(questionId), value);
+            });
+          }
+        } catch (error) {
+          // Silently fail - draft loading is not critical
+          console.debug('No draft found or failed to load draft');
+        }
+      }
+    };
+
+    loadDraft();
+  }, [examId, questions.length, answers, setAnswer]);
 
   // Handle exam completion
   useEffect(() => {
@@ -108,6 +135,9 @@ export default function ExamPage() {
 
   // Handle exam submission
   const handleSubmit = async () => {
+    // Cancel any pending auto-save to prevent race conditions
+    cancelAutoSave();
+
     const currentQuestion = getCurrentQuestion();
     if (!currentQuestion) return;
 
