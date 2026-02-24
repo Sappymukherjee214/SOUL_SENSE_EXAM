@@ -31,7 +31,7 @@ interface JournalResponse {
 
 const API_BASE = '/api/v1/journal';
 
-export function useJournal(initialParams: JournalQueryParams = {}) {
+export function useJournal(initialParams: JournalQueryParams = {}, suspense = false) {
   const queryClient = useQueryClient();
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const [params, setParams] = useState<JournalQueryParams>(initialParams);
@@ -62,6 +62,7 @@ export function useJournal(initialParams: JournalQueryParams = {}) {
       if (!res.ok) throw new Error('Failed to fetch entries');
       return res.json() as Promise<JournalResponse>;
     },
+    suspense,
   });
 
   const entries = journalData?.entries || [];

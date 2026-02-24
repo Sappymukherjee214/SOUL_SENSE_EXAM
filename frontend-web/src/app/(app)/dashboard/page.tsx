@@ -11,8 +11,8 @@ import {
   ActivityItem,
   BentoGrid,
   SectionWrapper,
+  DashboardCharts,
 } from '@/components/dashboard';
-import DashboardCharts from '@/components/dashboard/dashboard-charts';
 import { apiClient } from '@/lib/api/client';
 import { useAuth } from '@/hooks/useAuth';
 
