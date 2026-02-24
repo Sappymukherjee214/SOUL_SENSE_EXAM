@@ -12,6 +12,7 @@ import {
 import { authApi } from '@/lib/api/auth';
 import { Loader } from '@/components/ui';
 import { isValidCallbackUrl } from '@/lib/utils/url';
+import { toast } from '@/lib/toast';
 
 interface AuthContextType {
   user: UserSession['user'] | null;
@@ -64,6 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Critical: Verify the session isn't using the stale 'current' fallback
           if (session.user.id === 'current') {
             console.error('Critical Auth Sync Error: Stale "current" ID fallback found in stored session.');
+            toast.error('Authentication session corrupted. Please log in again.');
             clearSession();
             setUser(null);
             router.push('/login');
@@ -186,6 +188,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       setIsLoading(false);
       console.error('Login failed:', error);
+      toast.error('Login failed. Please check your credentials and try again.');
       throw error;
     }
   };
@@ -247,6 +250,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await authApi.logout();
     } catch (error) {
       console.error('Logout error:', error);
+      toast.error('Logout failed. Your session may still be active on the server.');
     } finally {
       // Always clear local session even if backend call fails
       clearSession();

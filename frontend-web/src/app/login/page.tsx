@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { UseFormReturn } from 'react-hook-form';
 import { useAuth } from '@/hooks/useAuth';
 import { authApi } from '@/lib/api/auth';
+import { handleApiError } from '@/lib/errorHandler';
 import { isValidCallbackUrl } from '@/lib/utils/url';
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -60,6 +61,7 @@ export default function LoginPage() {
       setSessionId(data.session_id);
     } catch (error: any) {
       console.error('Failed to fetch CAPTCHA:', error);
+      handleApiError(error, 'Failed to load CAPTCHA');
       setCaptchaError(error.message || 'Failed to load');
     } finally {
       setCaptchaLoading(false);

@@ -130,7 +130,7 @@ export default function DashboardPage() {
         </SectionWrapper>
 
         {/* Charts Section */}
-        <SectionWrapper isLoading={false} error={error} onRetry={() => { refetchExams(); refetchJournals(); }} className="md:col-span-2">
+        <SectionWrapper isLoading={false} error={error} onRetry={() => { refetchExams(); refetchJournals(); }}>
           <DashboardCharts />
         </SectionWrapper>
 
@@ -159,10 +159,8 @@ export default function DashboardPage() {
                 actionLabel: insight.type === 'tip' ? 'View Guide' : 'Analyze Pattern',
               }}
               onDismiss={() => {
-                setData((prev) => ({
-                  ...prev,
-                  insights: prev.insights.filter((_, i) => i !== idx),
-                }));
+                // TODO: Implement dismiss functionality
+                console.log('Dismiss insight:', idx);
               }}
               onAction={(ins) => console.log('Action for:', ins.title)}
               className="md:col-span-1"
