@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { PremiumNotificationSettings, NotificationSettingsObject } from '@/components/settings';
+import { NotificationSettings, NotificationSettingsObject } from '@/components/settings';
 
 export default function NotificationsDemoPage() {
   const [settings, setSettings] = useState<NotificationSettingsObject>({
