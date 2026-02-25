@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { UserSettings } from '../../lib/api/settings';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
 import { Checkbox } from '@/components/ui';
@@ -15,7 +16,11 @@ import {
   Eye,
   ShieldCheck,
   Lock,
+  Loader2,
 } from 'lucide-react';
+
+import { useToast } from '@/components/ui/toast';
+import { apiClient } from '@/lib/api/client';
 
 interface PrivacySettingsProps {
   settings: UserSettings;
@@ -23,6 +28,8 @@ interface PrivacySettingsProps {
 }
 
 export function PrivacySettings({ settings, onChange }: PrivacySettingsProps) {
+  const { toast } = useToast();
+  const [isDownloading, setIsDownloading] = useState(false);
   const debouncedOnChange = useDebounceCallback(onChange, 500);
 
   const handlePrivacyChange = (key: 'data_collection' | 'analytics', value: boolean) => {
@@ -52,8 +59,44 @@ export function PrivacySettings({ settings, onChange }: PrivacySettingsProps) {
     });
   };
 
-  const handleExportData = () => {
-    console.log('Exporting user data...');
+  const handleExportData = async () => {
+    try {
+      setIsDownloading(true);
+
+      // Explicitly require 'blob' translation from fetch/apiClient
+      const response = await apiClient.get<Blob>('/reports/export/pdf', {
+        responseType: 'blob',
+      });
+
+      // Synthesize the Blob into a temporary geometric URL
+      const blob = new Blob([response], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      // Read explicit filename boundary or manufacture one generically
+      const contentDate = new Date().toISOString().split('T')[0];
+      link.setAttribute('download', `SoulSense_Report_${contentDate}.pdf`);
+
+      // Mount, trigger physical browser payload, wipe clean
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        type: 'success',
+        message: 'Your report has been generated and downloaded.',
+      });
+    } catch (error) {
+      console.error('PDF Export Error:', error);
+      toast({
+        type: 'error',
+        message: 'Critically failed to initialize API PDF extraction.',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -118,7 +161,7 @@ export function PrivacySettings({ settings, onChange }: PrivacySettingsProps) {
         </div>
         <Select
           value={settings.privacy.data_retention_days.toString()}
-          onValueChange={(value) => handleRetentionChange(parseInt(value))}
+          onValueChange={(value: string) => handleRetentionChange(parseInt(value))}
         >
           <SelectTrigger className="w-full">
             <SelectValue />
@@ -167,9 +210,15 @@ export function PrivacySettings({ settings, onChange }: PrivacySettingsProps) {
           <Button
             variant="outline"
             onClick={handleExportData}
+            disabled={isDownloading}
             className="w-full sm:w-auto font-black uppercase tracking-widest text-[10px] h-9 rounded-full px-8 border-border/60 hover:bg-primary/5 hover:text-primary transition-colors"
           >
-            Initiate Transfer
+            {isDownloading ? (
+              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              'Initiate Transfer'
+            )}
+            {isDownloading && 'Generating...'}
           </Button>
         </div>
       </div>

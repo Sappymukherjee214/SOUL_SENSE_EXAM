@@ -26,6 +26,7 @@ interface RequestOptions extends RequestInit {
   skipAuth?: boolean; // For public endpoints like login
   retry?: boolean; // Enable retry for this request
   maxRetries?: number;
+  responseType?: 'json' | 'blob';
   _isRetry?: boolean; // Internal flag for auth retry
   _token?: string; // Override token for retry
 }
@@ -57,6 +58,7 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
     skipAuth = false,
     retry = false,
     maxRetries = 3,
+    responseType = 'json',
     ...fetchOptions
   } = options;
 
@@ -69,7 +71,7 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
   const token = options._token || (skipAuth ? null : getAuthToken());
   const headers = new Headers(fetchOptions.headers);
 
-  if (!headers.has('Content-Type') && !(fetchOptions.body instanceof FormData)) {
+  if (!headers.has('Content-Type') && !(fetchOptions.body instanceof FormData) && responseType !== 'blob') {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -168,6 +170,10 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
         return {} as T;
       }
 
+      if (responseType === 'blob') {
+        return (await response.blob()) as unknown as T;
+      }
+
       return await response.json();
     } catch (error: any) {
       clearTimeout(id);
@@ -200,3 +206,25 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
 
   return makeRequest();
 }
+
+// Add common HTTP method helpers to the apiClient function
+apiClient.get = <T>(endpoint: string, options: RequestOptions = {}) =>
+  apiClient<T>(endpoint, { ...options, method: 'GET' });
+
+apiClient.post = <T>(endpoint: string, data?: any, options: RequestOptions = {}) =>
+  apiClient<T>(endpoint, {
+    ...options,
+    method: 'POST',
+    body: data instanceof FormData ? data : JSON.stringify(data),
+  });
+
+apiClient.put = <T>(endpoint: string, data?: any, options: RequestOptions = {}) =>
+  apiClient<T>(endpoint, {
+    ...options,
+    method: 'PUT',
+    body: data instanceof FormData ? data : JSON.stringify(data),
+  });
+
+apiClient.delete = <T>(endpoint: string, options: RequestOptions = {}) =>
+  apiClient<T>(endpoint, { ...options, method: 'DELETE' });
+

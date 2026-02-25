@@ -13,11 +13,15 @@ import {
   Skeleton,
 } from '@/components/ui';
 import { ScoreGauge, CategoryBreakdown, RecommendationCard } from '@/components/results';
-import { ArrowLeft, Download, RefreshCw, Calendar, Clock } from 'lucide-react';
+import { ArrowLeft, Download, RefreshCw, Calendar, Clock, Loader2 } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
+import { apiClient } from '@/lib/api/client';
 
 export default function ResultDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
+  const [isDownloading, setIsDownloading] = React.useState(false);
   const rawId = params?.id as string | string[] | undefined;
   const examId = rawId ? parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10) : NaN;
 
@@ -74,9 +78,45 @@ export default function ResultDetailPage() {
     router.push('/exam');
   };
 
-  // Handle export (placeholder)
-  const handleExport = () => {
-    window.print();
+  // Handle export with robust binary transport
+  const handleExport = async () => {
+    try {
+      setIsDownloading(true);
+
+      // Explicitly require 'blob' translation from fetch/apiClient
+      const response = await apiClient.get<Blob>('/reports/export/pdf', {
+        responseType: 'blob',
+      });
+
+      // Synthesize the Blob into a temporary geometric URL
+      const blob = new Blob([response], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      // Read explicit filename boundary or manufacture one generically
+      const contentDate = new Date().toISOString().split('T')[0];
+      link.setAttribute('download', `SoulSense_Report_${contentDate}.pdf`);
+
+      // Mount, trigger physical browser payload, wipe clean
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        type: 'success',
+        message: 'Report downloaded successfully.',
+      });
+    } catch (error) {
+      console.error('PDF Export Error:', error);
+      toast({
+        type: 'error',
+        message: 'Critically failed to initialize API PDF extraction.',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // Loading state
@@ -138,9 +178,13 @@ export default function ResultDetailPage() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Retake Exam
           </Button>
-          <Button variant="default" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export PDF
+          <Button variant="default" onClick={handleExport} disabled={isDownloading}>
+            {isDownloading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            {isDownloading ? 'Generating...' : 'Export PDF'}
           </Button>
         </div>
       </div>
@@ -225,9 +269,18 @@ export default function ResultDetailPage() {
           <RefreshCw className="mr-2 h-4 w-4" />
           Retake Exam
         </Button>
-        <Button variant="default" onClick={handleExport} className="flex-1">
-          <Download className="mr-2 h-4 w-4" />
-          Export as PDF
+        <Button
+          variant="default"
+          onClick={handleExport}
+          className="flex-1"
+          disabled={isDownloading}
+        >
+          {isDownloading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-2 h-4 w-4" />
+          )}
+          {isDownloading ? 'Generating Report...' : 'Export as PDF'}
         </Button>
       </div>
 

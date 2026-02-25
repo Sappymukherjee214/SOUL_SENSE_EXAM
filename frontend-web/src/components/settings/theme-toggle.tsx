@@ -56,6 +56,7 @@ function resolveTheme(preference: ThemeValue): 'light' | 'dark' {
  * Dark, and System colour schemes.
  */
 export function ThemeToggle({ value, onChange, className }: ThemeToggleProps) {
+    const scopeId = React.useId();
     const [mounted, setMounted] = React.useState(false);
     const [systemTheme, setSystemTheme] = React.useState<'light' | 'dark'>('light');
 
@@ -148,7 +149,7 @@ export function ThemeToggle({ value, onChange, className }: ThemeToggleProps) {
                 <div className="absolute inset-y-1 left-1 right-1 pointer-events-none">
                     <AnimatePresence>
                         <motion.span
-                            layoutId="theme-toggle-pill"
+                            layoutId="theme-toggle-segmented-pill"
                             className={cn(
                                 'absolute top-0 bottom-0 rounded-lg',
                                 'bg-background shadow-sm border border-border/40'
@@ -169,7 +170,7 @@ export function ThemeToggle({ value, onChange, className }: ThemeToggleProps) {
                             key={option.value}
                             role="radio"
                             aria-checked={isActive}
-                            id={`theme-option-${option.value}`}
+                            id={`${scopeId}-theme-option-${option.value}`}
                             onClick={() => onChange(option.value)}
                             className={cn(
                                 'relative z-10 flex flex-1 items-center justify-center gap-1.5',
