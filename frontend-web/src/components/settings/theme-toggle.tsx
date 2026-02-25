@@ -56,6 +56,7 @@ function resolveTheme(preference: ThemeValue): 'light' | 'dark' {
  * Dark, and System colour schemes.
  */
 export function ThemeToggle({ value, onChange, className }: ThemeToggleProps) {
+    const scopeId = React.useId();
     const [mounted, setMounted] = React.useState(false);
     const [systemTheme, setSystemTheme] = React.useState<'light' | 'dark'>('light');
 
@@ -169,7 +170,7 @@ export function ThemeToggle({ value, onChange, className }: ThemeToggleProps) {
                             key={option.value}
                             role="radio"
                             aria-checked={isActive}
-                            id={`theme-option-${option.value}`}
+                            id={`${scopeId}-theme-option-${option.value}`}
                             onClick={() => onChange(option.value)}
                             className={cn(
                                 'relative z-10 flex flex-1 items-center justify-center gap-1.5',
