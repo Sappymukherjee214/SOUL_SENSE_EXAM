@@ -686,6 +686,8 @@ class UserStrengthsCreate(BaseModel):
     short_term_goals: Optional[str] = None
     long_term_vision: Optional[str] = None
     primary_help_area: Optional[str] = None
+    primary_goal: Optional[str] = Field(None, max_length=500)
+    focus_areas: Optional[List[str]] = None
 
 
 class UserStrengthsUpdate(BaseModel):
@@ -704,6 +706,8 @@ class UserStrengthsUpdate(BaseModel):
     short_term_goals: Optional[str] = None
     long_term_vision: Optional[str] = None
     primary_help_area: Optional[str] = None
+    primary_goal: Optional[str] = Field(None, max_length=500)
+    focus_areas: Optional[List[str]] = None
 
 
 class UserStrengthsResponse(BaseModel):
@@ -724,6 +728,8 @@ class UserStrengthsResponse(BaseModel):
     short_term_goals: Optional[str]
     long_term_vision: Optional[str]
     primary_help_area: Optional[str]
+    primary_goal: Optional[str]
+    focus_areas: Optional[List[str]]
     
     last_updated: str
 

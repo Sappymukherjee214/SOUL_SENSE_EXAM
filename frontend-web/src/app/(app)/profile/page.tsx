@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -50,6 +51,8 @@ export default function ProfilePage() {
       has_therapist: data.hasTherapist,
       support_network_size: data.supportNetworkSize,
       primary_support_type: data.primarySupportType,
+      primary_goal: data.primaryGoal,
+      focus_areas: data.focusAreas,
     };
     await updateProfile(transformedData);
     setIsEditing(false);

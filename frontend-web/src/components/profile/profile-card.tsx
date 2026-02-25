@@ -2,7 +2,7 @@
 
 import { PersonalProfile } from '@/lib/api/profile';
 import { Avatar, AvatarFallback } from '@/components/ui';
-import { Mail, Calendar, User as UserIcon, Briefcase, GraduationCap, Edit2, Moon, Activity, Apple, Heart } from 'lucide-react';
+import { Mail, Calendar, User as UserIcon, Briefcase, GraduationCap, Edit2, Moon, Activity, Apple, Heart, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ProfileCardProps {
@@ -235,6 +235,43 @@ export function ProfileCard({
                     Primary Support
                   </p>
                   <p className="font-semibold text-sm capitalize">{profile.primary_support_type}</p>
+                </div>
+              </div>
+            )}
+
+            {profile?.primary_goal && (
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/20 border border-border/40 group hover:border-primary/20 transition-colors">
+                <div className="p-2.5 rounded-xl bg-background border border-border/40 text-muted-foreground group-hover:text-primary transition-colors">
+                  <Target className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-black text-muted-foreground/60 mb-0.5">
+                    Primary Goal
+                  </p>
+                  <p className="font-semibold text-sm">{profile.primary_goal}</p>
+                </div>
+              </div>
+            )}
+
+            {profile?.focus_areas && profile.focus_areas.length > 0 && (
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/20 border border-border/40 group hover:border-primary/20 transition-colors">
+                <div className="p-2.5 rounded-xl bg-background border border-border/40 text-muted-foreground group-hover:text-primary transition-colors">
+                  <Activity className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-black text-muted-foreground/60 mb-0.5">
+                    Focus Areas
+                  </p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {profile.focus_areas.map((area, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 text-xs bg-primary/10 text-primary rounded-md"
+                      >
+                        {area}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

@@ -24,6 +24,67 @@ import {
 import { FormField } from '@/components/forms';
 import { cn } from '@/lib/utils';
 
+// TagInput Component
+function TagInput({ value = [], onChange, placeholder, ...props }: {
+  value?: string[];
+  onChange?: (value: string[]) => void;
+  placeholder?: string;
+  [key: string]: any;
+}) {
+  const [inputValue, setInputValue] = useState('');
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && inputValue.trim()) {
+      e.preventDefault();
+      const newValue = [...(value || []), inputValue.trim()];
+      onChange?.(newValue);
+      setInputValue('');
+    } else if (e.key === 'Backspace' && !inputValue && value?.length) {
+      const newValue = value.slice(0, -1);
+      onChange?.(newValue);
+    }
+  };
+
+  const removeTag = (index: number) => {
+    const newValue = value?.filter((_, i) => i !== index) || [];
+    onChange?.(newValue);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 min-h-[2.5rem] p-2 border border-input rounded-md bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+        {value?.map((tag, index) => (
+          <span
+            key={index}
+            className="inline-flex items-center gap-1 px-2 py-1 text-sm bg-primary/10 text-primary rounded-md"
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={() => removeTag(index)}
+              className="hover:text-destructive"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={value?.length ? '' : placeholder}
+          className="flex-1 min-w-[120px] bg-transparent outline-none text-sm"
+          {...props}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Press Enter to add a tag, Backspace to remove the last tag
+      </p>
+    </div>
+  );
+}
+
 // Zod Schema for validation
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -40,6 +101,8 @@ const profileSchema = z.object({
   hasTherapist: z.boolean().optional(),
   supportNetworkSize: z.coerce.number().min(0, 'Network size must be at least 0').max(100, 'Network size must be at most 100').optional(),
   primarySupportType: z.enum(['family', 'friends', 'professional', 'none']).optional(),
+  primaryGoal: z.string().max(500, 'Primary goal must be less than 500 characters').optional(),
+  focusAreas: z.array(z.string()).optional(),
 });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -82,6 +145,8 @@ export function ProfileForm({ profile, onSubmit, onCancel, isSubmitting }: Profi
       hasTherapist: profile?.has_therapist,
       supportNetworkSize: profile?.support_network_size,
       primarySupportType: profile?.primary_support_type,
+      primaryGoal: profile?.primary_goal || '',
+      focusAreas: profile?.focus_areas || [],
     },
   });
 
@@ -325,6 +390,51 @@ export function ProfileForm({ profile, onSubmit, onCancel, isSubmitting }: Profi
                 )}
               </FormField>
             </div>
+
+            <div className="space-y-6 pt-6 border-t border-border/50">
+              <h3 className="text-lg font-semibold flex items-center text-foreground/80">
+                <ChevronRight className="h-5 w-5 mr-1 text-primary" />
+                Goals & Vision
+              </h3>
+
+              <FormField
+                control={form.control}
+                name="primaryGoal"
+                label="Primary Goal"
+                placeholder="What is your main objective or vision for personal growth?"
+              >
+                {(field) => (
+                  <div className="relative">
+                    <Textarea
+                      {...field}
+                      rows={4}
+                      className="resize-none pr-12 focus:ring-primary/30"
+                      maxLength={500}
+                    />
+                    <span
+                      className={cn(
+                        'absolute bottom-2 right-2 text-[10px] font-mono px-1.5 py-0.5 rounded bg-background/50 backdrop-blur-sm border border-border/50',
+                        (field.value?.length || 0) > 450
+                          ? 'text-destructive font-bold'
+                          : 'text-muted-foreground'
+                      )}
+                    >
+                      {field.value?.length || 0}/500
+                    </span>
+                  </div>
+                )}
+              </FormField>
+
+              <FormField
+                control={form.control}
+                name="focusAreas"
+                label="Focus Areas"
+                placeholder="Add areas you want to focus on (press Enter to add)"
+              >
+                {(field) => <TagInput {...field} />}
+              </FormField>
+            </div>
+
           </CardContent>
 
           <CardFooter className="pt-6 pb-8 flex justify-end gap-3 bg-muted/10 border-t border-border/50">

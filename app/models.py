@@ -291,6 +291,8 @@ class UserStrengths(Base):
     communication_preference = Column(String, nullable=True)
     primary_help_area = Column(String, nullable=True)
     relationship_stress = Column(Integer, nullable=True)
+    primary_goal = Column(Text, nullable=True)
+    focus_areas = Column(Text, nullable=True) # JSON array of strings
     last_updated = Column(String, default=lambda: datetime.utcnow().isoformat())
     user = relationship("User", back_populates="strengths")
 

@@ -73,6 +73,8 @@ export interface UserProfile {
   has_therapist?: boolean;
   support_network_size?: number;
   primary_support_type?: string;
+  primary_goal?: string;
+  focus_areas?: string[];
 }
 
 export interface UpdateUserProfile {
@@ -95,6 +97,8 @@ export interface UpdateUserProfile {
   has_therapist?: boolean;
   support_network_size?: number;
   primary_support_type?: string;
+  primary_goal?: string;
+  focus_areas?: string[];
 }
 
 export const profileApi = {
@@ -184,6 +188,8 @@ export const profileApi = {
         has_therapist: data.personal_profile?.has_therapist,
         support_network_size: data.personal_profile?.support_network_size,
         primary_support_type: data.personal_profile?.primary_support_type,
+        primary_goal: data.strengths?.primary_goal,
+        focus_areas: data.strengths?.focus_areas,
       };
     });
   },
@@ -208,13 +214,21 @@ export const profileApi = {
     });
 
     // 2. Update strengths
+    const strengthsData: Record<string, any> = {};
     if (data.goals) {
+      strengthsData.short_term_goals = data.goals.short_term;
+      strengthsData.long_term_vision = data.goals.long_term;
+    }
+    if (data.primary_goal !== undefined) {
+      strengthsData.primary_goal = data.primary_goal;
+    }
+    if (data.focus_areas !== undefined) {
+      strengthsData.focus_areas = data.focus_areas;
+    }
+    if (Object.keys(strengthsData).length > 0) {
       await apiClient('/profiles/strengths', {
         method: 'PUT',
-        body: JSON.stringify({
-          short_term_goals: data.goals.short_term,
-          long_term_vision: data.goals.long_term,
-        }),
+        body: JSON.stringify(strengthsData),
       });
     }
 
