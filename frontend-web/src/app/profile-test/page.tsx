@@ -2,6 +2,7 @@
 
 import { ProfileCard } from '@/components/profile';
 import { PersonalProfile } from '@/lib/api/profile';
+import { toast } from '@/lib/toast';
 
 const mockProfile: PersonalProfile = {
   first_name: 'John',
@@ -44,7 +45,7 @@ export default function ProfileTestPage() {
               user={mockUser}
               variant="full"
               editable={true}
-              onEdit={() => alert('Edit clicked!')}
+              onEdit={() => toast.info('Edit clicked!')}
             />
           </div>
 

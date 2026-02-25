@@ -57,6 +57,7 @@ function resolveTheme(preference: ThemeValue): 'light' | 'dark' {
  * Dark, and System colour schemes.
  */
 export function ThemeToggle({ value, onChange, className }: ThemeToggleProps) {
+    const scopeId = React.useId();
     const [mounted, setMounted] = React.useState(false);
     const [systemTheme, setSystemTheme] = React.useState<'light' | 'dark'>('light');
     const { setTheme } = useTheme();
@@ -173,6 +174,8 @@ export function ThemeToggle({ value, onChange, className }: ThemeToggleProps) {
                                 setTheme(option.value);
                                 onChange(option.value);
                             }}
+                            id={`${scopeId}-theme-option-${option.value}`}
+                            onClick={() => onChange(option.value)}
                             className={cn(
                                 'relative z-10 flex flex-1 items-center justify-center gap-1.5',
                                 'py-2 px-3 rounded-lg text-xs font-medium',

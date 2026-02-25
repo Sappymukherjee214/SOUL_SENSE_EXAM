@@ -47,6 +47,17 @@ async def lifespan(app: FastAPI):
             from sqlalchemy import text
             db.execute(text("SELECT 1"))
             print("[OK] Database connectivity verified")
+            
+        # Initialize analytics scheduler
+        try:
+            from app.ml.scheduler_service import get_scheduler
+            scheduler = get_scheduler()
+            scheduler.start()
+            app.state.analytics_scheduler = scheduler
+            print("[OK] Analytics scheduler initialized and started")
+        except Exception as e:
+            logger.warning(f"Analytics scheduler initialization failed: {e}")
+            print(f"[WARNING] Analytics scheduler not available: {e}")
         
         # Start background task for soft-delete cleanup
         async def purge_task_loop():
@@ -90,6 +101,12 @@ async def lifespan(app: FastAPI):
             await app.state.purge_task
         except asyncio.CancelledError:
             logger.info("Background purge task cancelled successfully")
+    
+    # Stop analytics scheduler
+    if hasattr(app.state, 'analytics_scheduler'):
+        logger.info("Stopping analytics scheduler...")
+        app.state.analytics_scheduler.stop()
+        logger.info("Analytics scheduler stopped successfully")
     
     # Dispose database engine if needed
     try:

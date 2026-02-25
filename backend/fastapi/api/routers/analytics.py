@@ -11,7 +11,8 @@ from ..schemas import (
     TrendAnalytics,
     BenchmarkComparison,
     PopulationInsights,
-    AnalyticsEventCreate
+    AnalyticsEventCreate,
+    DashboardStatisticsResponse
 )
 from ..middleware.rate_limiter import rate_limit_analytics
 
@@ -124,6 +125,29 @@ async def get_population_insights(db: Session = Depends(get_db)):
     insights = AnalyticsService.get_population_insights(db)
     return PopulationInsights(**insights)
 
+@router.get("/statistics", response_model=DashboardStatisticsResponse, dependencies=[Depends(rate_limit_analytics)])
+async def get_dashboard_statistics(
+    timeframe: str = Query('30d', pattern='^(7d|30d|90d)$', description="Time period for historical data"),
+    exam_type: Optional[str] = Query(None, description="Filter by exam type"),
+    sentiment: Optional[str] = Query(None, pattern='^(positive|neutral|negative)$', description="Filter by sentiment"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get dashboard statistics with historical trends.
+    
+    **Rate Limited**: 30 requests per minute per IP
+    
+    **Data Privacy**: Returns aggregated historical data only.
+    No individual user information.
+    
+    - **timeframe**: Time period (7d, 30d, 90d)
+    - **exam_type**: Optional filter by exam type
+    - **sentiment**: Optional filter by sentiment (positive, neutral, negative)
+    
+    Returns historical trends with scores over time.
+    """
+    trends = AnalyticsService.get_dashboard_statistics(db, timeframe=timeframe, exam_type=exam_type, sentiment=sentiment)
+    return DashboardStatisticsResponse(historical_trends=trends)
 
 @router.get("/age-groups", dependencies=[Depends(rate_limit_analytics)])
 async def get_age_group_statistics(db: Session = Depends(get_db)):
@@ -169,7 +193,7 @@ async def get_score_distribution(db: Session = Depends(get_db)):
 # ============================================================================
 
 from ..services.user_analytics_service import UserAnalyticsService
-from ..schemas import UserAnalyticsSummary, UserTrendsResponse
+from ..schemas import UserAnalyticsSummary, UserTrendsResponse, DashboardStatisticsResponse
 from ..models import User
 from .auth import get_current_user
 
@@ -213,6 +237,291 @@ async def get_user_analytics_trends(
         eq_scores=eq_scores,
         wellbeing=wellbeing
     )
+
+
+@router.get("/statistics", response_model=DashboardStatisticsResponse)
+async def get_dashboard_statistics(
+    timeframe: str = Query("30d", description="Timeframe for data (e.g., 7d, 30d, 90d)"),
+    exam_type: Optional[str] = Query(None, description="Filter by exam type"),
+    sentiment: Optional[str] = Query(None, description="Filter by sentiment"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get dashboard statistics with historical trends.
+    
+    Params:
+    - timeframe: Time period (7d, 30d, 90d)
+    - exam_type: Optional filter by exam type
+    - sentiment: Optional filter by sentiment
+    
+    Returns:
+    - historical_trends: List of EQ score points
+    """
+    # Parse timeframe to days
+    days_map = {"7d": 7, "30d": 30, "90d": 90}
+    days = days_map.get(timeframe, 30)
+    
+    # For now, ignore exam_type and sentiment filters as they are not implemented in the data model
+    # TODO: Add filtering logic when exam types and sentiments are added
+    eq_scores = UserAnalyticsService.get_eq_trends(db, current_user.id, days)
+    
+    return DashboardStatisticsResponse(historical_trends=eq_scores)
+
+
+# ============================================================================
+# Advanced Analytics Endpoints (Feature #804)
+# ============================================================================
+
+from ..ml.analytics_service import AnalyticsService as AdvancedAnalyticsService
+
+@router.get("/me/patterns")
+async def get_user_patterns(
+    time_range: str = Query("90d", pattern="^(30d|90d|6m|1y)$", description="Time range for pattern analysis"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get detected emotional patterns for the current user.
+
+    **Authentication Required**
+    **Privacy Notice**: This feature analyzes your personal emotional data to identify patterns.
+    Only you can access this analysis. Data is processed locally and not shared.
+
+    **Privacy Settings Required**: You must enable "Pattern Analysis" in your privacy settings.
+
+    Params:
+    - time_range: Time period to analyze (30d, 90d, 6m, 1y)
+
+    Returns:
+    - patterns: List of detected patterns with confidence scores
+    - data_points: Number of data points analyzed
+    - analysis_timestamp: When analysis was performed
+    - privacy_notice: Reminder of data privacy practices
+    """
+    # Check privacy settings
+    if not current_user.settings or not current_user.settings.pattern_analysis_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="Pattern analysis is disabled in your privacy settings. Please enable it in your account settings to use this feature."
+        )
+
+    from ..ml.pattern_recognition import PatternRecognitionService
+    service = PatternRecognitionService()
+    result = service.detect_temporal_patterns(current_user.username, time_range)
+
+    # Add privacy notice to response
+    result["privacy_notice"] = "This analysis is based solely on your personal data and is not shared with anyone. You can disable this feature at any time in your privacy settings."
+    return result
+
+
+@router.get("/me/correlations")
+async def get_user_correlations(
+    metrics: str = Query(None, description="Comma-separated list of metrics to correlate"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get correlation matrix for user's emotional metrics.
+
+    **Authentication Required**
+    **Privacy Notice**: This feature analyzes relationships between your emotional metrics.
+    Statistical correlations are calculated using scientific methods with p-values for significance.
+    Only you can access this analysis.
+
+    **Privacy Settings Required**: You must enable "Correlation Analysis" in your privacy settings.
+
+    Params:
+    - metrics: Optional comma-separated list of metrics (eq_score, sleep_hours, stress_level, energy_level, screen_time)
+
+    Returns:
+    - correlation_matrix: Matrix of correlations between metrics (Pearson and Spearman)
+    - significant_correlations: List of statistically significant correlations (p < 0.05)
+    - data_points: Number of data points used
+    - statistical_notes: Explanation of statistical methods used
+    - privacy_notice: Reminder of data privacy practices
+    """
+    # Check privacy settings
+    if not current_user.settings or not current_user.settings.correlation_analysis_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="Correlation analysis is disabled in your privacy settings. Please enable it in your account settings to use this feature."
+        )
+
+    from ..ml.analytics_service import AnalyticsService
+    service = AnalyticsService()
+
+    metrics_list = None
+    if metrics:
+        metrics_list = [m.strip() for m in metrics.split(",")]
+
+    result = service.get_correlation_matrix(current_user.username, metrics_list)
+
+    # Add privacy notice to response
+    result["privacy_notice"] = "Correlations are calculated using statistical methods and are based solely on your personal data. Results include confidence intervals and p-values for scientific rigor."
+    return result
+
+
+@router.get("/me/forecast")
+async def get_user_forecast(
+    days: int = Query(7, ge=1, le=30, description="Number of days to forecast"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get emotional forecast for the current user.
+
+    **Authentication Required**
+    **Privacy Notice**: This feature uses advanced time series forecasting (ARIMA/Prophet models)
+    to predict future emotional patterns based on your historical data.
+    Forecasts include confidence intervals for uncertainty quantification.
+
+    **Privacy Settings Required**: You must enable "Forecast Analysis" in your privacy settings.
+
+    Params:
+    - days: Number of days to forecast (1-30)
+
+    Returns:
+    - predictions: Forecasted mood scores with confidence intervals
+    - model_used: Forecasting model employed (ARIMA, Prophet, or Linear Trend)
+    - data_points_used: Historical data points analyzed
+    - forecast_method: Description of forecasting approach
+    - privacy_notice: Reminder of data privacy practices
+    """
+    # Check privacy settings
+    if not current_user.settings or not current_user.settings.forecast_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="Forecast analysis is disabled in your privacy settings. Please enable it in your account settings to use this feature."
+        )
+
+    from ..ml.analytics_service import AnalyticsService
+    service = AnalyticsService()
+    result = service.get_emotional_forecast(current_user.username, days)
+
+    # Add privacy notice to response
+    result["privacy_notice"] = "Forecasts are generated using statistical time series models and are based solely on your personal historical data. Confidence intervals indicate prediction uncertainty."
+    return result
+
+
+@router.get("/me/benchmarks")
+async def get_user_benchmarks(
+    age_group: str = Query(None, description="Age group for comparison (optional)"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get comparative benchmarks for the current user.
+
+    **Authentication Required**
+    **Privacy Notice**: This feature compares your anonymized data against aggregated benchmarks
+    from other users who have opted into benchmark sharing. Your personal data is never directly shared.
+
+    **Privacy Settings Required**: You must enable "Benchmark Sharing" in your privacy settings.
+    **Opt-in Required**: Only data from users who have explicitly opted into sharing is included.
+
+    Params:
+    - age_group: Optional age group filter
+
+    Returns:
+    - benchmarks: Your percentile ranking compared to anonymized group data
+    - insights: Benchmark-based insights and comparisons
+    - privacy_notice: Detailed explanation of anonymization and opt-in practices
+    - data_sources: Description of benchmark data sources and anonymization methods
+    """
+    # Check privacy settings
+    if not current_user.settings or not current_user.settings.benchmark_sharing_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="Benchmark sharing is disabled in your privacy settings. Please enable it in your account settings to use this feature."
+        )
+
+    from ..ml.analytics_service import AnalyticsService
+    service = AnalyticsService()
+    result = service.get_comparative_benchmarks(current_user.username, age_group)
+
+    # Add detailed privacy notice to response
+    result["privacy_notice"] = "Benchmarks are calculated from fully anonymized, aggregated data from users who have explicitly opted into sharing. Individual data points are never exposed, and comparisons use percentile rankings only."
+    result["data_sources"] = "Data is sourced from users who have enabled benchmark sharing in their privacy settings. All personal identifiers are removed, and results are aggregated before comparison."
+    result["opt_in_required"] = "Only users who have explicitly consented to benchmark sharing contribute to these comparisons."
+    return result
+
+
+@router.get("/me/recommendations")
+async def get_user_recommendations(current_user: User = Depends(get_current_user)):
+    """
+    Get personalized recommendations and insights.
+
+    **Authentication Required**
+    **Privacy Notice**: This feature generates personalized insights and interventions
+    based on your emotional patterns and historical data. Recommendations are tailored
+    specifically to your patterns and are designed to support your emotional wellbeing.
+
+    **Privacy Settings Required**: You must enable "Recommendation Engine" in your privacy settings.
+
+    Returns:
+    - insights: Pattern-based insights and recommendations
+    - interventions: Suggested interventions based on risk level assessment
+    - journal_prompts: Personalized journaling prompts for reflection
+    - risk_level: Assessed risk level (low, medium, high) based on patterns
+    - privacy_notice: Reminder of personalization and privacy practices
+    """
+    # Check privacy settings
+    if not current_user.settings or not current_user.settings.recommendation_engine_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="Recommendation engine is disabled in your privacy settings. Please enable it in your account settings to use this feature."
+        )
+
+    from ..ml.analytics_service import AnalyticsService
+    service = AnalyticsService()
+    result = service.get_personalized_recommendations(current_user.username)
+
+    # Add privacy notice to response
+    result["privacy_notice"] = "Recommendations are generated based on your personal emotional patterns and are designed to support your wellbeing. All analysis remains private to you."
+    return result
+
+
+@router.get("/me/dashboard")
+async def get_user_analytics_dashboard(current_user: User = Depends(get_current_user)):
+    """
+    Get complete analytics dashboard for the current user.
+
+    **Authentication Required**
+
+    Returns:
+    - forecast: Emotional forecast data
+    - correlations: Correlation analysis
+    - recommendations: Personalized insights
+    - patterns: Detected patterns
+    - triggers: Emotional triggers analysis
+    """
+    from ..ml.analytics_service import AnalyticsService
+    service = AnalyticsService()
+    return service.get_analytics_dashboard(current_user.username)
+
+
+@router.post("/me/feedback")
+async def submit_analytics_feedback(
+    feedback: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Submit feedback on analytics recommendations.
+
+    **Authentication Required**
+
+    Body:
+    - insight_id: ID of the insight being rated
+    - rating: Rating (1-5)
+    - helpful: Boolean indicating if helpful
+    - comments: Optional comments
+
+    Returns:
+    - status: Success confirmation
+    """
+    # Store feedback for improving recommendations
+    # This would typically go to a feedback table
+    logger.info(f"Analytics feedback from {current_user.username}: {feedback}")
+
+    return {"status": "success", "message": "Feedback recorded"}
 
 
 # ============================================================================
