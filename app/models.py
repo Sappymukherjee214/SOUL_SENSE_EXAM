@@ -58,6 +58,10 @@ class User(Base):
     streaks = relationship("UserStreak", back_populates="user", cascade="all, delete-orphan")
     xp_stats = relationship("UserXP", uselist=False, back_populates="user", cascade="all, delete-orphan")
 
+    # Advanced Analytics Relationships
+    # Note: Analytics tables use username (string) instead of user_id for privacy
+    # No foreign key relationships to avoid coupling
+
 class LoginAttempt(Base):
     """Track login attempts for security auditing and persistent locking.
     Replaces in-memory 'failed_attempts' dictionary.
@@ -191,9 +195,18 @@ class UserSettings(Base):
     sound_enabled = Column(Boolean, default=True)
     notifications_enabled = Column(Boolean, default=True)
     language = Column(String, default="en")
-    
+
     # Crisis support settings (Integration with emotional support features)
     crisis_support_preference = Column(Boolean, default=True)
+
+    # Advanced Analytics Privacy Settings (Feature #804)
+    analytics_enabled = Column(Boolean, default=False)  # Master switch for analytics
+    benchmark_sharing_enabled = Column(Boolean, default=False)  # Allow anonymized benchmark comparisons
+    pattern_analysis_enabled = Column(Boolean, default=False)  # Allow pattern detection
+    forecast_enabled = Column(Boolean, default=False)  # Allow mood forecasting
+    correlation_analysis_enabled = Column(Boolean, default=False)  # Allow correlation analysis
+    recommendation_engine_enabled = Column(Boolean, default=False)  # Allow personalized recommendations
+
     updated_at = Column(String, default=lambda: datetime.utcnow().isoformat())
     user = relationship("User", back_populates="settings")
 
@@ -727,6 +740,79 @@ class UserChallenge(Base):
     
     user = relationship("User")
     challenge = relationship("Challenge")
+
+class EmotionalPattern(Base):
+    """Store detected emotional patterns for advanced analytics."""
+    __tablename__ = 'emotional_patterns'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, index=True, nullable=False)
+    pattern_type = Column(String, nullable=False)  # temporal, correlation, trigger
+    pattern_data = Column(Text, nullable=False)  # JSON string
+    confidence_score = Column(Float, default=0.0)
+    detected_at = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index('idx_emotional_patterns_user_type', 'username', 'pattern_type'),
+        Index('idx_emotional_patterns_detected', 'detected_at'),
+    )
+
+class UserBenchmark(Base):
+    """Store user benchmark comparisons for advanced analytics."""
+    __tablename__ = 'user_benchmarks'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, index=True, nullable=False)
+    benchmark_type = Column(String, nullable=False)  # age_group, overall, etc.
+    percentile = Column(Integer, nullable=False)  # 1-100
+    comparison_group = Column(String, nullable=False)
+    benchmark_data = Column(Text, nullable=True)  # JSON string with additional stats
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index('idx_user_benchmarks_user_type', 'username', 'benchmark_type'),
+        Index('idx_user_benchmarks_created', 'created_at'),
+    )
+
+class AnalyticsInsight(Base):
+    """Store generated insights and recommendations."""
+    __tablename__ = 'analytics_insights'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, index=True, nullable=False)
+    insight_type = Column(String, nullable=False)  # pattern, correlation, trigger, goal
+    category = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    recommendation = Column(Text, nullable=True)
+    confidence = Column(Float, default=0.0)
+    priority = Column(String, default='medium')  # low, medium, high
+    insight_data = Column(Text, nullable=True)  # JSON string with additional data
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index('idx_analytics_insights_user_type', 'username', 'insight_type'),
+        Index('idx_analytics_insights_created', 'created_at'),
+    )
+
+class MoodForecast(Base):
+    """Store mood forecast predictions."""
+    __tablename__ = 'mood_forecasts'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, index=True, nullable=False)
+    forecast_date = Column(DateTime, nullable=False)
+    predicted_score = Column(Float, nullable=False)
+    confidence = Column(Float, default=0.0)
+    forecast_basis = Column(Text, nullable=True)  # JSON string with basis data
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index('idx_mood_forecasts_user_date', 'username', 'forecast_date'),
+        Index('idx_mood_forecasts_created', 'created_at'),
+    )
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
