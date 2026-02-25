@@ -103,6 +103,43 @@ async def generate_export(
 # V2 ENDPOINTS (Enhanced Features)
 # ============================================================================
 
+@router.get("/pdf")
+async def export_pdf_direct(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and return a comprehensive PDF report immediately.
+    """
+    _check_rate_limit(current_user.id)
+    
+    try:
+        # Prepare options for full export
+        options = {
+            "data_types": list(ExportServiceV2.DATA_TYPES),
+            "include_metadata": True
+        }
+        
+        filepath, export_id = ExportServiceV2.generate_export(
+            db, current_user, "pdf", options
+        )
+        
+        filename = f"SoulSense_Report_{datetime.now().strftime('%Y-%m-%d')}.pdf"
+        
+        return FileResponse(
+            path=filepath,
+            filename=filename,
+            media_type="application/pdf"
+        )
+        
+    except Exception as e:
+        logger.error(f"Instant PDF export failed for {current_user.username}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate your PDF report. Please try again."
+        )
+
+
 @router.post("/v2")
 async def create_export_v2(
     format: str = Body(..., embed=True),
