@@ -17,6 +17,9 @@ from ..schemas import (
     UserSettingsCreate,
     UserSettingsUpdate,
     UserSettingsResponse,
+    # Data Consent
+    DataConsentUpdate,
+    DataConsentResponse,
     # Medical Profile
     MedicalProfileCreate,
     MedicalProfileUpdate,
@@ -131,6 +134,54 @@ async def delete_settings(
     """
     profile_service.delete_user_settings(current_user.id)
     return None
+
+
+# ============================================================================
+# Data Consent Endpoints (Issue #929)
+# ============================================================================
+
+@router.get("/consent", response_model=DataConsentResponse, summary="Get Data Consent Settings")
+async def get_consent(
+    current_user: Annotated[User, Depends(get_current_user)],
+    profile_service: Annotated[ProfileService, Depends(get_profile_service)]
+):
+    """
+    Get the current user's data consent settings.
+    
+    **Authentication Required**
+    """
+    settings = profile_service.get_user_settings(current_user.id)
+    if not settings:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User settings not found."
+        )
+    return DataConsentResponse(
+        consent_ml_training=settings.consent_ml_training,
+        consent_aggregated_research=settings.consent_aggregated_research
+    )
+
+
+@router.patch("/consent", response_model=DataConsentResponse, summary="Update Data Consent Settings")
+async def update_consent(
+    consent_data: DataConsentUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    profile_service: Annotated[ProfileService, Depends(get_profile_service)]
+):
+    """
+    Update the current user's data consent settings.
+    
+    **Authentication Required**
+    """
+    settings = profile_service.update_user_settings(
+        user_id=current_user.id,
+        settings_data=consent_data.model_dump(exclude_unset=True)
+    )
+    return DataConsentResponse(
+        consent_ml_training=settings.consent_ml_training,
+        consent_aggregated_research=settings.consent_aggregated_research
+    )
 
 
 # ============================================================================

@@ -237,6 +237,10 @@ class UserSettings(Base):
     correlation_analysis_enabled = Column(Boolean, default=False)  # Allow correlation analysis
     recommendation_engine_enabled = Column(Boolean, default=False)  # Allow personalized recommendations
 
+    # Data Usage Consent Settings (Issue #929)
+    consent_ml_training = Column(Boolean, default=False)  # Allow journal phrasing for ML training
+    consent_aggregated_research = Column(Boolean, default=False)  # Allow sanitized scores in global dashboards
+
     updated_at = Column(String, default=lambda: datetime.utcnow().isoformat())
     user = relationship("User", back_populates="settings")
 

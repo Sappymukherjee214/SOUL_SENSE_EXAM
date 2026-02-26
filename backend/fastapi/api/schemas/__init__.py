@@ -447,6 +447,10 @@ class UserSettingsCreate(BaseModel):
     data_usage_consent: bool = False
     emergency_disclaimer_accepted: bool = False
     crisis_support_preference: bool = True
+    
+    # Data Usage Consent (Issue #929)
+    consent_ml_training: bool = False
+    consent_aggregated_research: bool = False
 
 
 class UserSettingsUpdate(BaseModel):
@@ -469,6 +473,10 @@ class UserSettingsUpdate(BaseModel):
     data_usage_consent: Optional[bool] = None
     emergency_disclaimer_accepted: Optional[bool] = None
     crisis_support_preference: Optional[bool] = None
+    
+    # Data Usage Consent (Issue #929)
+    consent_ml_training: Optional[bool] = None
+    consent_aggregated_research: Optional[bool] = None
 
 
 class UserSettingsResponse(BaseModel):
@@ -494,9 +502,29 @@ class UserSettingsResponse(BaseModel):
     emergency_disclaimer_accepted: Optional[bool] = None
     crisis_support_preference: Optional[bool] = None
     
+    # Data Usage Consent (Issue #929)
+    consent_ml_training: Optional[bool] = None
+    consent_aggregated_research: Optional[bool] = None
+    
     updated_at: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
+# Data Consent Schemas (Issue #929)
+# ============================================================================
+
+class DataConsentUpdate(BaseModel):
+    """Schema for updating data consent settings."""
+    consent_ml_training: Optional[bool] = None
+    consent_aggregated_research: Optional[bool] = None
+
+
+class DataConsentResponse(BaseModel):
+    """Schema for data consent response."""
+    consent_ml_training: bool
+    consent_aggregated_research: bool
 
 
 # ============================================================================

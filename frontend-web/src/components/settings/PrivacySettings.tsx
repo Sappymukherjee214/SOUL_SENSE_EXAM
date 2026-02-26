@@ -50,11 +50,11 @@ export function PrivacySettings({ settings, onChange }: PrivacySettingsProps) {
     });
   };
 
-  const handleVisibilityChange = (visibility: 'public' | 'private' | 'friends') => {
+  const handleConsentChange = (key: 'consent_ml_training' | 'consent_aggregated_research', value: boolean) => {
     debouncedOnChange({
       privacy: {
         ...settings.privacy,
-        profile_visibility: visibility,
+        [key]: value,
       },
     });
   };
@@ -147,6 +147,54 @@ export function PrivacySettings({ settings, onChange }: PrivacySettingsProps) {
             <Checkbox
               checked={settings.privacy.data_collection}
               onChange={(e) => handlePrivacyChange('data_collection', e.target.checked)}
+              className="h-6 w-6 rounded-lg border-2 border-border/60"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Data Consent */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-2 text-muted-foreground/60">
+          <Shield className="h-3.5 w-3.5" />
+          <h3 className="text-[10px] uppercase tracking-widest font-black">Data Consent</h3>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          <div className="flex items-center justify-between p-5 bg-muted/10 border border-border/40 rounded-2xl group hover:border-border transition-all">
+            <div className="flex items-center gap-4">
+              <div className="p-2 rounded-xl bg-background border border-border/40 text-muted-foreground">
+                <Database className="h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold">Allow Data for ML Training</p>
+                <p className="text-[10px] text-muted-foreground font-medium">
+                  Permit your journal entries to be used for training our core language models
+                </p>
+              </div>
+            </div>
+            <Checkbox
+              checked={settings.privacy.consent_ml_training}
+              onChange={(e) => handleConsentChange('consent_ml_training', e.target.checked)}
+              className="h-6 w-6 rounded-lg border-2 border-border/60"
+            />
+          </div>
+
+          <div className="flex items-center justify-between p-5 bg-muted/10 border border-border/40 rounded-2xl group hover:border-border transition-all">
+            <div className="flex items-center gap-4">
+              <div className="p-2 rounded-xl bg-background border border-border/40 text-muted-foreground">
+                <Eye className="h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold">Allow Anonymous Research</p>
+                <p className="text-[10px] text-muted-foreground font-medium">
+                  Include your sanitized assessment scores in global platform dashboards
+                </p>
+              </div>
+            </div>
+            <Checkbox
+              checked={settings.privacy.consent_aggregated_research}
+              onChange={(e) => handleConsentChange('consent_aggregated_research', e.target.checked)}
               className="h-6 w-6 rounded-lg border-2 border-border/60"
             />
           </div>
