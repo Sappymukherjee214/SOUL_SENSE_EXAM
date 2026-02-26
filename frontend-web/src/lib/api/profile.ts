@@ -11,7 +11,7 @@ export interface PersonalProfile {
   occupation?: string;
   education_level?: string;
   bio?: string;
-  avatar_url?: string;
+  avatar_path?: string;
   member_since?: string;
   eq_stats?: {
     last_score?: number;
@@ -56,7 +56,7 @@ export interface UserProfile {
   bio: string;
   age: number;
   gender: string;
-  avatar_url: string;
+  avatar_path: string;
   goals: {
     short_term: string;
     long_term: string;
@@ -201,7 +201,7 @@ export const profileApi = {
         bio: data.personal_profile?.bio || '',
         age: data.personal_profile?.age || 0,
         gender: data.personal_profile?.gender || '',
-        avatar_url: data.personal_profile?.avatar_path || '',
+        avatar_path: data.personal_profile?.avatar_path || '',
         goals: {
           short_term: data.strengths?.short_term_goals || '',
           long_term: data.strengths?.long_term_vision || '',
@@ -279,11 +279,11 @@ export const profileApi = {
     return this.getUserProfile();
   },
 
-  async uploadAvatar(file: File): Promise<{ avatar_url: string }> {
+  async uploadAvatar(file: File): Promise<{ avatar_path: string }> {
     const formData = new FormData();
-    formData.append('avatar', file);
+    formData.append('file', file);
 
-    return apiClient('/profiles/me/avatar', {
+    return apiClient('/users/me/avatar', {
       method: 'POST',
       body: formData,
     });

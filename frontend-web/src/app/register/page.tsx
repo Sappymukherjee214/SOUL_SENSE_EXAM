@@ -730,7 +730,7 @@ export default function RegisterPage() {
             firstName: '',
             lastName: '',
             age: 18,
-            gender: '',
+            gender: undefined,
             username: '',
             email: '',
             password: '',

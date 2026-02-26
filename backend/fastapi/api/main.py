@@ -208,6 +208,13 @@ def create_app() -> FastAPI:
     # Version header middleware
     app.add_middleware(VersionHeaderMiddleware)
     
+    # Mount static files for avatars
+    from fastapi.staticfiles import StaticFiles
+    import os
+    avatars_path = os.path.join(os.getcwd(), "app_data", "avatars")
+    os.makedirs(avatars_path, exist_ok=True)
+    app.mount("/api/v1/avatars", StaticFiles(directory=avatars_path), name="avatars")
+
     # Register V1 API Router
     app.include_router(api_v1_router, prefix="/api/v1")
 

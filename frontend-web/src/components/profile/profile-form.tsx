@@ -23,6 +23,7 @@ import {
 } from '@/components/ui';
 import { FormField } from '@/components/forms';
 import { cn } from '@/lib/utils';
+import { UserProfile } from '@/lib/api/profile';
 
 // TagInput Component
 function TagInput({ value = [], onChange, placeholder, ...props }: {
@@ -108,7 +109,7 @@ const profileSchema = z.object({
 export type ProfileFormValues = z.infer<typeof profileSchema>;
 
 interface ProfileFormProps {
-  profile?: Partial<ProfileFormValues>;
+  profile?: Partial<UserProfile>;
   onSubmit: (data: ProfileFormValues & { avatarFile?: File }) => void;
   onCancel?: () => void;
   isSubmitting?: boolean;
@@ -125,7 +126,7 @@ interface ProfileFormProps {
  * - Character count for bio
  */
 export function ProfileForm({ profile, onSubmit, onCancel, isSubmitting }: ProfileFormProps) {
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(profile?.avatarUrl || null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(profile?.avatar_path || null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -136,15 +137,15 @@ export function ProfileForm({ profile, onSubmit, onCancel, isSubmitting }: Profi
       lastName: profile?.last_name || '',
       bio: profile?.bio || '',
       age: profile?.age || 18,
-      gender: profile?.gender || 'prefer_not_to_say',
+      gender: (profile?.gender as 'male' | 'female' | 'other' | 'prefer_not_to_say') || 'prefer_not_to_say',
       shortTermGoals: profile?.goals?.short_term || '',
       longTermGoals: profile?.goals?.long_term || '',
       sleepHours: profile?.sleep_hours,
-      exerciseFrequency: profile?.exercise_freq,
+      exerciseFrequency: profile?.exercise_freq as 'none' | 'light' | 'moderate' | 'heavy',
       dietType: profile?.dietary_patterns || '',
       hasTherapist: profile?.has_therapist,
       supportNetworkSize: profile?.support_network_size,
-      primarySupportType: profile?.primary_support_type,
+      primarySupportType: profile?.primary_support_type as 'family' | 'friends' | 'professional' | 'none',
       primaryGoal: profile?.primary_goal || '',
       focusAreas: profile?.focus_areas || [],
     },

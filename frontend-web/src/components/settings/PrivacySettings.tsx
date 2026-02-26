@@ -59,11 +59,23 @@ export function PrivacySettings({ settings, onChange }: PrivacySettingsProps) {
     });
   };
 
+  const handleVisibilityChange = (value: string) => {
+    debouncedOnChange({
+      privacy: {
+        ...settings.privacy,
+        profile_visibility: value as 'private' | 'friends' | 'public',
+      },
+    });
+  };
+
   const handleCrisisModeChange = async (value: boolean) => {
     try {
       // Update immediately via API
-      await apiClient.patch('/profiles/crisis_settings', {
-        crisis_mode_enabled: value,
+      await apiClient('/profiles/crisis_settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          crisis_mode_enabled: value,
+        }),
       });
 
       // Update local state
@@ -320,11 +332,13 @@ export function PrivacySettings({ settings, onChange }: PrivacySettingsProps) {
             className="w-full sm:w-auto font-black uppercase tracking-widest text-[10px] h-9 rounded-full px-8 border-border/60 hover:bg-primary/5 hover:text-primary transition-colors"
           >
             {isDownloading ? (
-              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              <>
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                Generating...
+              </>
             ) : (
               'Initiate Transfer'
             )}
-            {isDownloading && 'Generating...'}
           </Button>
         </div>
       </div>

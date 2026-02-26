@@ -1,7 +1,7 @@
 'use client';
 
 import { PersonalProfile } from '@/lib/api/profile';
-import { Avatar, AvatarFallback } from '@/components/ui';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui';
 import { Mail, Calendar, User as UserIcon, Briefcase, GraduationCap, Edit2, Moon, Activity, Apple, Heart, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -47,6 +47,13 @@ export function ProfileCard({
       <div className="flex flex-col sm:flex-row items-center gap-8 border-b border-border/40 pb-8">
         <div className="relative group">
           <Avatar className="h-28 w-28 border-4 border-background shadow-xl group-hover:shadow-2xl transition-all duration-300">
+            {profile?.avatar_path && (
+              <AvatarImage
+                src={`/api/v1/avatars/${profile.avatar_path}`}
+                alt={`${user?.username || 'User'} avatar`}
+                className="object-cover"
+              />
+            )}
             <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-2xl font-black">
               {getInitials()}
             </AvatarFallback>
@@ -263,7 +270,7 @@ export function ProfileCard({
                     Focus Areas
                   </p>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {profile.focus_areas.map((area, index) => (
+                    {profile.focus_areas?.map((area: string, index: number) => (
                       <span
                         key={index}
                         className="px-2 py-1 text-xs bg-primary/10 text-primary rounded-md"

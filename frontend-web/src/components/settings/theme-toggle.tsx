@@ -169,11 +169,6 @@ export function ThemeToggle({ value, onChange, className }: ThemeToggleProps) {
                             key={option.value}
                             role="radio"
                             aria-checked={isActive}
-                            id={`theme-option-${option.value}`}
-                            onClick={() => {
-                                setTheme(option.value);
-                                onChange(option.value);
-                            }}
                             id={`${scopeId}-theme-option-${option.value}`}
                             onClick={() => onChange(option.value)}
                             className={cn(

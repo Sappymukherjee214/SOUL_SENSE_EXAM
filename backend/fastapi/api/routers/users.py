@@ -6,7 +6,10 @@ Provides authenticated CRUD endpoints for user management.
 
 from typing import Annotated, List, Dict
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+import os
+import shutil
+from pathlib import Path
 
 from ..schemas import (
     UserResponse,
@@ -15,7 +18,8 @@ from ..schemas import (
     CompleteProfileResponse,
     AuditLogResponse,
     OnboardingData,
-    OnboardingCompleteResponse
+    OnboardingCompleteResponse,
+    AvatarUploadResponse
 )
 from ..services.audit_service import AuditService
 from ..services.user_service import UserService
@@ -315,3 +319,89 @@ async def get_onboarding_status(
     return {
         "onboarding_completed": current_user.onboarding_completed or False
     }
+
+
+@router.post("/me/avatar", response_model=AvatarUploadResponse, summary="Upload User Avatar")
+async def upload_user_avatar(
+    file: Annotated[UploadFile, File(description="Avatar image file (PNG, JPG, JPEG) - max 5MB")],
+    current_user: Annotated[User, Depends(get_current_user)],
+    user_service: Annotated[UserService, Depends(get_user_service)],
+    db: Annotated[Session, Depends(get_db)]
+):
+    """
+    Upload an avatar image for the current user.
+
+    **File Requirements:**
+    - Format: PNG, JPG, or JPEG
+    - Maximum size: 5MB
+    - Recommended dimensions: Square images work best
+
+    **Authentication Required**
+    """
+    # Validate file type
+    allowed_types = ["image/png", "image/jpeg", "image/jpg"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only PNG, JPG, and JPEG files are allowed."
+        )
+
+    # Validate file size (5MB limit)
+    file_size = 0
+    content = await file.read()
+    file_size = len(content)
+
+    if file_size > 5 * 1024 * 1024:  # 5MB
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too large. Maximum size is 5MB."
+        )
+
+    # Create avatars directory if it doesn't exist
+    avatars_dir = Path("app_data/avatars")
+    avatars_dir.mkdir(exist_ok=True)
+
+    # Generate unique filename
+    file_extension = file.filename.split(".")[-1].lower() if "." in file.filename else "png"
+    avatar_filename = f"{current_user.username}_avatar.{file_extension}"
+    avatar_path = avatars_dir / avatar_filename
+
+    # Save the file
+    try:
+        with open(avatar_path, "wb") as buffer:
+            buffer.write(content)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save avatar file: {str(e)}"
+        )
+
+    # Update user's personal profile with avatar path
+    try:
+        # Get or create personal profile
+        from ..models import PersonalProfile
+        personal_profile = db.query(PersonalProfile).filter(
+            PersonalProfile.user_id == current_user.id
+        ).first()
+
+        if not personal_profile:
+            personal_profile = PersonalProfile(user_id=current_user.id)
+            db.add(personal_profile)
+
+        # Update avatar path (relative to app_data/avatars)
+        personal_profile.avatar_path = str(avatar_filename)
+        db.commit()
+
+    except Exception as e:
+        # Clean up file if database update fails
+        if avatar_path.exists():
+            avatar_path.unlink()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update profile: {str(e)}"
+        )
+
+    return AvatarUploadResponse(
+        message="Avatar uploaded successfully",
+        avatar_path=str(avatar_filename)
+    )

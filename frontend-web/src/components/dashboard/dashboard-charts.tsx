@@ -119,7 +119,7 @@ export default function DashboardCharts() {
           <div className="h-64 bg-gray-200 rounded"></div>
         </div>
       ) : error ? (
-        <div className="text-red-600">Error loading chart data: {error}</div>
+        <div className="text-red-600">Error loading chart data: {error.message}</div>
       ) : (
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">

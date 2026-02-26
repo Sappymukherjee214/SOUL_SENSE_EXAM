@@ -206,6 +206,12 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AvatarUploadResponse(BaseModel):
+    """Schema for avatar upload response."""
+    message: str
+    avatar_path: str
+
+
 class FieldError(BaseModel):
     """Schema for individual field validation errors."""
     field: str

@@ -5,13 +5,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { profileApi, UserProfile, UpdateUserProfile } from '@/lib/api/profile';
 
 export interface UseProfileReturn {
-  profile: UserProfile | null;
+  profile: UserProfile | null | undefined;
   isLoading: boolean;
-  error: string | null;
+  error: string | Error | null;
   updateProfile: (data: UpdateUserProfile) => Promise<void>;
-  uploadAvatar: (file: File) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<{ avatar_path: string }>;
   deleteAvatar: () => Promise<void>;
-  refetch: () => Promise<void>;
+  refetch: () => Promise<any>;
 }
 
 export function useProfile(): UseProfileReturn {
@@ -55,9 +55,10 @@ export function useProfile(): UseProfileReturn {
       setUpdateError(null);
 
       try {
-        await profileApi.uploadAvatar(file);
+        const response = await profileApi.uploadAvatar(file);
         // Refetch the profile after successful upload
         await refetch();
+        return response;
       } catch (error: any) {
         const errorMessage = error?.message || 'Failed to upload avatar';
         setUpdateError(errorMessage);
