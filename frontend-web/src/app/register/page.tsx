@@ -25,7 +25,8 @@ import {
   StepIndicator,
 } from '@/components/auth';
 import { registrationSchema } from '@/lib/validation';
-import { useController, UseFormReturn } from 'react-hook-form';
+import { z } from 'zod';
+import { UseFormReturn, useController } from 'react-hook-form';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
@@ -36,11 +37,7 @@ import { analyticsApi } from '@/lib/api/analytics';
 import { useAuth } from '@/hooks/useAuth';
 import { isValidCallbackUrl } from '@/lib/utils/url';
 
-// step components and shared types have been moved to separate modules
-import PersonalStep from './steps/PersonalStep';
-import AccountStep from './steps/AccountStep';
-import TermsStep from './steps/TermsStep';
-import { RegisterFormData, StepContentProps, StepProps } from './registerTypes';
+type RegisterFormData = z.infer<typeof registrationSchema>;
 
 const steps = [
   { id: 'personal', label: 'Personal', description: 'Your info' },
@@ -48,12 +45,475 @@ const steps = [
   { id: 'terms', label: 'Complete', description: 'Review & submit' },
 ];
 
+interface StepContentProps {
+  methods: UseFormReturn<RegisterFormData>;
+  isLoading: boolean;
+  onNext?: () => void;
+  onBack?: () => void;
+  canProceed: boolean;
+  handleFocus: (fieldName: string) => void;
+}
 
-// PersonalStep moved to ./steps/PersonalStep.tsx
+interface StepProps extends StepContentProps {
+  showPassword?: boolean;
+  setShowPassword?: (show: boolean) => void;
+  availabilityCache?: Map<string, { available: boolean; message: string }>;
+}
 
-// AccountStep moved to ./steps/AccountStep.tsx
+function PersonalStep({ methods, isLoading, onNext, handleFocus }: StepProps) {
+  const handleContinue = async () => {
+    const isValid = await methods.trigger(['firstName', 'age', 'gender']);
+    if (isValid) {
+      onNext?.();
+    }
+  };
 
-// TermsStep moved to ./steps/TermsStep.tsx
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-4 text-primary">
+        <User className="w-5 h-5" />
+        <h3 className="font-semibold">Personal Information</h3>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <FormField
+            control={methods.control}
+            name="firstName"
+            label="First name"
+            placeholder="John"
+            required
+            disabled={isLoading}
+            onFocus={() => handleFocus('firstName')}
+          />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.15 }}
+        >
+          <FormField
+            control={methods.control}
+            name="lastName"
+            label="Last name"
+            placeholder="Doe"
+            disabled={isLoading}
+            onFocus={() => handleFocus('lastName')}
+          />
+        </motion.div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <FormField
+            control={methods.control}
+            name="age"
+            label="Age"
+            placeholder="25"
+            type="number"
+            required
+            disabled={isLoading}
+            onFocus={() => handleFocus('age')}
+          />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <FormField
+            control={methods.control}
+            name="gender"
+            label="Gender"
+            required
+            onFocus={() => handleFocus('gender')}
+          >
+            {(fieldProps) => (
+              <select
+                {...fieldProps}
+                disabled={isLoading}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                onChange={(e) => {
+                  fieldProps.onChange(e);
+                  handleFocus('gender');
+                }}
+              >
+                <option value="">Select gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+                <option value="Prefer not to say">Prefer not to say</option>
+              </select>
+            )}
+          </FormField>
+        </motion.div>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="pt-4"
+      >
+        <Button type="button" onClick={handleContinue} disabled={isLoading} className="w-full">
+          Continue
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </motion.div>
+    </div>
+  );
+}
+
+function AccountStep({
+  methods,
+  isLoading,
+  showPassword,
+  setShowPassword,
+  availabilityCache,
+  onNext,
+  onBack,
+  handleFocus,
+}: StepProps) {
+  const [localStatus, setLocalStatus] = useState<
+    'idle' | 'loading' | 'available' | 'taken' | 'invalid'
+  >('idle');
+
+  const handleContinue = async () => {
+    const isValid = await methods.trigger(['username', 'email', 'password', 'confirmPassword']);
+    if (isValid && localStatus !== 'taken' && localStatus !== 'loading') {
+      onNext?.();
+    }
+  };
+
+  const usernameValue = methods.watch('username');
+  const debouncedUsername = useDebounce(usernameValue, 500);
+
+  useEffect(() => {
+    if (!debouncedUsername || debouncedUsername.length < 3) {
+      setLocalStatus('idle');
+      return;
+    }
+
+    const reserved = ['admin', 'root', 'support', 'soulsense', 'system', 'official'];
+    if (reserved.includes(debouncedUsername.toLowerCase())) {
+      setLocalStatus('taken');
+      return;
+    }
+
+    if (availabilityCache?.has(debouncedUsername)) {
+      setLocalStatus(availabilityCache.get(debouncedUsername)!.available ? 'available' : 'taken');
+      return;
+    }
+
+    const checkAvailability = async () => {
+      setLocalStatus('loading');
+      try {
+        const data = await authApi.checkUsernameAvailability(debouncedUsername);
+        availabilityCache?.set(debouncedUsername, data);
+        setLocalStatus(data.available ? 'available' : 'taken');
+      } catch (error) {
+        console.error('Error checking username availability:', error);
+        setLocalStatus('idle');
+      }
+    };
+
+    checkAvailability();
+  }, [debouncedUsername, availabilityCache]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-4 text-primary">
+        <Mail className="w-5 h-5" />
+        <h3 className="font-semibold">Account Details</h3>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <FormField
+          control={methods.control}
+          name="username"
+          label="Username"
+          placeholder="johndoe"
+          required
+          disabled={isLoading}
+          onFocus={() => handleFocus('username')}
+        >
+          {(fieldProps) => (
+            <div className="relative">
+              <Input
+                {...fieldProps}
+                className={cn(
+                  fieldProps.className,
+                  localStatus === 'available' && 'border-green-500 focus-visible:ring-green-500',
+                  localStatus === 'taken' && 'border-red-500 focus-visible:ring-red-500'
+                )}
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+                {localStatus === 'loading' && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+                {localStatus === 'available' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                {localStatus === 'taken' && <XCircle className="h-4 w-4 text-red-500" />}
+              </div>
+              {localStatus === 'taken' && (
+                <p className="text-[10px] text-red-500 mt-1 absolute -bottom-4 left-0">
+                  Username taken
+                </p>
+              )}
+              {localStatus === 'available' && (
+                <p className="text-[10px] text-green-500 mt-1 absolute -bottom-4 left-0">
+                  Available
+                </p>
+              )}
+            </div>
+          )}
+        </FormField>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.15 }}
+      >
+        <FormField
+          control={methods.control}
+          name="email"
+          label="Email"
+          placeholder="you@example.com"
+          type="email"
+          required
+          disabled={isLoading}
+          onFocus={() => handleFocus('email')}
+        />
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <FormField
+          control={methods.control}
+          name="password"
+          label="Password"
+          required
+          onFocus={() => handleFocus('password')}
+        >
+          {(fieldProps) => (
+            <div className="relative space-y-2">
+              <Input
+                {...fieldProps}
+                type={showPassword ? 'text' : 'password'}
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              <PasswordStrengthIndicator password={fieldProps.value || ''} />
+            </div>
+          )}
+        </FormField>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.25 }}
+      >
+        <FormField
+          control={methods.control}
+          name="confirmPassword"
+          label="Confirm Password"
+          required
+          onFocus={() => handleFocus('confirmPassword')}
+        >
+          {(fieldProps) => (
+            <div className="relative">
+              <Input
+                {...fieldProps}
+                type={showPassword ? 'text' : 'password'}
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+            </div>
+          )}
+        </FormField>
+      </motion.div>
+
+      <div className="flex items-center space-x-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowPassword?.(!showPassword)}
+          disabled={isLoading}
+          className="text-xs h-8"
+        >
+          {showPassword ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+          {showPassword ? 'Hide' : 'Show'} password
+        </Button>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="flex gap-3 pt-4"
+      >
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onBack}
+          disabled={isLoading}
+          className="flex-1"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+        <Button
+          type="button"
+          onClick={handleContinue}
+          disabled={isLoading || localStatus === 'loading' || localStatus === 'taken'}
+          className="flex-1"
+        >
+          Continue
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </motion.div>
+    </div>
+  );
+}
+
+function TermsStep({
+  methods,
+  isLoading,
+  onBack,
+  lockoutTime = 0,
+  handleFocus,
+}: StepProps & { lockoutTime?: number }) {
+  const { field } = useController({
+    control: methods.control,
+    name: 'acceptTerms',
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-4 text-primary">
+        <Shield className="w-5 h-5" />
+        <h3 className="font-semibold">Review & Submit</h3>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm"
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <span className="text-muted-foreground">Name:</span>
+            <p className="font-medium">
+              {methods.getValues('firstName')} {methods.getValues('lastName')}
+            </p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Username:</span>
+            <p className="font-medium">{methods.getValues('username')}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Email:</span>
+            <p className="font-medium">{methods.getValues('email')}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Age/Gender:</span>
+            <p className="font-medium">
+              {methods.getValues('age')} / {methods.getValues('gender')}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <div className="flex items-start space-x-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
+          <input
+            type="checkbox"
+            id="acceptTerms"
+            checked={field.value || false}
+            onChange={(e) => field.onChange(e.target.checked)}
+            disabled={isLoading}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer disabled:cursor-not-allowed"
+            onFocus={() => handleFocus('acceptTerms')}
+          />
+          <label
+            htmlFor="acceptTerms"
+            className="text-sm text-muted-foreground cursor-pointer leading-tight"
+          >
+            I agree to the{' '}
+            <Link
+              href="/terms"
+              className="text-primary hover:text-primary/80 underline"
+              target="_blank"
+            >
+              Terms & Conditions
+            </Link>
+          </label>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="flex gap-3 pt-2"
+      >
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onBack}
+          disabled={isLoading}
+          className="flex-1"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+        <Button type="submit" disabled={isLoading || !field.value} className="flex-1">
+          {isLoading && lockoutTime > 0 ? (
+            `Retry in ${lockoutTime}s`
+          ) : isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating Account...
+            </>
+          ) : (
+            <>
+              <Shield className="mr-2 h-4 w-4" />
+              Create Account
+            </>
+          )}
+        </Button>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+        <SocialLogin isLoading={isLoading} />
+      </motion.div>
+    </div>
+  );
+}
 
 export default function RegisterPage() {
   const [currentStep, setCurrentStep] = useState(0);
