@@ -11,8 +11,9 @@ import {
   ActivityItem,
   BentoGrid,
   SectionWrapper,
-  DashboardCharts,
 } from '@/components/dashboard';
+// Dynamically import heavy chart components to reduce initial bundle size
+import { DashboardCharts } from '@/lib/dynamic-imports';
 import { apiClient } from '@/lib/api/client';
 import { useAuth } from '@/hooks/useAuth';
 
