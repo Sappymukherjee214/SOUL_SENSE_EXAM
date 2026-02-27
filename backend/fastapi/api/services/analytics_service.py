@@ -1,11 +1,10 @@
 """Analytics service for aggregated, non-sensitive data analysis."""
-from sqlalchemy import func, case, distinct
-from sqlalchemy.orm import Session
+from sqlalchemy import func, case, distinct, select, desc
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Tuple, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
-# Import models from root_models module (handles namespace collision)
-from api.root_models import Score, User
+from ..models import Score, User, AnalyticsEvent
 
 
 class AnalyticsService:
@@ -16,13 +15,30 @@ class AnalyticsService:
     """
     
     @staticmethod
-    def get_age_group_statistics(db: Session) -> List[Dict]:
-        """
-        Get aggregated statistics by age group.
+    async def log_event(db: AsyncSession, event_data: dict, ip_address: Optional[str] = None) -> AnalyticsEvent:
+        """Log a user behavior event."""
+        import json
         
-        Returns only aggregated data - no individual records.
-        """
-        stats = db.query(
+        data_payload = json.dumps(event_data.get('event_data', {}))
+        
+        event = AnalyticsEvent(
+            anonymous_id=event_data['anonymous_id'],
+            event_type=event_data['event_type'],
+            event_name=event_data['event_name'],
+            event_data=data_payload,
+            ip_address=ip_address,
+            timestamp=datetime.now(UTC)
+        )
+        
+        db.add(event)
+        await db.commit()
+        await db.refresh(event)
+        return event
+
+    @staticmethod
+    async def get_age_group_statistics(db: AsyncSession) -> List[Dict]:
+        """Get aggregated statistics by age group."""
+        stmt = select(
             Score.detailed_age_group,
             func.count(Score.id).label('total'),
             func.avg(Score.total_score).label('avg_score'),
@@ -33,7 +49,10 @@ class AnalyticsService:
             Score.detailed_age_group.isnot(None)
         ).group_by(
             Score.detailed_age_group
-        ).all()
+        )
+        
+        result = await db.execute(stmt)
+        stats = result.all()
         
         return [
             {
@@ -48,18 +67,15 @@ class AnalyticsService:
         ]
     
     @staticmethod
-    def get_score_distribution(db: Session) -> List[Dict]:
-        """
-        Get score distribution across ranges.
-        
-        Returns aggregated distribution - no individual scores.
-        """
-        total_count = db.query(func.count(Score.id)).scalar() or 0
+    async def get_score_distribution(db: AsyncSession) -> List[Dict]:
+        """Get score distribution across ranges."""
+        total_stmt = select(func.count(Score.id))
+        total_res = await db.execute(total_stmt)
+        total_count = total_res.scalar() or 0
         
         if total_count == 0:
             return []
         
-        # Define score ranges
         ranges = [
             ('0-10', 0, 10),
             ('11-20', 11, 20),
@@ -69,10 +85,12 @@ class AnalyticsService:
         
         distribution = []
         for range_name, min_score, max_score in ranges:
-            count = db.query(func.count(Score.id)).filter(
+            count_stmt = select(func.count(Score.id)).filter(
                 Score.total_score >= min_score,
                 Score.total_score <= max_score
-            ).scalar() or 0
+            )
+            count_res = await db.execute(count_stmt)
+            count = count_res.scalar() or 0
             
             percentage = (count / total_count * 100) if total_count > 0 else 0
             
@@ -85,31 +103,26 @@ class AnalyticsService:
         return distribution
     
     @staticmethod
-    def get_overall_summary(db: Session) -> Dict:
-        """
-        Get overall analytics summary.
-        
-        Returns aggregated metrics only - no individual user data.
-        """
-        # Overall statistics
-        overall_stats = db.query(
+    async def get_overall_summary(db: AsyncSession) -> Dict:
+        """Get overall analytics summary."""
+        overall_stmt = select(
             func.count(Score.id).label('total'),
             func.count(distinct(Score.username)).label('unique_users'),
             func.avg(Score.total_score).label('avg_score'),
             func.avg(Score.sentiment_score).label('avg_sentiment')
-        ).first()
+        )
+        overall_res = await db.execute(overall_stmt)
+        overall_stats = overall_res.first()
         
-        # Quality metrics (aggregated counts)
-        quality_metrics = db.query(
+        quality_stmt = select(
             func.sum(case((Score.is_rushed == True, 1), else_=0)).label('rushed_count'),
             func.sum(case((Score.is_inconsistent == True, 1), else_=0)).label('inconsistent_count')
-        ).first()
+        )
+        quality_res = await db.execute(quality_stmt)
+        quality_metrics = quality_res.first()
         
-        # Age group stats
-        age_group_stats = AnalyticsService.get_age_group_statistics(db)
-        
-        # Score distribution
-        score_dist = AnalyticsService.get_score_distribution(db)
+        age_group_stats = await AnalyticsService.get_age_group_statistics(db)
+        score_dist = await AnalyticsService.get_score_distribution(db)
         
         return {
             'total_assessments': overall_stats.total or 0,
@@ -125,32 +138,28 @@ class AnalyticsService:
         }
     
     @staticmethod
-    def get_trend_analytics(
-        db: Session,
+    async def get_trend_analytics(
+        db: AsyncSession,
         period_type: str = 'monthly',
         limit: int = 12
     ) -> Dict:
-        """
-        Get trend analytics over time.
+        """Get trend analytics over time."""
+        # Note: SQLite substr(timestamp, 1, 7) might differ from Postgres/MySQL
+        # Using SQLAlchemy handles the dialect differences if mapped correctly
+        # Here we assume a dialect-specific or standard substr approach
         
-        Args:
-            period_type: Type of period (daily, weekly, monthly)
-            limit: Number of periods to return
-            
-        Returns aggregated time-series data.
-        """
-        # For simplicity, we'll do monthly trends
-        # In production, you'd want more sophisticated date handling
-        
-        trends = db.query(
-            func.substr(Score.timestamp, 1, 7).label('period'),  # YYYY-MM
+        stmt = select(
+            func.substr(Score.timestamp, 1, 7).label('period'),
             func.avg(Score.total_score).label('avg_score'),
             func.count(Score.id).label('count')
         ).group_by(
             func.substr(Score.timestamp, 1, 7)
         ).order_by(
-            func.substr(Score.timestamp, 1, 7).desc()
-        ).limit(limit).all()
+            desc(func.substr(Score.timestamp, 1, 7))
+        ).limit(limit)
+        
+        result = await db.execute(stmt)
+        trends = result.all()
         
         data_points = [
             {
@@ -158,10 +167,9 @@ class AnalyticsService:
                 'average_score': round(t.avg_score or 0, 2),
                 'assessment_count': t.count
             }
-            for t in reversed(trends)  # Chronological order
+            for t in reversed(trends)
         ]
         
-        # Determine trend direction
         if len(data_points) >= 2:
             first_avg = data_points[0]['average_score']
             last_avg = data_points[-1]['average_score']
@@ -182,25 +190,22 @@ class AnalyticsService:
         }
     
     @staticmethod
-    def get_benchmark_comparison(db: Session) -> List[Dict]:
-        """
-        Get benchmark comparison data.
-        
-        Returns percentile-based benchmarks - no individual data.
-        """
-        # Get all scores for percentile calculation
-        scores = db.query(Score.total_score).filter(
+    async def get_benchmark_comparison(db: AsyncSession) -> List[Dict]:
+        """Get benchmark comparison data."""
+        stmt = select(Score.total_score).filter(
             Score.total_score.isnot(None)
-        ).order_by(Score.total_score).all()
+        ).order_by(Score.total_score)
+        
+        result = await db.execute(stmt)
+        scores = result.scalars().all()
         
         if not scores:
             return []
         
-        score_list = [s.total_score for s in scores]
+        score_list = list(scores)
         n = len(score_list)
         
         def percentile(p):
-            """Calculate percentile value"""
             k = (n - 1) * p / 100
             f = int(k)
             c = min(f + 1, n - 1)
@@ -220,14 +225,9 @@ class AnalyticsService:
         }]
     
     @staticmethod
-    def get_population_insights(db: Session) -> Dict:
-        """
-        Get population-level insights.
-        
-        Returns aggregated population metrics - no individual data.
-        """
-        # Most common age group
-        most_common = db.query(
+    async def get_population_insights(db: AsyncSession) -> Dict:
+        """Get population-level insights."""
+        common_stmt = select(
             Score.detailed_age_group,
             func.count(Score.id).label('count')
         ).filter(
@@ -235,11 +235,12 @@ class AnalyticsService:
         ).group_by(
             Score.detailed_age_group
         ).order_by(
-            func.count(Score.id).desc()
-        ).first()
+            desc(func.count(Score.id))
+        ).limit(1)
+        common_res = await db.execute(common_stmt)
+        most_common = common_res.first()
         
-        # Highest performing age group
-        highest_performing = db.query(
+        perf_stmt = select(
             Score.detailed_age_group,
             func.avg(Score.total_score).label('avg')
         ).filter(
@@ -247,14 +248,19 @@ class AnalyticsService:
         ).group_by(
             Score.detailed_age_group
         ).order_by(
-            func.avg(Score.total_score).desc()
-        ).first()
+            desc(func.avg(Score.total_score))
+        ).limit(1)
+        perf_res = await db.execute(perf_stmt)
+        highest_performing = perf_res.first()
         
-        # Total population
-        total_users = db.query(func.count(distinct(Score.username))).scalar() or 0
-        total_assessments = db.query(func.count(Score.id)).scalar() or 0
+        users_stmt = select(func.count(distinct(Score.username)))
+        users_res = await db.execute(users_stmt)
+        total_users = users_res.scalar() or 0
         
-        # Completion rate (simplified - assumes all scores are completed)
+        assess_stmt = select(func.count(Score.id))
+        assess_res = await db.execute(assess_stmt)
+        total_assessments = assess_res.scalar() or 0
+        
         completion_rate = 100.0 if total_assessments > 0 else None
         
         return {
@@ -263,3 +269,430 @@ class AnalyticsService:
             'total_population_size': total_users,
             'assessment_completion_rate': completion_rate
         }
+    
+    @staticmethod
+    async def get_dashboard_statistics(
+        db: AsyncSession,
+        timeframe: str = '30d',
+        exam_type: Optional[str] = None,
+        sentiment: Optional[str] = None
+    ) -> List[Dict]:
+        """Get dashboard statistics with historical trends."""
+        now = datetime.now(UTC)
+        if timeframe == '7d':
+            start_date = now - timedelta(days=7)
+        elif timeframe == '30d':
+            start_date = now - timedelta(days=30)
+        elif timeframe == '90d':
+            start_date = now - timedelta(days=90)
+        else:
+            start_date = now - timedelta(days=30)
+        
+        stmt = select(
+            Score.id,
+            Score.timestamp,
+            Score.total_score,
+            Score.sentiment_score
+        ).filter(
+            Score.timestamp >= start_date
+        )
+        
+        if sentiment:
+            if sentiment == 'positive':
+                stmt = stmt.filter(Score.sentiment_score >= 0.6)
+            elif sentiment == 'neutral':
+                stmt = stmt.filter(Score.sentiment_score.between(0.4, 0.6))
+            elif sentiment == 'negative':
+                stmt = stmt.filter(Score.sentiment_score < 0.4)
+        
+        stmt = stmt.order_by(desc(Score.timestamp)).limit(100)
+        result = await db.execute(stmt)
+        scores = result.all()
+        
+        trends = []
+        for score in reversed(scores):
+            trends.append({
+                'id': score.id,
+                'timestamp': score.timestamp.isoformat(),
+                'total_score': score.total_score,
+                'sentiment_score': score.sentiment_score
+            })
+        
+        return trends
+
+    @staticmethod
+    async def calculate_conversion_rate(
+        db: AsyncSession,
+        period_days: int = 30
+    ) -> Dict:
+        """Calculate Conversion Rate KPI."""
+        cutoff_date = datetime.now(UTC) - timedelta(days=period_days)
+
+        started_stmt = select(func.count(AnalyticsEvent.id)).filter(
+            AnalyticsEvent.event_name == 'signup_start',
+            AnalyticsEvent.timestamp >= cutoff_date
+        )
+        started_res = await db.execute(started_stmt)
+        signup_started = started_res.scalar() or 0
+
+        completed_stmt = select(func.count(AnalyticsEvent.id)).filter(
+            AnalyticsEvent.event_name == 'signup_success',
+            AnalyticsEvent.timestamp >= cutoff_date
+        )
+        completed_res = await db.execute(completed_stmt)
+        signup_completed = completed_res.scalar() or 0
+
+        conversion_rate = (signup_completed / signup_started * 100) if signup_started > 0 else 0
+
+        return {
+            'signup_started': signup_started,
+            'signup_completed': signup_completed,
+            'conversion_rate': round(conversion_rate, 2),
+            'period': f'last_{period_days}_days'
+        }
+
+    @staticmethod
+    async def calculate_retention_rate(
+        db: AsyncSession,
+        period_days: int = 7
+    ) -> Dict:
+        """Calculate Retention Rate KPI."""
+        today = datetime.now(UTC).date()
+        day_0 = today - timedelta(days=period_days)
+        day_n = today
+
+        day0_stmt = select(func.count(func.distinct(AnalyticsEvent.user_id))).filter(
+            AnalyticsEvent.user_id.isnot(None),
+            func.date(AnalyticsEvent.timestamp) == day_0
+        )
+        day0_res = await db.execute(day0_stmt)
+        day_0_users = day0_res.scalar() or 0
+
+        dayn_subq = select(func.distinct(AnalyticsEvent.user_id)).filter(
+            func.date(AnalyticsEvent.timestamp) == day_n
+        ).subquery()
+        
+        dayn_stmt = select(func.count(func.distinct(AnalyticsEvent.user_id))).filter(
+            AnalyticsEvent.user_id.isnot(None),
+            func.date(AnalyticsEvent.timestamp) == day_0,
+            AnalyticsEvent.user_id.in_(select(dayn_subq))
+        )
+        dayn_res = await db.execute(dayn_stmt)
+        day_n_active_users = dayn_res.scalar() or 0
+
+        retention_rate = (day_n_active_users / day_0_users * 100) if day_0_users > 0 else 0
+
+        return {
+            'day_0_users': day_0_users,
+            'day_n_active_users': day_n_active_users,
+            'retention_rate': round(retention_rate, 2),
+            'period_days': period_days,
+            'period': f'{period_days}_day_retention'
+        }
+
+    @staticmethod
+    async def calculate_arpu(
+        db: AsyncSession,
+        period_days: int = 30
+    ) -> Dict:
+        """Calculate ARPU KPI."""
+        cutoff_date = datetime.now(UTC) - timedelta(days=period_days)
+
+        active_stmt = select(func.count(func.distinct(AnalyticsEvent.user_id))).filter(
+            AnalyticsEvent.user_id.isnot(None),
+            AnalyticsEvent.timestamp >= cutoff_date
+        )
+        active_res = await db.execute(active_stmt)
+        total_active_users = active_res.scalar() or 0
+
+        total_revenue = 0.0
+        arpu = (total_revenue / total_active_users) if total_active_users > 0 else 0
+
+        return {
+            'total_revenue': total_revenue,
+            'total_active_users': total_active_users,
+            'arpu': round(arpu, 2),
+            'period': f'last_{period_days}_days',
+            'currency': 'USD'
+        }
+
+    @staticmethod
+    async def get_kpi_summary(
+        db: AsyncSession,
+        conversion_period_days: int = 30,
+        retention_period_days: int = 7,
+        arpu_period_days: int = 30
+    ) -> Dict:
+        """Get combined KPI summary."""
+        conversion_rate = await AnalyticsService.calculate_conversion_rate(db, conversion_period_days)
+        retention_rate = await AnalyticsService.calculate_retention_rate(db, retention_period_days)
+        arpu = await AnalyticsService.calculate_arpu(db, arpu_period_days)
+
+        return {
+            'conversion_rate': conversion_rate,
+            'retention_rate': retention_rate,
+            'arpu': arpu,
+            'calculated_at': datetime.now(UTC).isoformat(),
+            'period': f'conversion_{conversion_period_days}d_retention_{retention_period_days}d_arpu_{arpu_period_days}d'
+        }
+
+
+# ============================================================================
+# Privacy & Consent Methods (Issue #982)
+# ============================================================================
+
+    @staticmethod
+    def track_consent_event(
+        db: Session,
+        anonymous_id: str,
+        event_type: str,
+        consent_type: str,
+        consent_version: str,
+        event_data: Optional[Dict] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> ConsentEvent:
+        """
+        Track a consent event (consent_given or consent_revoked).
+
+        Args:
+            db: Database session
+            anonymous_id: Client-generated anonymous ID
+            event_type: 'consent_given' or 'consent_revoked'
+            consent_type: Type of consent (analytics, marketing, research)
+            consent_version: Version of consent terms
+            event_data: Additional metadata
+            ip_address: Client IP address
+            user_agent: Client user agent
+
+        Returns:
+            Created ConsentEvent
+        """
+        import json
+
+        # Serialize event_data to JSON
+        data_payload = json.dumps(event_data) if event_data else None
+
+        event = ConsentEvent(
+            anonymous_id=anonymous_id,
+            event_type=event_type,
+            consent_type=consent_type,
+            consent_version=consent_version,
+            event_data=data_payload,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            timestamp=datetime.utcnow()
+        )
+
+        db.add(event)
+        db.commit()
+        db.refresh(event)
+
+        # Update or create user consent status
+        AnalyticsService._update_user_consent_status(
+            db, anonymous_id, event_type, consent_type, consent_version,
+            ip_address, user_agent
+        )
+
+        return event
+
+    @staticmethod
+    def _update_user_consent_status(
+        db: Session,
+        anonymous_id: str,
+        event_type: str,
+        consent_type: str,
+        consent_version: str,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> None:
+        """
+        Update the user's current consent status based on consent event.
+
+        Args:
+            db: Database session
+            anonymous_id: Client-generated anonymous ID
+            event_type: 'consent_given' or 'consent_revoked'
+            consent_type: Type of consent
+            consent_version: Version of consent terms
+            ip_address: Client IP address
+            user_agent: Client user agent
+        """
+        # Find existing consent record
+        consent = db.query(UserConsent).filter(
+            UserConsent.anonymous_id == anonymous_id,
+            UserConsent.consent_type == consent_type
+        ).first()
+
+        now = datetime.utcnow()
+        consent_granted = (event_type == 'consent_given')
+
+        if consent:
+            # Update existing record
+            consent.consent_granted = consent_granted
+            consent.consent_version = consent_version
+            if consent_granted:
+                consent.granted_at = now
+                consent.revoked_at = None
+            else:
+                consent.revoked_at = now
+            consent.ip_address = ip_address
+            consent.user_agent = user_agent
+            consent.updated_at = now
+        else:
+            # Create new consent record
+            consent = UserConsent(
+                anonymous_id=anonymous_id,
+                consent_type=consent_type,
+                consent_granted=consent_granted,
+                consent_version=consent_version,
+                granted_at=now if consent_granted else None,
+                revoked_at=now if not consent_granted else None,
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            db.add(consent)
+
+        db.commit()
+
+    @staticmethod
+    def check_analytics_consent(db: Session, anonymous_id: str) -> Dict[str, Any]:
+        """
+        Check if user has consented to analytics tracking.
+
+        Args:
+            db: Database session
+            anonymous_id: Client-generated anonymous ID
+
+        Returns:
+            Dictionary with consent status information
+        """
+        consent = db.query(UserConsent).filter(
+            UserConsent.anonymous_id == anonymous_id,
+            UserConsent.consent_type == 'analytics',
+            UserConsent.consent_granted == True
+        ).first()
+
+        if consent:
+            return {
+                'analytics_consent_given': True,
+                'consent_version': consent.consent_version,
+                'last_updated': consent.updated_at.isoformat() if consent.updated_at else None
+            }
+        else:
+            return {
+                'analytics_consent_given': False,
+                'consent_version': None,
+                'last_updated': None
+            }
+
+    @staticmethod
+    def get_consent_status(db: Session, anonymous_id: str) -> Dict:
+        """
+        Get comprehensive consent status for a user.
+
+        Args:
+            db: Database session
+            anonymous_id: Client-generated anonymous ID
+
+        Returns:
+            Dictionary with current consent status and history
+        """
+        # Get current consent statuses
+        consents = db.query(UserConsent).filter(
+            UserConsent.anonymous_id == anonymous_id
+        ).all()
+
+        consent_status = {
+            'analytics_consent': False,
+            'marketing_consent': False,
+            'research_consent': False,
+            'consent_version': '1.0',  # Default version
+            'last_updated': None
+        }
+
+        for consent in consents:
+            if consent.consent_type == 'analytics':
+                consent_status['analytics_consent'] = consent.consent_granted
+            elif consent.consent_type == 'marketing':
+                consent_status['marketing_consent'] = consent.consent_granted
+            elif consent.consent_type == 'research':
+                consent_status['research_consent'] = consent.consent_granted
+
+            # Update version and last_updated if more recent
+            if consent.updated_at and (
+                consent_status['last_updated'] is None or
+                consent.updated_at > consent_status['last_updated']
+            ):
+                consent_status['consent_version'] = consent.consent_version
+                consent_status['last_updated'] = consent.updated_at
+
+        # Get consent event history
+        events = db.query(ConsentEvent).filter(
+            ConsentEvent.anonymous_id == anonymous_id
+        ).order_by(ConsentEvent.timestamp.desc()).limit(50).all()
+
+        consent_status['consent_history'] = [event.to_dict() for event in events]
+
+        # Set default last_updated if no consents exist
+        if consent_status['last_updated'] is None:
+            consent_status['last_updated'] = datetime.utcnow().isoformat()
+        else:
+            consent_status['last_updated'] = consent_status['last_updated'].isoformat()
+
+        return consent_status
+
+    @staticmethod
+    def update_consent_preferences(
+        db: Session,
+        anonymous_id: str,
+        analytics_consent: Optional[bool] = None,
+        marketing_consent: Optional[bool] = None,
+        research_consent: Optional[bool] = None,
+        consent_version: str = '1.0',
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> Dict:
+        """
+        Update user consent preferences.
+
+        Args:
+            db: Database session
+            anonymous_id: Client-generated anonymous ID
+            analytics_consent: New analytics consent status
+            marketing_consent: New marketing consent status
+            research_consent: New research consent status
+            consent_version: Version of consent terms
+            ip_address: Client IP address
+            user_agent: Client user agent
+
+        Returns:
+            Updated consent status
+        """
+        consent_updates = []
+
+        if analytics_consent is not None:
+            event_type = 'consent_given' if analytics_consent else 'consent_revoked'
+            AnalyticsService.track_consent_event(
+                db, anonymous_id, event_type, 'analytics', consent_version,
+                None, ip_address, user_agent
+            )
+            consent_updates.append(('analytics', analytics_consent))
+
+        if marketing_consent is not None:
+            event_type = 'consent_given' if marketing_consent else 'consent_revoked'
+            AnalyticsService.track_consent_event(
+                db, anonymous_id, event_type, 'marketing', consent_version,
+                None, ip_address, user_agent
+            )
+            consent_updates.append(('marketing', marketing_consent))
+
+        if research_consent is not None:
+            event_type = 'consent_given' if research_consent else 'consent_revoked'
+            AnalyticsService.track_consent_event(
+                db, anonymous_id, event_type, 'research', consent_version,
+                None, ip_address, user_agent
+            )
+            consent_updates.append(('research', research_consent))
+
+        return AnalyticsService.get_consent_status(db, anonymous_id)
