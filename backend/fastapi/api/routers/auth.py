@@ -64,12 +64,35 @@ async def get_current_user(request: Request, token: Annotated[str, Depends(oauth
     except JWTError:
         raise InvalidCredentialsError()
 
-    user_stmt = select(User).filter(User.username == username)
-    user_res = await db.execute(user_stmt)
-    user = user_res.scalar_one_or_none()
-    
-    if user is None:
-        raise InvalidCredentialsError()
+    from ..services.cache_service import cache_service
+    cache_key = f"user_rbac:{username}"
+    user_data = await cache_service.get(cache_key)
+
+    if user_data:
+        class CachedUser:
+            def __init__(self, **entries):
+                self.__dict__.update(entries)
+        user = CachedUser(**user_data)
+    else:
+        user_stmt = select(User).filter(User.username == username)
+        user_res = await db.execute(user_stmt)
+        user = user_res.scalar_one_or_none()
+        
+        if user is None:
+            raise InvalidCredentialsError()
+            
+        user_data = {
+            "id": user.id,
+            "username": user.username,
+            "created_at": user.created_at,
+            "last_login": user.last_login,
+            "is_active": user.is_active,
+            "is_deleted": user.is_deleted,
+            "deleted_at": user.deleted_at.isoformat() if user.deleted_at else None,
+            "is_admin": getattr(user, 'is_admin', False),
+            "onboarding_completed": getattr(user, 'onboarding_completed', False)
+        }
+        await cache_service.set(cache_key, user_data, 3600)
     
     request.state.user_id = user.id
     if not getattr(user, 'is_active', True):
@@ -289,11 +312,11 @@ async def initiate_password_reset(
 ):
     from ..middleware.rate_limiter import password_reset_limiter
     real_ip = get_real_ip(request)
-    is_limited, wait_time = password_reset_limiter.is_rate_limited(real_ip)
+    is_limited, wait_time = await password_reset_limiter.is_rate_limited(real_ip)
     if is_limited:
         raise RateLimitError(message=f"Too many reset requests. Please try again in {wait_time}s.", wait_seconds=wait_time)
 
-    is_limited, wait_time = password_reset_limiter.is_rate_limited(f"reset_{reset_data.email}")
+    is_limited, wait_time = await password_reset_limiter.is_rate_limited(f"reset_{reset_data.email}")
     if is_limited:
         raise RateLimitError(message=f"Multiple requests for this email. Please try again in {wait_time}s.", wait_seconds=wait_time)
 
@@ -310,7 +333,7 @@ async def complete_password_reset(
 ):
     from ..middleware.rate_limiter import password_reset_limiter
     real_ip = get_real_ip(req_obj)
-    is_limited, wait_time = password_reset_limiter.is_rate_limited(real_ip)
+    is_limited, wait_time = await password_reset_limiter.is_rate_limited(real_ip)
     if is_limited:
         raise RateLimitError(message=f"Too many attempts. Please try again in {wait_time}s.", wait_seconds=wait_time)
 
