@@ -3,6 +3,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy import select, func
 from typing import List, Optional, Tuple, AsyncGenerator
 from datetime import datetime
+import logging
+import traceback
 
 # Import model classes from models module
 from ..models import Base, Score, Response, Question, QuestionCategory
@@ -44,14 +46,21 @@ class AssessmentService:
         db: AsyncSession,
         skip: int = 0,
         limit: int = 10,
+        user_id: Optional[int] = None,
         username: Optional[str] = None,
         age_group: Optional[str] = None
     ) -> Tuple[List[Score], int]:
         """
         Get assessments with pagination and optional filters.
+        When user_id is provided, results are scoped to that user only.
         """
         stmt = select(Score)
         
+        # Apply filters — prefer user_id for session-bound isolation
+        if user_id is not None:
+            query = query.filter(Score.user_id == user_id)
+        elif username:
+            query = query.filter(Score.username == username)
         # Apply filters
         if username:
             stmt = stmt.filter(Score.username == username)
@@ -71,6 +80,21 @@ class AssessmentService:
         return list(assessments), total
     
     @staticmethod
+    def get_assessment_by_id(
+        db: Session, assessment_id: int, user_id: Optional[int] = None
+    ) -> Optional[Score]:
+        """Get a single assessment by ID, optionally scoped to a specific user."""
+        query = db.query(Score).filter(Score.id == assessment_id)
+        if user_id is not None:
+            query = query.filter(Score.user_id == user_id)
+        return query.first()
+    
+    @staticmethod
+    def get_assessment_stats(
+        db: Session,
+        user_id: Optional[int] = None,
+        username: Optional[str] = None
+    ) -> dict:
     async def get_assessment_by_id(db: AsyncSession, assessment_id: int) -> Optional[Score]:
         """Get a single assessment by ID."""
         stmt = select(Score).filter(Score.id == assessment_id)
@@ -81,7 +105,17 @@ class AssessmentService:
     async def get_assessment_stats(db: AsyncSession, username: Optional[str] = None) -> dict:
         """
         Get statistical summary of assessments.
+        When user_id is provided, stats are scoped to that user.
         """
+        query = db.query(Score)
+        
+        if user_id is not None:
+            query = query.filter(Score.user_id == user_id)
+        elif username:
+            query = query.filter(Score.username == username)
+        
+        # Calculate statistics
+        stats = query.with_entities(
         stmt = select(
             func.count(Score.id).label('total'),
             func.avg(Score.total_score).label('avg_score'),
@@ -97,11 +131,18 @@ class AssessmentService:
         stats = result.first()
         
         # Get age group distribution
+        age_query = db.query(
         age_stmt = select(
             Score.detailed_age_group,
             func.count(Score.id).label('count')
         )
         
+        if user_id is not None:
+            age_query = age_query.filter(Score.user_id == user_id)
+        elif username:
+            age_query = age_query.filter(Score.username == username)
+        
+        age_distribution = age_query.group_by(Score.detailed_age_group).all()
         if username:
             age_stmt = age_stmt.filter(Score.username == username)
         
@@ -121,6 +162,23 @@ class AssessmentService:
         }
     
     @staticmethod
+    def get_assessment_responses(
+        db: Session, assessment_id: int, user_id: Optional[int] = None
+    ) -> List[Response]:
+        """Get all responses for a specific assessment, scoped to user_id."""
+        query = db.query(Score).filter(Score.id == assessment_id)
+        if user_id is not None:
+            query = query.filter(Score.user_id == user_id)
+        assessment = query.first()
+        if not assessment:
+            return []
+        
+        resp_query = db.query(Response).filter(
+            Response.session_id == assessment.session_id
+        )
+        if user_id is not None:
+            resp_query = resp_query.filter(Response.user_id == user_id)
+        return resp_query.all()
     async def get_assessment_responses(db: AsyncSession, assessment_id: int) -> List[Response]:
         """Get all responses for a specific assessment."""
         stmt = select(Score).filter(Score.id == assessment_id)

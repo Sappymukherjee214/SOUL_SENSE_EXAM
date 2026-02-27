@@ -330,6 +330,9 @@ class Score(Base):
     is_rushed = Column(Boolean, default=False)
     is_inconsistent = Column(Boolean, default=False)
     reflection_text = Column(Text, nullable=True)
+    timestamp = Column(String, default=lambda: datetime.utcnow().isoformat())
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    session_id = Column(String, nullable=True)
     timestamp = Column(String, default=lambda: datetime.utcnow().isoformat(), index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
     session_id = Column(String, nullable=True, index=True)
@@ -351,6 +354,8 @@ class Response(Base):
     timestamp = Column(String, default=lambda: datetime.utcnow().isoformat(), index=True)
     age = Column(Integer, nullable=True)
     detailed_age_group = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    session_id = Column(String, nullable=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
     session_id = Column(String, nullable=True, index=True)
     
@@ -359,8 +364,7 @@ class Response(Base):
     __table_args__ = (
         Index('idx_response_question_timestamp', 'question_id', 'timestamp'),
         Index('idx_response_user_timestamp', 'user_id', 'timestamp'),
-        Index('idx_response_agegroup_timestamp', 'detailed_age_group', 'timestamp'),
-    )
+        Index('idx_response_agegroup_timestamp', 'detailed_age_group', 'timestamp'),        Index('idx_response_user_question', 'user_id', 'question_id', unique=True),  # Unique constraint for user-question pairs    )
 
 class Question(Base):
     __tablename__ = 'question_bank'
