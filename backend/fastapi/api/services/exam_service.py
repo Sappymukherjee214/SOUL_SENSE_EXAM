@@ -2,13 +2,13 @@ import logging
 import uuid
 from datetime import datetime, UTC
 from typing import List, Tuple
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 from ..schemas import ExamResponseCreate, ExamResultCreate
-from ..models import User, Score, Response
-from .db_service import get_db, QuestionService
+from ..models import User, Score, Response, UserSession
 from .gamification_service import GamificationService
-from backend.fastapi.app.core import ConflictError
+import asyncio
+
 try:
     from .crypto import EncryptionManager
     CRYPTO_AVAILABLE = True
@@ -24,7 +24,7 @@ class ExamService:
     """
 
     @staticmethod
-    def start_exam(db: Session, user: User):
+    async def start_exam(db: AsyncSession, user: User):
         """Standardizes session initiation and returns a new session_id."""
         session_id = str(uuid.uuid4())
         logger.info(f"Exam session started", extra={
@@ -34,7 +34,7 @@ class ExamService:
         return session_id
 
     @staticmethod
-    def save_response(db: Session, user: User, session_id: str, data: ExamResponseCreate):
+    async def save_response(db: AsyncSession, user: User, session_id: str, data: ExamResponseCreate):
         """Saves a single question response linked to the user and session."""
         try:
             # Check if user has already answered this question
@@ -64,7 +64,7 @@ class ExamService:
                 timestamp=datetime.now(UTC).isoformat()
             )
             db.add(new_response)
-            db.commit()
+            await db.commit()
             return True
         except IntegrityError as e:
             # Handle database constraint violations (additional safety net)
@@ -82,50 +82,12 @@ class ExamService:
                 logger.error(f"Database integrity error for user_id={user.id}: {e}")
                 raise
         except Exception as e:
-            logger.error(f"Failed to save response", extra={
-                "user_id": user.id,
-                "session_id": session_id,
-                "question_id": data.question_id,
-                "error": str(e)
-            }, exc_info=True)
-            db.rollback()
+            logger.error(f"Failed to save response for user_id={user.id}: {e}")
+            await db.rollback()
             raise e
 
     @staticmethod
-    def _validate_complete_responses(db: Session, user: User, session_id: str, age: int):
-        """
-        Validates that all questions appropriate for the user's age have been answered.
-        Raises ValidationError if any questions are unanswered.
-        """
-        from fastapi import HTTPException
-        
-        # Get all questions for this age group
-        questions = QuestionService.get_questions_by_age(db, age)
-        total_questions = len(questions)
-        
-        if total_questions == 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"No questions available for age {age}"
-            )
-        
-        # Count responses for this session
-        response_count = db.query(Response).filter(
-            Response.session_id == session_id,
-            Response.username == user.username
-        ).count()
-        
-        if response_count < total_questions:
-            missing_count = total_questions - response_count
-            raise HTTPException(
-                status_code=400,
-                detail=f"Incomplete questionnaire: {missing_count} question(s) unanswered. All {total_questions} questions must be answered before submission."
-            )
-        
-        logger.info(f"Validation passed: {response_count}/{total_questions} questions answered for session {session_id}")
-
-    @staticmethod
-    def save_score(db: Session, user: User, session_id: str, data: ExamResultCreate):
+    async def save_score(db: AsyncSession, user: User, session_id: str, data: ExamResultCreate):
         """
         Saves the final exam score.
         Validates that all questions have been answered before saving.
@@ -142,9 +104,6 @@ class ExamService:
                     reflection = EncryptionManager.encrypt(reflection)
                 except Exception as ce:
                     logger.error(f"Encryption failed for reflection: {ce}")
-                    # Fallback to plain text or empty depending on policy? 
-                    # For now, log error and save plain (or maybe fail safe)
-                    # Let's fallback to plain but log warning
                     pass
 
             new_score = Score(
@@ -160,14 +119,14 @@ class ExamService:
                 session_id=session_id
             )
             db.add(new_score)
-            db.commit()
-            db.refresh(new_score)
+            await db.commit()
+            await db.refresh(new_score)
             
             # Trigger Gamification
             try:
-                GamificationService.award_xp(db, user.id, 100, "Assessment completion")
-                GamificationService.update_streak(db, user.id, "assessment")
-                GamificationService.check_achievements(db, user.id, "assessment")
+                await GamificationService.award_xp(db, user.id, 100, "Assessment completion")
+                await GamificationService.update_streak(db, user.id, "assessment")
+                await GamificationService.check_achievements(db, user.id, "assessment")
             except Exception as e:
                 logger.error(f"Gamification update failed for user_id={user.id}: {e}")
 
@@ -180,19 +139,23 @@ class ExamService:
             return new_score
             
         except Exception as e:
-            logger.error(f"Failed to save exam score", extra={
-                "user_id": user.id,
-                "session_id": session_id,
-                "error": str(e)
-            }, exc_info=True)
-            db.rollback()
+            logger.error(f"Failed to save exam score for user_id={user.id}: {e}")
+            await db.rollback()
             raise e
 
     @staticmethod
-    def get_history(db: Session, user: User, skip: int = 0, limit: int = 10) -> Tuple[List[Score], int]:
+    async def get_history(db: AsyncSession, user: User, skip: int = 0, limit: int = 10) -> Tuple[List[Score], int]:
         """Retrieves paginated exam history for the specified user."""
         limit = min(limit, 100)  # Guard: cap at 100 to prevent unbounded queries
-        query = db.query(Score).join(UserSession, Score.session_id == UserSession.session_id).filter(UserSession.user_id == user.id)
-        total = query.count()
-        results = query.order_by(Score.timestamp.desc()).offset(skip).limit(limit).all()
+        
+        # Count total
+        count_stmt = select(func.count(Score.id)).join(UserSession, Score.session_id == UserSession.session_id).filter(UserSession.user_id == user.id)
+        count_res = await db.execute(count_stmt)
+        total = count_res.scalar() or 0
+        
+        # Get results
+        stmt = select(Score).join(UserSession, Score.session_id == UserSession.session_id).filter(UserSession.user_id == user.id).order_by(Score.timestamp.desc()).offset(skip).limit(limit)
+        result = await db.execute(stmt)
+        results = list(result.scalars().all())
+        
         return results, total

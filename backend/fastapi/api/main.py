@@ -73,10 +73,11 @@ async def lifespan(app: FastAPI):
         logger.info("Database tables initialized/verified")
         
         # Verify database connectivity before starting background tasks
-        with SessionLocal() as db:
+        from .services.db_service import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
             from sqlalchemy import text
-            db.execute(text("SELECT 1"))
-            logger.info("Database connectivity verified")
+            await db.execute(text("SELECT 1"))
+            print("[OK] Database connectivity verified")
         
         # Initialize Redis for rate limiting
         try:
@@ -114,12 +115,13 @@ async def lifespan(app: FastAPI):
         async def purge_task_loop():
             while True:
                 try:
-                    logger.info("Starting scheduled purge of expired accounts...", extra={"task": "cleanup"})
-                    with SessionLocal() as db:
+                    print("[CLEANUP] Starting scheduled purge of expired accounts...")
+                    from .services.db_service import AsyncSessionLocal
+                    async with AsyncSessionLocal() as db:
                         from .services.user_service import UserService
                         user_service = UserService(db)
-                        user_service.purge_deleted_users(settings.deletion_grace_period_days)
-                    logger.info("Scheduled purge completed successfully", extra={"task": "cleanup"})
+                        await user_service.purge_deleted_users(settings.deletion_grace_period_days)
+                    print("[CLEANUP] Scheduled purge completed successfully")
                 except Exception as e:
                     logger = logging.getLogger("api.purge_task")
                     logger.error(f"Soft-delete cleanup task failed: {e}", exc_info=True)
