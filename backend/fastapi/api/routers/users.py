@@ -23,7 +23,7 @@ from ..schemas import (
 from ..services.audit_service import AuditService
 from ..services.user_service import UserService
 from ..services.profile_service import ProfileService
-from ..routers.auth import get_current_user
+from ..routers.auth import get_current_user, require_admin
 from ..services.db_service import get_db
 from ..models import User
 from backend.fastapi.app.core import NotFoundError, ValidationError, InternalServerError
@@ -141,18 +141,18 @@ async def get_my_audit_logs(
 
 
 # ============================================================================
-# Admin Endpoints (Future: Add admin role check)
+# Admin Endpoints
 # ============================================================================
 
 @router.get("/", response_model=List[UserResponse], summary="List All Users")
 async def list_users(
-    current_user: Annotated[User, Depends(get_current_user)],
+    admin_user: Annotated[User, Depends(require_admin)],
     user_service: Annotated[UserService, Depends(get_user_service)],
     skip: int = 0,
     limit: int = 100
 ):
     """
-    List all users with pagination.
+    List all users with pagination (Admin only).
     """
     if limit > 100:
         limit = 100
@@ -172,11 +172,11 @@ async def list_users(
 @router.get("/{user_id}", response_model=UserResponse, summary="Get User by ID")
 async def get_user(
     user_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
+    admin_user: Annotated[User, Depends(require_admin)],
     user_service: Annotated[UserService, Depends(get_user_service)]
 ):
     """
-    Get a specific user by ID.
+    Get a specific user by ID (Admin only).
     """
     user = await user_service.get_user_by_id(user_id)
     if not user:
@@ -193,11 +193,11 @@ async def get_user(
 @router.get("/{user_id}/detail", response_model=UserDetail, summary="Get User Details by ID")
 async def get_user_detail(
     user_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
+    admin_user: Annotated[User, Depends(require_admin)],
     user_service: Annotated[UserService, Depends(get_user_service)]
 ):
     """
-    Get detailed information about a specific user.
+    Get detailed information about a specific user (Admin only).
     """
     detail = await user_service.get_user_detail(user_id)
     return UserDetail(**detail)
