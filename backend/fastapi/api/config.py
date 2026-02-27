@@ -19,22 +19,18 @@ if str(BACKEND_DIR) not in sys.path:
 if str(FASTAPI_DIR) not in sys.path:
     sys.path.insert(0, str(FASTAPI_DIR))
 
-# Temporary: Comment out backend.core.validators import to fix module loading issue
-# from backend.core.validators import validate_environment_on_startup, log_environment_summary
 
-# Stub functions for validation (temporary fix)
-def validate_environment_on_startup(env: str = "development"):
-    """Stub for environment validation."""
-    return {
-        "validated_variables": {},
-        "validation_summary": {"valid": True, "errors": [], "warnings": []},
-        "errors": [],
-        "warnings": []
-    }
-
-def log_environment_summary(validated_vars, summary):
-    """Stub for environment logging."""
-    pass
+try:
+    from core.validators import validate_environment_on_startup, log_environment_summary
+except ImportError:
+    # Fallback for different execution contexts
+    try:
+        from backend.core.validators import validate_environment_on_startup, log_environment_summary
+    except ImportError:
+        def validate_environment_on_startup(env: str = "development"):
+            return {"validation_summary": {"valid": True, "errors": [], "warnings": []}, "validated_variables": {}}
+        def log_environment_summary(vars, summary, env):
+            pass
 
 load_dotenv(ENV_FILE)
 
@@ -269,16 +265,22 @@ def get_settings() -> BaseAppSettings:
         summary = validation_result['validation_summary']
 
         if not summary['valid']:
-            print("[ERROR] Environment validation failed!")
-            log_environment_summary(validation_result['validated_variables'], summary)
-            raise SystemExit(1)
+            print(f"[ERROR] Environment validation failed for '{env}'!")
+            log_environment_summary(validation_result['validated_variables'], summary, env)
+            # Only exit in production/staging if there are errors
+            if env in ['production', 'staging']:
+                raise SystemExit(1)
 
         # Log validation summary
-        log_environment_summary(validation_result['validated_variables'], summary)
+        log_environment_summary(validation_result['validated_variables'], summary, env)
 
     except Exception as e:
+        if isinstance(e, SystemExit):
+            raise e
         print(f"[ERROR] Environment validation error: {e}")
-        raise SystemExit(1)
+        # Don't crash in dev if validation itself fails
+        if env in ['production', 'staging']:
+            raise SystemExit(1)
 
     # Create appropriate settings class based on environment
     if env == "production":
