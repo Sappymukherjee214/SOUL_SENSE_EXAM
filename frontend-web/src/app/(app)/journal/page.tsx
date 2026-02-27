@@ -7,8 +7,9 @@ import { journalApi, CreateJournalEntry, JournalFilters } from '@/lib/api/journa
 import { ErrorDisplay, Skeleton } from '@/components/common';
 import { Button, Card, CardContent, Input, Slider } from '@/components/ui';
 import { JournalEntryCard } from '@/components/journal';
-import { MoodTrend } from '@/components/journal';
 import { JournalListContainer } from '@/components/journal';
+// Dynamically import MoodTrend to avoid loading recharts on initial bundle
+import { MoodTrend } from '@/lib/dynamic-imports';
 import {
   BookOpen,
   Plus,
