@@ -4,30 +4,7 @@
  * Setup and configuration for Jest tests.
  */
 
-import '@testing-library/jest-dom';
-
-// Mock localStorage and sessionStorage
-const localStorageMock = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
-};
-
-const sessionStorageMock = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
-};
-
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
-});
-
-Object.defineProperty(window, 'sessionStorage', {
-  value: sessionStorageMock,
-});
+require('@testing-library/jest-dom');
 
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -63,13 +40,6 @@ Object.defineProperty(window, 'IntersectionObserver', {
 const originalWarn = console.warn;
 console.warn = (...args) => {
   // Filter out specific warnings if needed
-  if (args[0]?.includes?.('React')) return;
+  if (typeof args[0] === 'string' && args[0].includes?.('React')) return;
   originalWarn(...args);
 };
-
-// Clean up after each test
-afterEach(() => {
-  jest.clearAllMocks();
-  localStorageMock.getItem.mockReturnValue(null);
-  sessionStorageMock.getItem.mockReturnValue(null);
-});

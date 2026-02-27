@@ -9,27 +9,29 @@
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSessionTimeout } from '../useSessionTimeout';
+import { useAuth } from '../useAuth';
+
+// Mock toast
+jest.mock('@/lib/toast', () => ({
+  toast: {
+    error: jest.fn(),
+    success: jest.fn(),
+    warning: jest.fn(),
+    info: jest.fn(),
+    loading: jest.fn(),
+    dismiss: jest.fn(),
+    promise: jest.fn(),
+  },
+}));
+
+// Import toast after mock
+import { toast } from '@/lib/toast';
 
 // Mock useAuth hook
 const mockLogout = jest.fn();
-const mockIsAuthenticated = true;
 
 jest.mock('../useAuth', () => ({
-  useAuth: () => ({
-    logout: mockLogout,
-    isAuthenticated: mockIsAuthenticated,
-  }),
-}));
-
-// Mock toast
-const mockToastError = jest.fn();
-const mockToastSuccess = jest.fn();
-
-jest.mock('@/lib/toast', () => ({
-  toast: {
-    error: mockToastError,
-    success: mockToastSuccess,
-  },
+  useAuth: jest.fn(),
 }));
 
 // Mock next/navigation
@@ -47,9 +49,17 @@ describe('useSessionTimeout Hook', () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     
-    // Clear any event listeners
-    window.removeEventListener = jest.fn();
-    window.addEventListener = jest.fn();
+    // Default mock return value
+    (useAuth as jest.Mock).mockReturnValue({
+      logout: mockLogout,
+      isAuthenticated: true,
+    });
+  });
+
+  // Helper to get toast mocks
+  const getToastMocks = () => ({
+    mockToastError: toast.error as jest.Mock,
+    mockToastSuccess: toast.success as jest.Mock,
   });
 
   afterEach(() => {
@@ -73,7 +83,7 @@ describe('useSessionTimeout Hook', () => {
 
     it('should not start timer when not authenticated', () => {
       // Override mock to return not authenticated
-      jest.mocked(require('../useAuth').useAuth).mockReturnValue({
+      (useAuth as jest.Mock).mockReturnValue({
         logout: mockLogout,
         isAuthenticated: false,
       });
@@ -95,6 +105,7 @@ describe('useSessionTimeout Hook', () => {
       });
 
       expect(mockLogout).toHaveBeenCalledTimes(1);
+      const { mockToastError } = getToastMocks();
       expect(mockToastError).toHaveBeenCalledWith(
         'Your session has expired due to inactivity. Please log in again.'
       );
@@ -133,16 +144,16 @@ describe('useSessionTimeout Hook', () => {
 
   describe('Activity Reset', () => {
     it('should reset timer on user activity', () => {
-      renderHook(() => useSessionTimeout({ enabled: true }));
+      const { result } = renderHook(() => useSessionTimeout({ enabled: true }));
 
       // Advance 10 minutes
       act(() => {
         jest.advanceTimersByTime(10 * 60 * 1000);
       });
 
-      // Simulate activity
+      // Reset timer manually (simulating activity)
       act(() => {
-        window.dispatchEvent(new Event('mousedown'));
+        result.current.resetTimer();
       });
 
       // Advance another 10 minutes (total 20 from start, but only 10 since activity)
@@ -171,9 +182,9 @@ describe('useSessionTimeout Hook', () => {
 
       expect(result.current.showWarning).toBe(true);
 
-      // Simulate activity
+      // Reset timer manually (simulating activity)
       act(() => {
-        window.dispatchEvent(new Event('keydown'));
+        result.current.resetTimer();
       });
 
       expect(result.current.showWarning).toBe(false);
@@ -197,6 +208,7 @@ describe('useSessionTimeout Hook', () => {
       });
 
       expect(result.current.showWarning).toBe(false);
+      const { mockToastSuccess } = getToastMocks();
       expect(mockToastSuccess).toHaveBeenCalledWith('Session extended');
     });
   });

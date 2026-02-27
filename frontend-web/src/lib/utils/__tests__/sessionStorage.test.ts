@@ -40,15 +40,11 @@ describe('Session Storage - Basic Operations', () => {
     sessionStorage.clear();
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
   describe('saveSession', () => {
     it('should save session to localStorage when rememberMe is true', () => {
       saveSession(mockUserSession, true);
 
-      const saved = localStorage.getItem(SESSION_KEY);
+      const saved = localStorage.getItem('soul_sense_auth_session');
       expect(saved).toBeTruthy();
       expect(JSON.parse(saved!)).toEqual(mockUserSession);
     });
@@ -56,20 +52,20 @@ describe('Session Storage - Basic Operations', () => {
     it('should save session to sessionStorage when rememberMe is false', () => {
       saveSession(mockUserSession, false);
 
-      const saved = sessionStorage.getItem(SESSION_KEY);
+      const saved = sessionStorage.getItem('soul_sense_auth_session');
       expect(saved).toBeTruthy();
       expect(JSON.parse(saved!)).toEqual(mockUserSession);
     });
 
     it('should clear duplicate storage when saving', () => {
       // Save to both first
-      localStorage.setItem(SESSION_KEY, JSON.stringify(mockUserSession));
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(mockUserSession));
+      localStorage.setItem('soul_sense_auth_session', JSON.stringify(mockUserSession));
+      sessionStorage.setItem('soul_sense_auth_session', JSON.stringify(mockUserSession));
 
       // Save with rememberMe=false should clear localStorage
       saveSession(mockUserSession, false);
-      expect(localStorage.getItem(SESSION_KEY)).toBeNull();
-      expect(sessionStorage.getItem(SESSION_KEY)).toBeTruthy();
+      expect(localStorage.getItem('soul_sense_auth_session')).toBeNull();
+      expect(sessionStorage.getItem('soul_sense_auth_session')).toBeTruthy();
     });
   });
 
@@ -80,14 +76,14 @@ describe('Session Storage - Basic Operations', () => {
     });
 
     it('should return session from localStorage', () => {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(mockUserSession));
+      localStorage.setItem('soul_sense_auth_session', JSON.stringify(mockUserSession));
       
       const session = getSession();
       expect(session).toEqual(mockUserSession);
     });
 
     it('should return session from sessionStorage', () => {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(mockUserSession));
+      sessionStorage.setItem('soul_sense_auth_session', JSON.stringify(mockUserSession));
       
       const session = getSession();
       expect(session).toEqual(mockUserSession);
@@ -98,15 +94,15 @@ describe('Session Storage - Basic Operations', () => {
         ...mockUserSession,
         expiresAt: Date.now() - 1000, // Expired 1 second ago
       };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(expiredSession));
+      localStorage.setItem('soul_sense_auth_session', JSON.stringify(expiredSession));
 
       const session = getSession();
       expect(session).toBeNull();
-      expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+      expect(localStorage.getItem('soul_sense_auth_session')).toBeNull();
     });
 
     it('should return null for invalid JSON', () => {
-      localStorage.setItem(SESSION_KEY, 'invalid-json');
+      localStorage.setItem('soul_sense_auth_session', 'invalid-json');
 
       const session = getSession();
       expect(session).toBeNull();
@@ -115,13 +111,13 @@ describe('Session Storage - Basic Operations', () => {
 
   describe('clearSession', () => {
     it('should clear session from both storages', () => {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(mockUserSession));
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(mockUserSession));
+      localStorage.setItem('soul_sense_auth_session', JSON.stringify(mockUserSession));
+      sessionStorage.setItem('soul_sense_auth_session', JSON.stringify(mockUserSession));
 
       clearSession();
 
-      expect(localStorage.getItem(SESSION_KEY)).toBeNull();
-      expect(sessionStorage.getItem(SESSION_KEY)).toBeNull();
+      expect(localStorage.getItem('soul_sense_auth_session')).toBeNull();
+      expect(sessionStorage.getItem('soul_sense_auth_session')).toBeNull();
     });
   });
 
