@@ -5,7 +5,7 @@ from typing import List, Tuple
 from sqlalchemy.orm import Session
 from ..schemas import ExamResponseCreate, ExamResultCreate
 from ..models import User, Score, Response
-from .db_service import get_db
+from .db_service import get_db, QuestionService
 from .gamification_service import GamificationService
 try:
     from .crypto import EncryptionManager
@@ -57,12 +57,49 @@ class ExamService:
             raise e
 
     @staticmethod
+    def _validate_complete_responses(db: Session, user: User, session_id: str, age: int):
+        """
+        Validates that all questions appropriate for the user's age have been answered.
+        Raises ValidationError if any questions are unanswered.
+        """
+        from fastapi import HTTPException
+        
+        # Get all questions for this age group
+        questions = QuestionService.get_questions_by_age(db, age)
+        total_questions = len(questions)
+        
+        if total_questions == 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No questions available for age {age}"
+            )
+        
+        # Count responses for this session
+        response_count = db.query(Response).filter(
+            Response.session_id == session_id,
+            Response.username == user.username
+        ).count()
+        
+        if response_count < total_questions:
+            missing_count = total_questions - response_count
+            raise HTTPException(
+                status_code=400,
+                detail=f"Incomplete questionnaire: {missing_count} question(s) unanswered. All {total_questions} questions must be answered before submission."
+            )
+        
+        logger.info(f"Validation passed: {response_count}/{total_questions} questions answered for session {session_id}")
+
+    @staticmethod
     def save_score(db: Session, user: User, session_id: str, data: ExamResultCreate):
         """
         Saves the final exam score.
+        Validates that all questions have been answered before saving.
         Encrypts reflection_text if crypto is available.
         """
         try:
+            # Validate that all questions have been answered
+            ExamService._validate_complete_responses(db, user, session_id, data.age)
+            
             # Encrypt reflection text for privacy
             reflection = data.reflection_text
             if CRYPTO_AVAILABLE and reflection:
@@ -77,7 +114,6 @@ class ExamService:
 
             new_score = Score(
                 username=user.username,
-                user_id=user.id,
                 age=data.age,
                 total_score=data.total_score,
                 sentiment_score=data.sentiment_score,
@@ -121,7 +157,7 @@ class ExamService:
     def get_history(db: Session, user: User, skip: int = 0, limit: int = 10) -> Tuple[List[Score], int]:
         """Retrieves paginated exam history for the specified user."""
         limit = min(limit, 100)  # Guard: cap at 100 to prevent unbounded queries
-        query = db.query(Score).filter(Score.user_id == user.id)
+        query = db.query(Score).join(UserSession, Score.session_id == UserSession.session_id).filter(UserSession.user_id == user.id)
         total = query.count()
         results = query.order_by(Score.timestamp.desc()).offset(skip).limit(limit).all()
         return results, total
