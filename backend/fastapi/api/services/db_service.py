@@ -3,6 +3,8 @@ from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker, Session
 from typing import List, Optional, Tuple
 from datetime import datetime
+import logging
+import traceback
 
 # Import model classes from models module
 from ..models import Base, Score, Response, Question, QuestionCategory
@@ -18,6 +20,7 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+logger = logging.getLogger("api.db")
 
 
 def get_db():
@@ -25,6 +28,12 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception as e:
+        logger.error(f"Database session error: {e}", extra={
+            "error_type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        })
+        raise
     finally:
         db.close()
 

@@ -23,7 +23,7 @@ from .audit_service import AuditService
 
 settings = get_settings()
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("api.auth")
 
 class AuthService:
     def __init__(self, db: Session = Depends(get_db)):
@@ -118,6 +118,11 @@ class AuthService:
             # Dummy verify to consume time
             self.verify_password("dummy", "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW")
             self._record_login_attempt(identifier_lower, False, ip_address, reason="User not found")
+            logger.warning(f"Login failed: User not found", extra={
+                "username": identifier_lower,
+                "ip": ip_address,
+                "reason": "user_not_found"
+            })
             raise AuthException(
                 code=ErrorCode.AUTH_INVALID_CREDENTIALS,
                 message="Incorrect username or password"
@@ -126,6 +131,11 @@ class AuthService:
         # 6. Verify password
         if not self.verify_password(password, user.password_hash):
             self._record_login_attempt(identifier_lower, False, ip_address, reason="Invalid password")
+            logger.warning(f"Login failed: Invalid password", extra={
+                "username": identifier_lower,
+                "ip": ip_address,
+                "reason": "invalid_password"
+            })
             raise AuthException(
                 code=ErrorCode.AUTH_INVALID_CREDENTIALS,
                 message="Incorrect username or password"
@@ -377,7 +387,11 @@ class AuthService:
             remaining = int(lockout_duration - elapsed.total_seconds())
 
             if remaining > 0:
-                logger.warning(f"Account locked: {username} ({count} failed attempts, {remaining}s remaining)")
+                logger.warning(f"Account locked", extra={
+                    "username": username,
+                    "failed_attempts": count,
+                    "remaining_seconds": remaining
+                })
                 return True, "Too many failed attempts. Try again later.", remaining
 
         return False, None, 0
