@@ -32,6 +32,8 @@ class AssessmentResultsService:
             select(Response, Question, QuestionCategory)
             .join(Question, Response.question_id == Question.id)
             .join(QuestionCategory, Question.category_id == QuestionCategory.id)
+            .filter(Response.session_id == score.session_id, Response.user_id == user_id)
+            .all()
             .filter(Response.session_id == score.session_id)
         )
         resp_res = await db.execute(resp_stmt)

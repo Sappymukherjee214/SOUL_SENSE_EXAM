@@ -10,16 +10,22 @@ from ..schemas import (
     AssessmentDetailResponse,
     AssessmentStatsResponse
 )
+from .auth import get_current_user
+from ..models import User
 
 router = APIRouter()
 
 
 @router.get("/", response_model=AssessmentListResponse)
 async def get_assessments(
-    username: Optional[str] = Query(None, description="Filter by username"),
-    age_group: Optional[str] = Query(None, description="Filter by age group"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get a paginated list of assessments for the authenticated user.
+    
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -36,8 +42,7 @@ async def get_assessments(
         db=db,
         skip=skip,
         limit=page_size,
-        username=username,
-        age_group=age_group
+        user_id=current_user.id
     )
     
     return AssessmentListResponse(
@@ -50,6 +55,11 @@ async def get_assessments(
 
 @router.get("/stats", response_model=AssessmentStatsResponse)
 async def get_assessment_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get statistical summary of assessments for the authenticated user.
     username: Optional[str] = Query(None, description="Filter stats by username"),
     db: AsyncSession = Depends(get_db)
 ):
@@ -64,6 +74,7 @@ async def get_assessment_stats(
     - Average sentiment score
     - Distribution by age group
     """
+    stats = AssessmentService.get_assessment_stats(db=db, user_id=current_user.id)
     stats = await AssessmentService.get_assessment_stats(db=db, username=username)
     
     return AssessmentStatsResponse(**stats)
@@ -72,6 +83,17 @@ async def get_assessment_stats(
 @router.get("/{assessment_id}", response_model=AssessmentDetailResponse)
 async def get_assessment(
     assessment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get detailed information for a specific assessment owned by the authenticated user.
+    
+    - **assessment_id**: The ID of the assessment to retrieve
+    """
+    assessment = AssessmentService.get_assessment_by_id(
+        db=db, assessment_id=assessment_id, user_id=current_user.id
+    )
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -82,6 +104,10 @@ async def get_assessment(
     if not assessment:
         raise NotFoundError(resource="Assessment", resource_id=str(assessment_id))
     
+    # Get response count
+    responses = AssessmentService.get_assessment_responses(
+        db=db, assessment_id=assessment_id, user_id=current_user.id
+    )
     responses = await AssessmentService.get_assessment_responses(db=db, assessment_id=assessment_id)
     
     assessment_dict = {
@@ -99,3 +125,4 @@ async def get_assessment(
     }
     
     return AssessmentDetailResponse(**assessment_dict)
+
