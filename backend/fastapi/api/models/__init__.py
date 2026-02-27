@@ -63,6 +63,53 @@ class User(Base):
     # Background Tasks
     background_jobs = relationship("BackgroundJob", back_populates="user", cascade="all, delete-orphan")
     survey_submissions = relationship("SurveySubmission", back_populates="user", cascade="all, delete-orphan")
+    
+    # Notifications
+    notification_preferences = relationship("NotificationPreference", uselist=False, back_populates="user", cascade="all, delete-orphan")
+    notification_logs = relationship("NotificationLog", back_populates="user", cascade="all, delete-orphan")
+
+class NotificationPreference(Base):
+    """User preferences for notification channels."""
+    __tablename__ = 'notification_preferences'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), unique=True, index=True, nullable=False)
+    email_enabled = Column(Boolean, default=True)
+    push_enabled = Column(Boolean, default=False)
+    in_app_enabled = Column(Boolean, default=True)
+    
+    # Specific alert types
+    marketing_alerts = Column(Boolean, default=False)
+    security_alerts = Column(Boolean, default=True)
+    insight_alerts = Column(Boolean, default=True) # E.g. behavioral insights, weekly recaps
+    reminder_alerts = Column(Boolean, default=True) # E.g. journal reminders
+    
+    user = relationship("User", back_populates="notification_preferences")
+
+class NotificationTemplate(Base):
+    """Jinja2 Templates stored in DB for dynamic text/HTML rendering."""
+    __tablename__ = 'notification_templates'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, unique=True, index=True, nullable=False) # e.g., 'weekly_insight', 'security_login'
+    subject_template = Column(String, nullable=False)
+    body_html_template = Column(Text, nullable=True) # Jinja2 HTML string
+    body_text_template = Column(Text, nullable=True) # Jinja2 Text string
+    language = Column(String, default="en")
+    is_active = Column(Boolean, default=True)
+
+class NotificationLog(Base):
+    """Audit log and delivery tracking for notifications."""
+    __tablename__ = 'notification_logs'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), index=True, nullable=True) # Optional in case of broadcast
+    template_name = Column(String, nullable=False)
+    channel = Column(String, nullable=False) # 'email', 'push', 'in_app'
+    status = Column(String, nullable=False, default="pending") # 'pending', 'sent', 'failed'
+    error_message = Column(Text, nullable=True)
+    sent_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
+    
+    user = relationship("User", back_populates="notification_logs")
+
 
 import enum
 

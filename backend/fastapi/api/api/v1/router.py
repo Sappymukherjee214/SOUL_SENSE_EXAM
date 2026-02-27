@@ -4,7 +4,7 @@ from ...routers import (
     auth, users, profiles, assessments, 
     questions, analytics, journal, health,
     settings_sync, community, contact, exams, export, deep_dive,
-    gamification, audit, tasks, consent, surveys, advanced_analytics, archival
+    gamification, audit, tasks, consent, surveys, advanced_analytics, archival, notifications
 )
 
 api_router = APIRouter()
@@ -22,6 +22,7 @@ api_router.include_router(questions.router, prefix="/questions", tags=["Question
 api_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 api_router.include_router(advanced_analytics.router, prefix="/analytics/advanced", tags=["Advanced Analytics"])
 api_router.include_router(archival.router, prefix="/archival", tags=["GDPR Archival & Purge"])
+api_router.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
 api_router.include_router(journal.router, prefix="/journal", tags=["Journal"])
 api_router.include_router(settings_sync.router, prefix="/sync", tags=["Settings Sync"])
 api_router.include_router(community.router, prefix="/community", tags=["Community"])
