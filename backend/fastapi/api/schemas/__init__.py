@@ -1370,3 +1370,41 @@ class AuditExportResponse(BaseModel):
     data: str
     format: str
     timestamp: datetime
+
+# ============================================================================
+# OAuth Schemas
+# ============================================================================
+
+class OAuthAuthorizeRequest(BaseModel):
+    """Request for OAuth authorization."""
+    response_type: str = Field(..., description="Must be 'code'")
+    client_id: str = Field(..., description="Client ID")
+    redirect_uri: str = Field(..., description="Redirect URI")
+    scope: Optional[str] = Field("openid profile email", description="Requested scopes")
+    state: Optional[str] = Field(..., description="State parameter")
+    code_challenge: str = Field(..., description="PKCE code challenge")
+    code_challenge_method: str = Field("S256", description="PKCE method")
+
+class OAuthTokenRequest(BaseModel):
+    """Request for OAuth token exchange."""
+    grant_type: str = Field(..., description="Must be 'authorization_code'")
+    code: str = Field(..., description="Authorization code")
+    redirect_uri: str = Field(..., description="Redirect URI")
+    client_id: str = Field(..., description="Client ID")
+    code_verifier: str = Field(..., description="PKCE code verifier")
+
+class OAuthTokenResponse(BaseModel):
+    """Response for OAuth token."""
+    access_token: str
+    token_type: str = "Bearer"
+    expires_in: int
+    id_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+
+class OAuthUserInfo(BaseModel):
+    """User info from OAuth."""
+    sub: str
+    email: Optional[str] = None
+    name: Optional[str] = None
+    given_name: Optional[str] = None
+    family_name: Optional[str] = None
