@@ -1,5 +1,5 @@
 """Analytics API router - Aggregated, non-sensitive data only."""
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, status, Request, Response, BackgroundTasks, Form, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from pydantic import BaseModel
@@ -24,11 +24,11 @@ from ..schemas import (
     UserTrendsResponse
 )
 from ..middleware.rate_limiter import rate_limit_analytics
-from .auth import get_current_user
+from .auth import get_current_user, require_admin
 from ..models import User
 
 logger = logging.getLogger("api.analytics")
-router = APIRouter()
+router = APIRouter(tags=["Analytics"])
 
 
 @router.post("/events", status_code=201, dependencies=[Depends(rate_limit_analytics)])
@@ -42,38 +42,38 @@ async def track_event(
     return {"status": "ok"}
 
 
-@router.get("/summary", response_model=AnalyticsSummary, dependencies=[Depends(rate_limit_analytics)])
+@router.get("/summary", response_model=AnalyticsSummary, dependencies=[Depends(rate_limit_analytics), Depends(require_admin)])
 @cache(expire=3600)
 async def get_analytics_summary(db: AsyncSession = Depends(get_db)):
-    """Get overall analytics summary."""
+    """Get overall analytics summary (Admin only)."""
     summary = await AnalyticsService.get_overall_summary(db)
     return AnalyticsSummary(**summary)
 
 
-@router.get("/trends", response_model=TrendAnalytics, dependencies=[Depends(rate_limit_analytics)])
+@router.get("/trends", response_model=TrendAnalytics, dependencies=[Depends(rate_limit_analytics), Depends(require_admin)])
 @cache(expire=1800)
 async def get_trend_analytics(
     period: str = Query('monthly', pattern='^(daily|weekly|monthly)$'),
     limit: int = Query(12, ge=1, le=24),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get trend analytics over time."""
+    """Get trend analytics over time (Admin only)."""
     trends = await AnalyticsService.get_trend_analytics(db, period_type=period, limit=limit)
     return TrendAnalytics(**trends)
 
 
-@router.get("/benchmarks", response_model=List[BenchmarkComparison], dependencies=[Depends(rate_limit_analytics)])
+@router.get("/benchmarks", response_model=List[BenchmarkComparison], dependencies=[Depends(rate_limit_analytics), Depends(require_admin)])
 @cache(expire=3600)
 async def get_benchmark_comparison(db: AsyncSession = Depends(get_db)):
-    """Get benchmark comparison data."""
+    """Get benchmark comparison data (Admin only)."""
     benchmarks = await AnalyticsService.get_benchmark_comparison(db)
     return [BenchmarkComparison(**b) for b in benchmarks]
 
 
-@router.get("/insights", response_model=PopulationInsights, dependencies=[Depends(rate_limit_analytics)])
+@router.get("/insights", response_model=PopulationInsights, dependencies=[Depends(rate_limit_analytics), Depends(require_admin)])
 @cache(expire=3600)
 async def get_population_insights(db: AsyncSession = Depends(get_db)):
-    """Get population-level insights."""
+    """Get population-level insights (Admin only)."""
     insights = await AnalyticsService.get_population_insights(db)
     return PopulationInsights(**insights)
 
@@ -103,7 +103,7 @@ async def get_user_analytics_trends(
     )
 
 
-@router.get("/statistics", response_model=DashboardStatisticsResponse, dependencies=[Depends(rate_limit_analytics)])
+@router.get("/statistics", response_model=DashboardStatisticsResponse, dependencies=[Depends(rate_limit_analytics), Depends(require_admin)])
 @cache(expire=1800)
 async def get_dashboard_statistics(
     timeframe: str = Query('30d', pattern='^(7d|30d|90d)$'),
@@ -111,56 +111,56 @@ async def get_dashboard_statistics(
     sentiment: Optional[str] = Query(None, pattern='^(positive|neutral|negative)$'),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get dashboard statistics with historical trends."""
+    """Get dashboard statistics with historical trends (Admin only)."""
     trends = await AnalyticsService.get_dashboard_statistics(db, timeframe=timeframe, exam_type=exam_type, sentiment=sentiment)
     return DashboardStatisticsResponse(historical_trends=trends)
 
 
-@router.get("/age-groups", dependencies=[Depends(rate_limit_analytics)])
+@router.get("/age-groups", dependencies=[Depends(rate_limit_analytics), Depends(require_admin)])
 async def get_age_group_statistics(db: AsyncSession = Depends(get_db)):
-    """Get detailed statistics by age group."""
+    """Get detailed statistics by age group (Admin only)."""
     stats = await AnalyticsService.get_age_group_statistics(db)
     return {"age_group_statistics": stats}
 
 
-@router.get("/distribution", dependencies=[Depends(rate_limit_analytics)])
+@router.get("/distribution", dependencies=[Depends(rate_limit_analytics), Depends(require_admin)])
 async def get_score_distribution(db: AsyncSession = Depends(get_db)):
-    """Get score distribution across ranges."""
+    """Get score distribution across ranges (Admin only)."""
     distribution = await AnalyticsService.get_score_distribution(db)
     return {"score_distribution": distribution}
 
 
-@router.get("/kpis/conversion-rate", response_model=ConversionRateKPI, dependencies=[Depends(rate_limit_analytics)])
+@router.get("/kpis/conversion-rate", response_model=ConversionRateKPI, dependencies=[Depends(rate_limit_analytics), Depends(require_admin)])
 @cache(expire=3600)
 async def get_conversion_rate_kpi(
     period_days: int = Query(30, ge=1, le=365),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get Conversion Rate KPI."""
+    """Get Conversion Rate KPI (Admin only)."""
     return await AnalyticsService.calculate_conversion_rate(db, period_days)
 
 
-@router.get("/kpis/retention-rate", response_model=RetentionKPI, dependencies=[Depends(rate_limit_analytics)])
+@router.get("/kpis/retention-rate", response_model=RetentionKPI, dependencies=[Depends(rate_limit_analytics), Depends(require_admin)])
 @cache(expire=3600)
 async def get_retention_rate_kpi(
     period_days: int = Query(7, ge=1, le=90),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get Retention Rate KPI."""
+    """Get Retention Rate KPI (Admin only)."""
     return await AnalyticsService.calculate_retention_rate(db, period_days)
 
 
-@router.get("/kpis/arpu", response_model=ARPUKPI, dependencies=[Depends(rate_limit_analytics)])
+@router.get("/kpis/arpu", response_model=ARPUKPI, dependencies=[Depends(rate_limit_analytics), Depends(require_admin)])
 @cache(expire=3600)
 async def get_arpu_kpi(
     period_days: int = Query(30, ge=1, le=365),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get ARPU KPI."""
+    """Get ARPU KPI (Admin only)."""
     return await AnalyticsService.calculate_arpu(db, period_days)
 
 
-@router.get("/kpis/summary", response_model=KPISummary, dependencies=[Depends(rate_limit_analytics)])
+@router.get("/kpis/summary", response_model=KPISummary, dependencies=[Depends(rate_limit_analytics), Depends(require_admin)])
 @cache(expire=1800)
 async def get_kpi_summary(
     conversion_period: int = Query(30, ge=1, le=365),
@@ -168,7 +168,7 @@ async def get_kpi_summary(
     arpu_period: int = Query(30, ge=1, le=365),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get combined KPI summary."""
+    """Get combined KPI summary (Admin only)."""
     kpi_summary = await AnalyticsService.get_kpi_summary(
         db,
         conversion_period,
