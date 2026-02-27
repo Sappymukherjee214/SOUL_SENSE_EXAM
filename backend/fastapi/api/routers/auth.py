@@ -1,11 +1,11 @@
 from datetime import timedelta
 from typing import Annotated
-from fastapi import APIRouter, Depends, status, Request, Response, BackgroundTasks
+from fastapi import APIRouter, Depends, status, Request, Response, BackgroundTasks, Form
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 
 from ..config import get_settings
-from ..schemas import UserCreate, Token, UserResponse, ErrorResponse, PasswordResetRequest, PasswordResetComplete, TwoFactorLoginRequest, TwoFactorAuthRequiredResponse, TwoFactorConfirmRequest, UsernameAvailabilityResponse, CaptchaResponse, LoginRequest
+from ..schemas import UserCreate, Token, UserResponse, ErrorResponse, PasswordResetRequest, PasswordResetComplete, TwoFactorLoginRequest, TwoFactorAuthRequiredResponse, TwoFactorConfirmRequest, UsernameAvailabilityResponse, CaptchaResponse, LoginRequest, OAuthAuthorizeRequest, OAuthTokenRequest, OAuthTokenResponse, OAuthUserInfo
 from ..services.db_service import get_db
 from ..services.auth_service import AuthService
 from ..services.captcha_service import captcha_service
@@ -428,3 +428,63 @@ async def disable_2fa(
         message="Failed to disable 2FA",
         code="2FA_DISABLE_FAILED"
     )
+
+
+# ============================================================================
+# OAuth Endpoints
+# ============================================================================
+
+@router.post("/oauth/login", response_model=Token, responses={400: {"model": ErrorResponse}, 401: {"model": ErrorResponse}})
+@limiter.limit("10/minute")
+async def oauth_login(
+    response: Response,
+    request: Request,
+    id_token: str = Form(..., description="ID token from OAuth provider"),
+    access_token: Optional[str] = Form(None, description="Access token from OAuth provider"),
+    auth_service: AuthService = Depends()
+):
+    """Login with OAuth token (e.g., from Auth0)."""
+    # Verify the token with the OAuth provider
+    # For Auth0, verify the JWT
+    # This is a placeholder - implement actual verification
+    try:
+        # Decode and verify JWT
+        # user_info = verify_oauth_token(id_token)
+        user_info = {"sub": "oauth_user", "email": "user@example.com"}  # Placeholder
+        
+        # Find or create user
+        user = auth_service.get_or_create_oauth_user(user_info)
+        
+        # Create access token
+        access_token = auth_service.create_access_token(
+            data={"sub": user.username}
+        )
+        
+        refresh_token = auth_service.create_refresh_token(user.id)
+        
+        # Set refresh token in HttpOnly cookie
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=settings.is_production, 
+            samesite="lax",
+            max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        )
+        
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            refresh_token=refresh_token,
+            username=user.username,
+            email=user.personal_profile.email if user.personal_profile else None,
+            id=user.id,
+            created_at=user.created_at,
+            warnings=[],
+            onboarding_completed=user.onboarding_completed or False
+        )
+    except Exception as e:
+        raise ValidationError(
+            message="Invalid OAuth token",
+            details=[{"field": "id_token", "error": str(e)}]
+        )
