@@ -20,6 +20,11 @@ export interface UserSession {
 }
 
 /**
+ * Check if we're in a browser environment
+ */
+const isBrowser = (): boolean => typeof window !== 'undefined';
+
+/**
  * Lightweight JWT parser to check if a token is expired
  * Does not require external libraries to stay edge-runtime compatible
  */
@@ -50,6 +55,8 @@ export const isTokenExpired = (token: string): boolean => {
  * @param rememberMe Whether to use localStorage (persistent) or sessionStorage (per-tab)
  */
 export const saveSession = (session: UserSession, rememberMe: boolean): void => {
+  if (!isBrowser()) return;
+  
   const data = JSON.stringify(session);
   if (rememberMe) {
     localStorage.setItem(SESSION_KEY, data);
@@ -65,6 +72,8 @@ export const saveSession = (session: UserSession, rememberMe: boolean): void => 
  * Checks both localStorage and sessionStorage
  */
 export const getSession = (): UserSession | null => {
+  if (!isBrowser()) return null;
+  
   const localData = localStorage.getItem(SESSION_KEY);
   const sessionData = sessionStorage.getItem(SESSION_KEY);
 
@@ -92,6 +101,8 @@ export const getSession = (): UserSession | null => {
  * Clear session from both storage types
  */
 export const clearSession = (): void => {
+  if (!isBrowser()) return;
+  
   localStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_KEY);
 };
@@ -110,6 +121,8 @@ export const getExpiryTimestamp = (): number => {
  * Used for session timeout tracking (Issue #999)
  */
 export const updateLastActivity = (): void => {
+  if (!isBrowser()) return;
+  
   const now = Date.now();
   localStorage.setItem(LAST_ACTIVITY_KEY, now.toString());
   sessionStorage.setItem(LAST_ACTIVITY_KEY, now.toString());
@@ -120,6 +133,8 @@ export const updateLastActivity = (): void => {
  * Returns null if no activity recorded
  */
 export const getLastActivity = (): number | null => {
+  if (!isBrowser()) return null;
+  
   const localActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
   const sessionActivity = sessionStorage.getItem(LAST_ACTIVITY_KEY);
   const activityStr = sessionActivity || localActivity;
@@ -163,6 +178,8 @@ export const getRemainingTime = (timeoutMs: number = 15 * 60 * 1000): number => 
  * Clear last activity tracking
  */
 export const clearLastActivity = (): void => {
+  if (!isBrowser()) return;
+  
   localStorage.removeItem(LAST_ACTIVITY_KEY);
   sessionStorage.removeItem(LAST_ACTIVITY_KEY);
 };
