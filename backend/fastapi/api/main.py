@@ -17,6 +17,7 @@ from .utils.limiter import limiter
 from .utils.logging_config import setup_logging
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from .services.websocket_manager import manager as ws_manager
 
 # Initialize centralized logging
 setup_logging()
@@ -110,6 +111,12 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Analytics scheduler initialization failed: {e}")
             print(f"[WARNING] Analytics scheduler not available: {e}")
+            
+        # Initialize WebSocket Manager
+        app.state.ws_manager = ws_manager
+        await ws_manager.connect_redis()
+        print("[OK] WebSocket Manager initialized with Redis Pub/Sub")
+
         
         # Start background task for soft-delete cleanup
         async def purge_task_loop():
@@ -160,6 +167,12 @@ async def lifespan(app: FastAPI):
         logger.info("Stopping analytics scheduler...")
         app.state.analytics_scheduler.stop()
         logger.info("Analytics scheduler stopped successfully")
+        
+    # Close WebSocket Manager
+    if hasattr(app.state, 'ws_manager'):
+        logger.info("Shutting down WebSocket Manager...")
+        await app.state.ws_manager.shutdown()
+        logger.info("WebSocket Manager shutdown successfully")
     
     # Close Redis connection
     if hasattr(app.state, 'redis_client'):
@@ -309,6 +322,10 @@ def create_app() -> FastAPI:
 
     # Register V1 API Router
     app.include_router(api_v1_router, prefix="/api/v1")
+    
+    # Register WebSocket Router
+    from .routers.websockets import router as ws_router
+    app.include_router(ws_router, prefix="/api/v1/stream", tags=["WebSockets"])
 
     # Register Health endpoints at root level for orchestration
     app.include_router(health_router, tags=["Health"])
