@@ -1,0 +1,27 @@
+import os
+from celery import Celery
+from backend.fastapi.api.config import get_settings_instance
+
+settings = get_settings_instance()
+
+# Configure Celery with Redis/RabbitMQ based on config.
+# Note: For Dead Letter Queue or Retry logic, Celery retries via `max_retries`
+# failed tasks can also be routed to a separate queue using task routes if needed.
+celery_app = Celery(
+    "soulsense_worker",
+    broker=settings.redis_url,
+    backend=settings.redis_url,
+    include=["backend.fastapi.api.celery_tasks"]
+)
+
+# Optional configuration for Idempotency and DLQ-like behavior
+celery_app.conf.update(
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    timezone="UTC",
+    enable_utc=True,
+    task_acks_late=True, # Important for idempotent tasks; won't ack until successful
+    task_reject_on_worker_lost=True,
+    task_default_retry_delay=5, # Overriden by task exponential backoff
+)

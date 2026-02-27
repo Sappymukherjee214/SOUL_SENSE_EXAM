@@ -24,6 +24,7 @@ from backend.fastapi.app.core import (
     InternalServerError,
     RateLimitError
 )
+from backend.fastapi.api.celery_tasks import execute_async_export_task
 
 router = APIRouter()
 logger = logging.getLogger("api.export")
@@ -199,10 +200,9 @@ async def create_async_export(
         params={"format": format_lower, "options": export_options}
     )
     
-    background_tasks.add_task(
-        BackgroundTaskService.execute_task,
+    # Enqueue task to Celery
+    execute_async_export_task.delay(
         task.job_id,
-        _execute_async_export,
         current_user.id,
         current_user.username,
         format_lower,
