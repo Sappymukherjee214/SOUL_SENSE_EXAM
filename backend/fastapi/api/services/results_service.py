@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from ..models import Score, Response, Question, QuestionCategory, UserSession
 from ..schemas import DetailedExamResult, CategoryScore, Recommendation
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("api.exam")
 
 class AssessmentResultsService:
     @staticmethod
@@ -16,7 +16,11 @@ class AssessmentResultsService:
         # 1. Fetch the main score record
         score = db.query(Score).join(UserSession, Score.session_id == UserSession.session_id).filter(Score.id == assessment_id, UserSession.user_id == user_id).first()
         if not score:
-            logger.warning(f"Assessment {assessment_id} not found for user_id={user_id}")
+            logger.warning(f"Assessment not found", extra={
+                "assessment_id": assessment_id,
+                "user_id": user_id,
+                "reason": "not_found"
+            })
             return None
 
         # 2. Get all responses for this session/user
@@ -95,7 +99,7 @@ class AssessmentResultsService:
         total_max = sum(d["max"] for d in category_stats.values())
         overall_pct = (score.total_score / total_max * 100.0) if total_max > 0 else 0.0
 
-        return DetailedExamResult(
+        result_obj = DetailedExamResult(
             assessment_id=score.id,
             total_score=float(score.total_score),
             max_possible_score=total_max,
@@ -104,3 +108,12 @@ class AssessmentResultsService:
             category_breakdown=breakdown,
             recommendations=recommendations
         )
+        
+        logger.info("Detailed results generated", extra={
+            "assessment_id": assessment_id,
+            "user_id": user_id,
+            "categories_count": len(breakdown),
+            "overall_percentage": overall_pct
+        })
+        
+        return result_obj

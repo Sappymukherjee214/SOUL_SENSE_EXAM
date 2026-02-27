@@ -13,7 +13,7 @@ try:
 except ImportError:
     CRYPTO_AVAILABLE = False
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("api.exam")
 
 class ExamService:
     """
@@ -25,7 +25,10 @@ class ExamService:
     def start_exam(db: Session, user: User):
         """Standardizes session initiation and returns a new session_id."""
         session_id = str(uuid.uuid4())
-        logger.info(f"Exam session started for user_id={user.id}: {session_id}")
+        logger.info(f"Exam session started", extra={
+            "user_id": user.id,
+            "session_id": session_id
+        })
         return session_id
 
     @staticmethod
@@ -44,7 +47,12 @@ class ExamService:
             db.commit()
             return True
         except Exception as e:
-            logger.error(f"Failed to save response for user_id={user.id}: {e}")
+            logger.error(f"Failed to save response", extra={
+                "user_id": user.id,
+                "session_id": session_id,
+                "question_id": data.question_id,
+                "error": str(e)
+            }, exc_info=True)
             db.rollback()
             raise e
 
@@ -128,11 +136,20 @@ class ExamService:
             except Exception as e:
                 logger.error(f"Gamification update failed for user_id={user.id}: {e}")
 
-            logger.info(f"Exam saved for user_id={user.id}. Score: {data.total_score}")
+            logger.info(f"Exam saved successfully", extra={
+                "user_id": user.id,
+                "session_id": session_id,
+                "score": data.total_score,
+                "sentiment_score": data.sentiment_score
+            })
             return new_score
             
         except Exception as e:
-            logger.error(f"Failed to save exam score for user_id={user.id}: {e}")
+            logger.error(f"Failed to save exam score", extra={
+                "user_id": user.id,
+                "session_id": session_id,
+                "error": str(e)
+            }, exc_info=True)
             db.rollback()
             raise e
 
