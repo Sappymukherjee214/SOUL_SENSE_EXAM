@@ -136,6 +136,22 @@ public final class AnalyticsEvents {
     public static final String SESSION_END = "session_end";
 
     // ============================================================================
+    // ENGAGEMENT & BEHAVIOR EVENTS
+    // ============================================================================
+
+    /** 25% scroll depth reached */
+    public static final String SCROLL_DEPTH_25 = "scroll_depth_25";
+
+    /** 50% scroll depth reached */
+    public static final String SCROLL_DEPTH_50 = "scroll_depth_50";
+
+    /** 75% scroll depth reached */
+    public static final String SCROLL_DEPTH_75 = "scroll_depth_75";
+
+    /** 100% scroll depth reached */
+    public static final String SCROLL_DEPTH_100 = "scroll_depth_100";
+
+    // ============================================================================
     // ERROR EVENTS
     // ============================================================================
 
