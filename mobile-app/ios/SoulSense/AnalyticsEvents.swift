@@ -140,6 +140,22 @@ public final class AnalyticsEvents {
     public static let sessionEnd = "session_end"
 
     // ============================================================================
+    // ENGAGEMENT & BEHAVIOR EVENTS
+    // ============================================================================
+
+    /// 25% scroll depth reached
+    public static let scrollDepth25 = "scroll_depth_25"
+
+    /// 50% scroll depth reached
+    public static let scrollDepth50 = "scroll_depth_50"
+
+    /// 75% scroll depth reached
+    public static let scrollDepth75 = "scroll_depth_75"
+
+    /// 100% scroll depth reached
+    public static let scrollDepth100 = "scroll_depth_100"
+
+    // ============================================================================
     // ERROR EVENTS
     // ============================================================================
 

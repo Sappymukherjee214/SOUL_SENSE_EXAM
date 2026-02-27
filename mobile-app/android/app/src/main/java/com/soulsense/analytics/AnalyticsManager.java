@@ -209,6 +209,35 @@ public class AnalyticsManager {
         trackEvent(AnalyticsEvents.LOGOUT_BUTTON_CLICK, properties);
     }
 
+    /**
+     * Track scroll depth reached
+     */
+    public void trackScrollDepth(int percentage, String screenName) {
+        String eventName;
+        switch (percentage) {
+            case 25:
+                eventName = AnalyticsEvents.SCROLL_DEPTH_25;
+                break;
+            case 50:
+                eventName = AnalyticsEvents.SCROLL_DEPTH_50;
+                break;
+            case 75:
+                eventName = AnalyticsEvents.SCROLL_DEPTH_75;
+                break;
+            case 100:
+                eventName = AnalyticsEvents.SCROLL_DEPTH_100;
+                break;
+            default:
+                Log.w(TAG, "Invalid scroll percentage: " + percentage);
+                return;
+        }
+
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("scroll_percentage", percentage);
+        properties.put("screen_name", screenName);
+        trackEvent(eventName, properties);
+    }
+
     private String getAppVersion() {
         try {
             // Mock implementation for non-Android environment
@@ -220,7 +249,7 @@ public class AnalyticsManager {
 
     private void sendToAnalyticsProvider(AnalyticsEvent event) {
         // Basic implementation: log to console
-        // TODO: Replace with actual analytics provider (Firebase, Mixpanel, etc.)
+        // Future enhancement: Integrate with analytics provider (Firebase, Mixpanel, etc.)
         Log.i(TAG, String.format("Analytics Event: %s | User: %s | Session: %s | Props: %s",
             event.getEventName(),
             event.getUserId(),

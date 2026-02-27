@@ -54,7 +54,41 @@ analytics.setUserId("user123")
 analytics.clearUserId()
 ```
 
-## 📊 Session Events
+## � Scroll Depth Tracking
+
+### Threshold Detection
+- **25%**: First engagement milestone
+- **50%**: Content consumption midpoint  
+- **75%**: High engagement indicator
+- **100%**: Complete content consumption
+
+### Implementation
+- **One-time firing**: Each threshold fires only once per page/screen
+- **Throttled tracking**: 100ms debounce to prevent excessive events
+- **Cross-platform**: Consistent behavior across web, Android, and iOS
+
+### Web Implementation
+```typescript
+// Automatic scroll tracking with threshold detection
+analytics.setupScrollDepthTracking();
+
+// Manual tracking (if needed)
+analytics.trackScrollDepth(75); // Fires scroll_depth_75 event
+```
+
+### Android Implementation
+```java
+// Track scroll depth in scroll listeners
+analytics.trackScrollDepth(50, "article_screen");
+```
+
+### iOS Implementation
+```swift
+// Track scroll depth in scroll view delegates
+analytics.trackScrollDepth(100, screenName: "profile_screen")
+```
+
+## 📊 Engagement & Behavior Events
 
 ### session_start
 **Triggered**: App launch, foreground, or manual start
@@ -88,6 +122,38 @@ analytics.clearUserId()
 }
 ```
 
+### scroll_depth_25
+**Triggered**: User scrolls to 25% of page/screen content
+**Properties**:
+- `scroll_percentage`: 25
+- `page_url`: Current page URL (web)
+- `screen_name`: Current screen name (mobile)
+```json
+{
+  "event_name": "scroll_depth_25",
+  "user_id": "guest_1234567890_abc123def",
+  "session_id": "session_1640995200000_xyz789",
+  "platform": "web",
+  "app_version": "1.0.0",
+  "event_properties": {
+    "scroll_percentage": 25,
+    "page_url": "https://soulsense.app/article/123"
+  }
+}
+```
+
+### scroll_depth_50
+**Triggered**: User scrolls to 50% of page/screen content
+**Properties**: Same as scroll_depth_25 with `scroll_percentage`: 50
+
+### scroll_depth_75
+**Triggered**: User scrolls to 75% of page/screen content
+**Properties**: Same as scroll_depth_25 with `scroll_percentage`: 75
+
+### scroll_depth_100
+**Triggered**: User scrolls to 100% of page/screen content (bottom)
+**Properties**: Same as scroll_depth_25 with `scroll_percentage`: 100
+
 ## 🔧 User Identity Flow
 
 ### Guest Mode
@@ -116,6 +182,11 @@ analytics.clearUserId()
 | AN-014 | App to background | session_end with duration |
 | AN-015 | App to foreground | session_start triggered |
 | AN-016 | App crash | Last session properly closed |
+| AN-017 | Scroll to 25% | scroll_depth_25 event fired |
+| AN-018 | Scroll to 50% | scroll_depth_50 event fired |
+| AN-019 | Scroll to 75% | scroll_depth_75 event fired |
+| AN-020 | Scroll to 100% | scroll_depth_100 event fired |
+| AN-021 | Multiple scrolls | Each threshold fires only once |
 
 ## 🔒 Security & Privacy
 

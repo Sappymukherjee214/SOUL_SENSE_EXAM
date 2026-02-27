@@ -201,6 +201,28 @@ public class AnalyticsManager {
         trackEvent(AnalyticsEvents.logoutButtonClick, properties: [:])
     }
 
+    public func trackScrollDepth(_ percentage: Int, screenName: String) {
+        let eventName: String
+        switch percentage {
+        case 25:
+            eventName = AnalyticsEvents.scrollDepth25
+        case 50:
+            eventName = AnalyticsEvents.scrollDepth50
+        case 75:
+            eventName = AnalyticsEvents.scrollDepth75
+        case 100:
+            eventName = AnalyticsEvents.scrollDepth100
+        default:
+            print("[Analytics] Warning: Invalid scroll percentage: \(percentage)")
+            return
+        }
+
+        trackEvent(eventName, properties: [
+            "scroll_percentage": percentage,
+            "screen_name": screenName
+        ])
+    }
+
     private func getAppVersion() -> String {
         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
             return version

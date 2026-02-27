@@ -40,6 +40,10 @@
         "device_rotation",
         "session_start",
         "session_end",
+        "scroll_depth_25",
+        "scroll_depth_50",
+        "scroll_depth_75",
+        "scroll_depth_100",
         "network_error",
         "api_error",
         "validation_error"
@@ -111,6 +115,14 @@
           "properties": {
             "session_duration_ms": { "type": "number" },
             "session_duration_seconds": { "type": "number" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "scroll_percentage": { "type": "number", "enum": [25, 50, 75, 100] },
+            "page_url": { "type": "string" },
+            "screen_name": { "type": "string" }
           },
           "additionalProperties": false
         }

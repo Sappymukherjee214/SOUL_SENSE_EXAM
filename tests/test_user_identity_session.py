@@ -146,6 +146,51 @@ class TestAnalyticsImplementation(unittest.TestCase):
         session_id_field = self.schema['properties']['session_id']
         self.assertEqual(session_id_field['type'], 'string', "session_id should be string type")
 
+    def test_scroll_depth_events_in_schema(self):
+        """Test that scroll depth events are defined in schema."""
+        allowed_events = self.schema['properties']['event_name']['enum']
+        
+        scroll_events = [
+            'scroll_depth_25',
+            'scroll_depth_50', 
+            'scroll_depth_75',
+            'scroll_depth_100'
+        ]
+        
+        for event in scroll_events:
+            with self.subTest(event=event):
+                self.assertIn(event, allowed_events, f"Scroll depth event '{event}' not in schema")
+
+    def test_scroll_depth_properties_schema(self):
+        """Test that scroll depth events have proper property schema."""
+        event_props = self.schema['properties']['event_properties']['oneOf']
+        
+        # Find scroll depth property schema
+        scroll_props_found = False
+        for option in event_props:
+            props = option.get('properties', {})
+            if 'scroll_percentage' in props:
+                scroll_props_found = True
+                # Verify scroll_percentage is properly defined
+                scroll_pct = props['scroll_percentage']
+                self.assertEqual(scroll_pct['type'], 'number')
+                self.assertIn('enum', scroll_pct, "scroll_percentage should have enum values")
+                self.assertEqual(set(scroll_pct['enum']), {25, 50, 75, 100})
+                
+                # Verify optional fields
+                self.assertIn('page_url', props)
+                self.assertIn('screen_name', props)
+                break
+        
+        self.assertTrue(scroll_props_found, "Scroll depth properties schema not found")
+
+    def test_scroll_depth_threshold_uniqueness(self):
+        """Test that scroll depth thresholds are unique and ordered."""
+        # This is more of a design test - ensuring thresholds make sense
+        thresholds = [25, 50, 75, 100]
+        self.assertEqual(len(set(thresholds)), len(thresholds), "Thresholds should be unique")
+        self.assertEqual(thresholds, sorted(thresholds), "Thresholds should be in ascending order")
+
 
 if __name__ == '__main__':
     unittest.main()

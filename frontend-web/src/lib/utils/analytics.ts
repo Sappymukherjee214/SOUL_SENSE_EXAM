@@ -50,6 +50,12 @@ export const ANALYTICS_EVENTS = {
   SESSION_START: 'session_start',
   SESSION_END: 'session_end',
 
+  // Engagement & behavior events
+  SCROLL_DEPTH_25: 'scroll_depth_25',
+  SCROLL_DEPTH_50: 'scroll_depth_50',
+  SCROLL_DEPTH_75: 'scroll_depth_75',
+  SCROLL_DEPTH_100: 'scroll_depth_100',
+
   // Error events
   NETWORK_ERROR: 'network_error',
   API_ERROR: 'api_error',
@@ -110,6 +116,7 @@ class AnalyticsManager {
     this.currentSessionId = this.generateSessionId();
     this.initializeUserIdentity();
     this.setupSessionTracking();
+    this.setupScrollDepthTracking();
   }
 
   private generateSessionId(): string {
@@ -155,6 +162,57 @@ class AnalyticsManager {
       window.addEventListener('load', () => {
         this.startSession();
       });
+    }
+  }
+
+  private setupScrollDepthTracking() {
+    // Track scroll depth on pages with scrollable content
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      // Use a throttled scroll handler to avoid excessive tracking
+      let scrollTimeout: NodeJS.Timeout;
+      const scrollThresholds = [25, 50, 75, 100];
+      const reachedThresholds = new Set<number>();
+
+      const handleScroll = () => {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+          const windowHeight = window.innerHeight;
+          const documentHeight = Math.max(
+            document.body.scrollHeight,
+            document.body.offsetHeight,
+            document.documentElement.clientHeight,
+            document.documentElement.scrollHeight,
+            document.documentElement.offsetHeight
+          );
+
+          const scrollPercentage = Math.round(((scrollTop + windowHeight) / documentHeight) * 100);
+
+          // Check each threshold
+          for (const threshold of scrollThresholds) {
+            if (scrollPercentage >= threshold && !reachedThresholds.has(threshold)) {
+              reachedThresholds.add(threshold);
+              this.trackScrollDepth(threshold);
+            }
+          }
+        }, 100); // Throttle to 100ms
+      };
+
+      // Add scroll event listener
+      window.addEventListener('scroll', handleScroll, { passive: true });
+
+      // Reset thresholds on page navigation (SPA routing)
+      // This is a simplified approach - in a real SPA, you'd listen to route changes
+      let currentPath = window.location.pathname;
+      const checkPathChange = () => {
+        if (window.location.pathname !== currentPath) {
+          currentPath = window.location.pathname;
+          reachedThresholds.clear();
+        }
+      };
+
+      // Check for path changes periodically (for SPA navigation)
+      setInterval(checkPathChange, 1000);
     }
   }
 
@@ -268,6 +326,26 @@ class AnalyticsManager {
       default:
         console.log(`[Analytics] Event: ${event.event_name}`, event);
     }
+  }
+
+  private trackScrollDepth(percentage: number) {
+    const eventName = percentage === 25 ? ANALYTICS_EVENTS.SCROLL_DEPTH_25 :
+                     percentage === 50 ? ANALYTICS_EVENTS.SCROLL_DEPTH_50 :
+                     percentage === 75 ? ANALYTICS_EVENTS.SCROLL_DEPTH_75 :
+                     ANALYTICS_EVENTS.SCROLL_DEPTH_100;
+
+    this.trackEvent({
+      event_name: eventName,
+      timestamp: new Date().toISOString(),
+      user_id: this.currentUserId || undefined,
+      session_id: this.currentSessionId,
+      platform: 'web',
+      app_version: process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0',
+      event_properties: {
+        scroll_percentage: percentage,
+        page_url: typeof window !== 'undefined' ? window.location.href : undefined
+      }
+    });
   }
 
   // Convenience methods for common events
