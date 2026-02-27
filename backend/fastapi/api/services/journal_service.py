@@ -311,6 +311,7 @@ class JournalService:
         current_user: User,
         query: Optional[str] = None,
         tags: Optional[List[str]] = None,
+        sentiment_category: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         min_sentiment: Optional[float] = None,
@@ -334,6 +335,14 @@ class JournalService:
             for tag in tags:
                 stmt = stmt.filter(JournalEntry.tags.ilike(f"%{tag}%"))
         
+        if sentiment_category:
+            if sentiment_category == "positive":
+                stmt = stmt.filter(JournalEntry.sentiment_score > 60)
+            elif sentiment_category == "neutral":
+                stmt = stmt.filter(JournalEntry.sentiment_score >= 40, JournalEntry.sentiment_score <= 60)
+            elif sentiment_category == "negative":
+                stmt = stmt.filter(JournalEntry.sentiment_score < 40)
+
         if start_date:
             stmt = stmt.filter(JournalEntry.entry_date >= start_date)
         if end_date:
