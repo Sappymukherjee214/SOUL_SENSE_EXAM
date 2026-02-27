@@ -89,6 +89,11 @@ async def lifespan(app: FastAPI):
             limiter._storage_uri = settings.redis_url
             print(f"[OK] Redis connected for rate limiting: {settings.redis_host}:{settings.redis_port}")
             
+            # Initialize JWT blacklist
+            from .utils.jwt_blacklist import init_jwt_blacklist
+            init_jwt_blacklist(redis_client)
+            print("[OK] JWT blacklist initialized")
+            
         except Exception as e:
             logger.warning(f"Redis initialization failed: {e}")
             print(f"[WARNING] Redis not available, rate limiting will use in-memory fallback: {e}")

@@ -56,8 +56,24 @@ async def get_current_user(request: Request, token: Annotated[str, Depends(oauth
     try:
         # Pydantic schema validation for TokenData could be used here
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.jwt_algorithm])
-        
-        # Check if token is revoked
+
+        # Check Redis blacklist first (fast lookup)
+        try:
+            from ..utils.jwt_blacklist import get_jwt_blacklist
+            blacklist = get_jwt_blacklist()
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            is_blacklisted = loop.run_until_complete(blacklist.is_blacklisted(token))
+            loop.close()
+
+            if is_blacklisted:
+                raise TokenExpiredError("Token has been revoked")
+        except RuntimeError:
+            # JWT blacklist not initialized, fall back to database check
+            pass
+
+        # Fallback: Check database revocation list
         from ..root_models import TokenRevocation
         revoked = db.query(TokenRevocation).filter(TokenRevocation.token_str == token).first()
         if revoked:

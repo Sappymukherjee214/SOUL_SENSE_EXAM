@@ -156,19 +156,9 @@ class AuthService:
         return user
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
-        """Create a new JWT access token."""
-        # Use python-jose or similar if previously installed, but since we are refactoring,
-        # we will assume generic token generation logic or stick to what was likely there.
-        # Wait, the plan mentioned create_access_token. I need to check how it was implemented.
-        # For now, I will import the logic from the old auth router if possible, or use a placeholder
-        # since I need to see the imports in the original file. 
-        # Actually, let's stick to generating a secure random token if JWT library isn't confirmed, 
-        # BUT the schemas.Token suggests JWT. 
-        # Let's check imports in original auth.py first to be safe.
-        
-        # For now, simplistic JWT construction using standard libraries or jwt library if available
-        # I'll check imports later. I will implement a placeholder that is structurally correct.
+        """Create a new JWT access token with JTI for blacklist support."""
         from jose import jwt
+        import secrets
 
         to_encode = data.copy()
         if expires_delta:
@@ -176,7 +166,10 @@ class AuthService:
         else:
             expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
             
-        to_encode.update({"exp": expire})
+        to_encode.update({
+            "exp": expire,
+            "jti": secrets.token_urlsafe(16)  # JWT ID for blacklist support
+        })
         # Use correct settings attributes as seen in router
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.jwt_algorithm)
         return encoded_jwt
@@ -570,10 +563,27 @@ class AuthService:
             logger.info(f"Revoked refresh token for user_id={db_token.user_id}")
 
     def revoke_access_token(self, token: str) -> None:
-        """Revoke an access token by adding it to the revocation list."""
-        from jose import jwt
-        from ..root_models import TokenRevocation
+        """Revoke an access token by adding it to the Redis blacklist."""
         try:
+            # Use Redis blacklist for fast lookups
+            from ..utils.jwt_blacklist import get_jwt_blacklist
+            blacklist = get_jwt_blacklist()
+
+            # Blacklist in Redis (async operation, but we'll make it sync for now)
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            success = loop.run_until_complete(blacklist.blacklist_token(token))
+            loop.close()
+
+            if success:
+                logger.info(f"Access token blacklisted in Redis")
+            else:
+                logger.warning("Failed to blacklist token in Redis, falling back to database")
+
+            # Also store in database as backup (for tokens without JTI)
+            from jose import jwt
+            from ..root_models import TokenRevocation
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.jwt_algorithm])
             exp = payload.get("exp")
             if exp:
@@ -584,9 +594,11 @@ class AuthService:
                 )
                 self.db.add(revocation)
                 self.db.commit()
-                logger.info(f"Access token revoked for user: {payload.get('sub')}")
+                logger.info(f"Access token also revoked in database for user: {payload.get('sub')}")
+
         except Exception as e:
             logger.error(f"Failed to revoke access token: {e}")
+            # Don't raise exception - logout should succeed even if revocation fails
     
 
 
