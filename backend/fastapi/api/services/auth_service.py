@@ -13,15 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import OperationalError
-import bcrypt
-
-from .db_service import get_db
-from ..models import User, LoginAttempt, PersonalProfile, RefreshToken
-from ..config import get_settings
-from ..constants.errors import ErrorCode
-from ..constants.security_constants import BCRYPT_ROUNDS, REFRESH_TOKEN_EXPIRE_DAYS
-from ..exceptions import AuthException
 from .audit_service import AuditService
+from ..utils.security import get_password_hash, verify_password, is_hashed, check_password_history
+from ..models import User, LoginAttempt, PersonalProfile, RefreshToken, PasswordHistory
+from ..constants.security_constants import PASSWORD_HISTORY_LIMIT
 
 settings = get_settings()
 
@@ -61,22 +56,6 @@ class AuthService:
             
         return True, "Username is available"
 
-    def hash_password(self, password: str) -> str:
-        """Hash a password for storing."""
-        salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
-        pwd_bytes = password.encode('utf-8')
-        return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
-
-    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """Verify a stored password against one provided by user."""
-        try:
-            return bcrypt.checkpw(
-                plain_password.encode('utf-8'), 
-                hashed_password.encode('utf-8')
-            )
-        except Exception as e:
-            logger.error(f"Error verifying password: {e}")
-            return False
 
     async def authenticate_user(self, identifier: str, password: str, ip_address: str = "0.0.0.0", user_agent: str = "Unknown") -> Optional[User]:
         """
@@ -112,7 +91,7 @@ class AuthService:
         # 5. Timing attack protection: Always hash something even if user not found
         if not user:
             # Dummy verify to consume time
-            self.verify_password("dummy", "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW")
+            verify_password("dummy", "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW")
             await self._record_login_attempt(identifier_lower, False, ip_address, reason="User not found")
             raise AuthException(
                 code=ErrorCode.AUTH_INVALID_CREDENTIALS,
@@ -120,12 +99,21 @@ class AuthService:
             )
 
         # 6. Verify password
-        if not self.verify_password(password, user.password_hash):
+        if not verify_password(password, user.password_hash):
             await self._record_login_attempt(identifier_lower, False, ip_address, reason="Invalid password")
             raise AuthException(
                 code=ErrorCode.AUTH_INVALID_CREDENTIALS,
                 message="Incorrect username or password"
             )
+        
+        # 6.1 Legacy Password Migration (Issue #996)
+        # If password was stored in plain text, migrate it to a hash now
+        if not is_hashed(user.password_hash):
+            logger.info(f"⚡ Migrating legacy plain-text password for user: {user.username}")
+            user.password_hash = get_password_hash(password)
+            # Log to history too
+            self.db.add(PasswordHistory(user_id=user.id, password_hash=user.password_hash))
+            await self.db.commit()
         
         # 6.5 Reactivate account if soft-deleted
         if getattr(user, "is_deleted", False):
@@ -384,13 +372,16 @@ class AuthService:
             return False, None, "Registration with disposable email domains is not allowed"
 
         try:
-            hashed_pw = self.hash_password(user_data.password)
+            hashed_pw = get_password_hash(user_data.password)
             new_user = User(
                 username=username_lower,
                 password_hash=hashed_pw
             )
             self.db.add(new_user)
             await self.db.flush()
+
+            # Record initial password in history
+            self.db.add(PasswordHistory(user_id=new_user.id, password_hash=hashed_pw))
 
             new_profile = PersonalProfile(
                 user_id=new_user.id,
@@ -551,7 +542,19 @@ class AuthService:
             if not await OTPManager.verify_otp(user.id, otp_code, "RESET_PASSWORD", db_session=self.db):
                 return False, "Invalid or expired code."
             
-            user.password_hash = self.hash_password(new_password)
+            # Check password history
+            from sqlalchemy import desc
+            stmt = select(PasswordHistory.password_hash).filter(
+                PasswordHistory.user_id == user.id
+            ).order_by(desc(PasswordHistory.created_at)).limit(PASSWORD_HISTORY_LIMIT)
+            result = await self.db.execute(stmt)
+            history = result.scalars().all()
+            
+            if check_password_history(new_password, history):
+                return False, f"Cannot reuse any of your last {PASSWORD_HISTORY_LIMIT} passwords."
+
+            user.password_hash = get_password_hash(new_password)
+            self.db.add(PasswordHistory(user_id=user.id, password_hash=user.password_hash))
             await self.db.execute(
                 update(RefreshToken).filter(RefreshToken.user_id == user.id).values(is_revoked=True)
             )

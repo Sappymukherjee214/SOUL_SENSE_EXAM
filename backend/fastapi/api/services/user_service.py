@@ -14,13 +14,11 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
 # Import models from models module
-from ..models import User, UserSettings, MedicalProfile, PersonalProfile, UserStrengths, UserEmotionalPatterns, Score, UserSession
-import bcrypt
+from ..models import User, UserSettings, MedicalProfile, PersonalProfile, UserStrengths, UserEmotionalPatterns, Score, UserSession, PasswordHistory
+from ..utils.security import get_password_hash, check_password_history
+from ..constants.security_constants import PASSWORD_HISTORY_LIMIT
 
 
-def hash_password(password: str) -> str:
-    """Hash a password for storing."""
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 class UserService:
@@ -73,7 +71,7 @@ class UserService:
             )
 
         # Hash password and create user
-        password_hash = hash_password(password)
+        password_hash = get_password_hash(password)
         
         new_user = User(
             username=username,
@@ -83,6 +81,11 @@ class UserService:
 
         try:
             self.db.add(new_user)
+            await self.db.flush() # Ensure ID is generated
+
+            # Record initial password in history
+            self.db.add(PasswordHistory(user_id=new_user.id, password_hash=password_hash))
+            
             await self.db.commit()
             await self.db.refresh(new_user)
             return new_user
@@ -119,7 +122,24 @@ class UserService:
 
         # Update password if provided
         if password:
-            user.password_hash = hash_password(password)
+            # Check password history
+            from sqlalchemy import desc
+            stmt = select(PasswordHistory.password_hash).filter(
+                PasswordHistory.user_id == user.id
+            ).order_by(desc(PasswordHistory.created_at)).limit(PASSWORD_HISTORY_LIMIT)
+            result = await self.db.execute(stmt)
+            history = result.scalars().all()
+            
+            if check_password_history(password, history):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot reuse any of your last 5 passwords"
+                )
+
+            hashed_pw = get_password_hash(password)
+            user.password_hash = hashed_pw
+            # Record the new password in history
+            self.db.add(PasswordHistory(user_id=user.id, password_hash=hashed_pw))
 
         try:
             await self.db.commit()
