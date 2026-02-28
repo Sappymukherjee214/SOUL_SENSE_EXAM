@@ -162,6 +162,16 @@ async def lifespan(app: FastAPI):
             logger.warning(f"Kafka/Audit initialization failed: {e}")
             print(f"[WARNING] Event-sourced audit trail falling back to mock mode: {e}")
         
+        # Initialize Cache Invalidation Listener (#1123)
+        try:
+            from .services.cache_service import cache_service
+            invalidation_task = asyncio.create_task(cache_service.start_invalidation_listener())
+            app.state.invalidation_task = invalidation_task
+            print("[OK] Distributed Cache Invalidation listener started via Redis Pub/Sub")
+        except Exception as e:
+            logger.warning(f"Failed to start cache invalidation listener: {e}")
+            print(f"[WARNING] Distributed cache invalidation unavailable: {e}")
+        
     except Exception as e:
         print(f"[ERROR] Database initialization failed: {e}")
         # Re-raise to crash the application - don't start with broken DB
@@ -182,6 +192,14 @@ async def lifespan(app: FastAPI):
             await app.state.purge_task
         except asyncio.CancelledError:
             logger.info("Background purge task cancelled successfully")
+            
+    if hasattr(app.state, 'invalidation_task'):
+        logger.info("Cancelling distributed cache invalidation listener...")
+        app.state.invalidation_task.cancel()
+        try:
+            await app.state.invalidation_task
+        except asyncio.CancelledError:
+            logger.info("Cache invalidation listener cancelled successfully")
     
     # Stop analytics scheduler
     if hasattr(app.state, 'analytics_scheduler'):

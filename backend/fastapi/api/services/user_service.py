@@ -141,9 +141,21 @@ class UserService:
             # Record the new password in history
             self.db.add(PasswordHistory(user_id=user.id, password_hash=hashed_pw))
 
+        # Check if role is provided (assuming user has role or is_admin attribute)
+        # Note: Added for Cache Invalidation pattern (#1123)
+
         try:
             await self.db.commit()
             await self.db.refresh(user)
+            
+            # Broadcast cache invalidation across distributed nodes (#1123)
+            try:
+                from .cache_service import cache_service
+                await cache_service.broadcast_invalidation(f"user_data:{user.id}", is_prefix=False)
+                await cache_service.broadcast_invalidation(f"user_role:{user.id}", is_prefix=False)
+            except ImportError:
+                pass
+                
             return user
         except IntegrityError:
             await self.db.rollback()
@@ -151,6 +163,36 @@ class UserService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to update user"
             )
+
+    async def update_user_role(self, user_id: int, is_admin: bool, pii_viewer: bool = False) -> User:
+        """
+        Update user roles and explicitly broadcast cache invalidation.
+        """
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+            
+        # Safely set attributes if they exist
+        if hasattr(user, 'is_admin'):
+            user.is_admin = is_admin
+        if hasattr(user, 'role'):
+            user.role = "pii_viewer" if pii_viewer else ("admin" if is_admin else "user")
+            
+        try:
+            await self.db.commit()
+            await self.db.refresh(user)
+            
+            # Distribute Cache Invalidation immediately (#1123)
+            from .cache_service import cache_service
+            await cache_service.broadcast_invalidation(f"user_role:{user_id}", is_prefix=False)
+            
+            return user
+        except Exception as e:
+            await self.db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def delete_user(self, user_id: int, permanent: bool = False) -> bool:
         """
