@@ -301,9 +301,13 @@ def create_app() -> FastAPI:
     from starlette.middleware.base import BaseHTTPMiddleware
     from .middleware.rbac_middleware import rbac_middleware
     from .middleware.feature_flags import feature_flag_middleware
+    from .middleware.rate_limiter_sliding import sliding_rate_limit_middleware
+    from .middleware.redaction_middleware import redaction_middleware
     
+    app.add_middleware(BaseHTTPMiddleware, dispatch=sliding_rate_limit_middleware)
     app.add_middleware(BaseHTTPMiddleware, dispatch=rbac_middleware)
     app.add_middleware(BaseHTTPMiddleware, dispatch=feature_flag_middleware)
+    app.add_middleware(BaseHTTPMiddleware, dispatch=redaction_middleware)
 
     # CORS middleware
     # In debug mode, allow all origins for easier development
