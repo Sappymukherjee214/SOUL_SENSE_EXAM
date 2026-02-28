@@ -17,7 +17,7 @@ from ..utils.network import get_real_ip
 from ..constants.security_constants import REFRESH_TOKEN_EXPIRE_DAYS
 from ..models import User
 from ..utils.limiter import limiter
-from ...app.core import (
+from app.core import (
     AuthenticationError,
     AuthorizationError,
     InvalidCredentialsError,
@@ -192,7 +192,7 @@ async def login(
         response.status_code = status.HTTP_202_ACCEPTED
         return TwoFactorAuthRequiredResponse(pre_auth_token=pre_auth_token)
 
-    access_token = auth_service.create_access_token(data={"sub": user.username})
+    access_token = auth_service.create_access_token(data={"sub": user.username, "tid": str(user.tenant_id) if user.tenant_id else None})
     refresh_token = await auth_service.create_refresh_token(user.id)
     has_multiple_sessions = await auth_service.has_multiple_active_sessions(user.id)
 
@@ -251,7 +251,7 @@ async def verify_2fa(
     ip = get_real_ip(request)
     user = await auth_service.verify_2fa_login(login_request.pre_auth_token, login_request.code, ip_address=ip)
     
-    access_token = auth_service.create_access_token(data={"sub": user.username})
+    access_token = auth_service.create_access_token(data={"sub": user.username, "tid": str(user.tenant_id) if user.tenant_id else None})
     refresh_token = await auth_service.create_refresh_token(user.id)
     has_multiple_sessions = await auth_service.has_multiple_active_sessions(user.id)
 

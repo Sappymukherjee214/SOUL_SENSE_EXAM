@@ -17,14 +17,14 @@ from ..services.export_service_v2 import ExportServiceV2
 from ..services.background_task_service import BackgroundTaskService, TaskStatus, TaskType
 from ..models import User, ExportRecord, BackgroundJob
 from .auth import get_current_user
-from ...app.core import (
+from app.core import (
     NotFoundError,
     ValidationError,
     AuthorizationError,
     InternalServerError,
     RateLimitError
 )
-from backend.fastapi.api.celery_tasks import execute_async_export_task
+from api.celery_tasks import execute_async_export_task
 
 router = APIRouter()
 logger = logging.getLogger("api.export")
