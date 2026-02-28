@@ -88,7 +88,7 @@ class CircuitBreaker:
         
         if state == CircuitState.OPEN:
             raise HTTPException(
-                status_code=status.HTTP_503_SERVICE__UNAVAILABLE,
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Circuit Breaker for {self.service_name} is OPEN. Service temporarily unavailable."
             )
 
