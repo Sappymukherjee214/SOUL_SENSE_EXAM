@@ -46,9 +46,11 @@ class KafkaProducerService:
         # 2. Push to Kafka if available
         if self.producer:
             try:
-                await self.producer.send_and_wait("audit_trail", event_data)
+                from .circuit_breaker import CircuitBreaker
+                cb = CircuitBreaker("kafka_producer", failure_threshold=3, recovery_timeout=60)
+                await cb.call(self.producer.send_and_wait, "audit_trail", event_data)
             except Exception as e:
-                logger.error(f"Failed to send event to Kafka: {e}")
+                logger.error(f"Kafka circuit breaker blocked/caught failure: {e}")
 
 _producer_instance: Optional[KafkaProducerService] = None
 
