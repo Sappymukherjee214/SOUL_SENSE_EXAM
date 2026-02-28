@@ -62,15 +62,24 @@ async def generate_personal_archive(
     The archive includes a high-fidelity PDF report, structured JSON, and tabular CSVs.
     Runs asynchronously in the background.
     """
-    job_id = uuid.uuid4().hex
-    
-    background_tasks.add_task(
-        _background_archive_generation,
+    from backend.fastapi.api.services.background_task_service import BackgroundTaskService, TaskType
+    from backend.fastapi.api.celery_tasks import generate_archive_task
+
+    task = await BackgroundTaskService.create_task(
+        db=db,
         user_id=current_user.id,
-        password=req.password,
-        include_pdf=req.include_pdf,
-        include_csv=req.include_csv,
-        include_json=req.include_json
+        task_type=TaskType.EXPORT_JSON,  # Treating as export/archival
+        params={"type": "archival", "include_pdf": req.include_pdf, "include_csv": req.include_csv, "include_json": req.include_json}
+    )
+    job_id = task.job_id
+    
+    generate_archive_task.delay(
+        job_id,
+        current_user.id,
+        req.password,
+        req.include_pdf,
+        req.include_csv,
+        req.include_json
     )
     
     return ArchiveResponse(

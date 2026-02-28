@@ -90,6 +90,8 @@ class NotificationOrchestrator:
                 if pref.push_enabled: channels_to_send.append('push')
                 if pref.in_app_enabled: channels_to_send.append('in_app')
                 
+        from backend.fastapi.api.celery_tasks import send_notification_task
+        
         # For each channel, create a pending log and attempt send
         log_ids = []
         for channel in channels_to_send:
@@ -104,9 +106,8 @@ class NotificationOrchestrator:
             await db.refresh(log)
             log_ids.append(log.id)
             
-            # In a real app we'd enqueue to Celery/RabbitMQ here. 
-            # For this MVP, we run asyncio tasks for mock dispatch
-            asyncio.create_task(cls._async_send(db, log.id, channel, user, content))
+            # Use Celery for async dispatch
+            send_notification_task.delay(log.id, channel, user.id, content)
             
         return log_ids
 

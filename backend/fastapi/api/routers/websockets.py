@@ -43,11 +43,30 @@ async def get_ws_user(
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return None
 
-    # Get user from db
-    user_stmt = select(User).filter(User.username == username)
-    user_res = await db.execute(user_stmt)
-    user = user_res.scalar_one_or_none()
-    
+    from ..services.cache_service import cache_service
+    cache_key = f"user_rbac:{username}"
+    user_data = await cache_service.get(cache_key)
+
+    if user_data:
+        class CachedUser:
+            def __init__(self, **entries):
+                self.__dict__.update(entries)
+        user = CachedUser(**user_data)
+    else:
+        user_stmt = select(User).filter(User.username == username)
+        user_res = await db.execute(user_stmt)
+        user = user_res.scalar_one_or_none()
+        
+        if user:
+            user_data = {
+                "id": user.id,
+                "username": user.username,
+                "is_active": user.is_active,
+                "is_deleted": user.is_deleted,
+                "deleted_at": user.deleted_at.isoformat() if getattr(user, 'deleted_at', None) else None,
+                "is_admin": getattr(user, 'is_admin', False)
+            }
+            await cache_service.set(cache_key, user_data, 3600)
     if user is None or getattr(user, 'is_deleted', False) or getattr(user, 'deleted_at', None) is not None:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return None
