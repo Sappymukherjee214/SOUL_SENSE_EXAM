@@ -17,7 +17,7 @@ from ..utils.network import get_real_ip
 from ..constants.security_constants import REFRESH_TOKEN_EXPIRE_DAYS
 from ..models import User
 from ..utils.limiter import limiter
-from ...app.core import (
+from app.core import (
     AuthenticationError,
     AuthorizationError,
     InvalidCredentialsError,
