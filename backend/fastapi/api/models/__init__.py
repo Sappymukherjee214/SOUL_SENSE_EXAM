@@ -1104,23 +1104,23 @@ from sqlalchemy import event
 
 @event.listens_for(User, 'after_update')
 def receive_after_update_user(mapper, connection, target):
-    from backend.fastapi.api.services.cache_service import cache_service
+    from api.services.cache_service import cache_service
     cache_service.sync_invalidate(f"user_rbac:{target.username}")
     cache_service.sync_invalidate(f"user_rbac_id:{target.id}")
 
 @event.listens_for(User, 'after_delete')
 def receive_after_delete_user(mapper, connection, target):
-    from backend.fastapi.api.services.cache_service import cache_service
+    from api.services.cache_service import cache_service
     cache_service.sync_invalidate(f"user_rbac:{target.username}")
     cache_service.sync_invalidate(f"user_rbac_id:{target.id}")
 
 @event.listens_for(UserSettings, 'after_update')
 def receive_after_update_user_settings(mapper, connection, target):
-    from backend.fastapi.api.services.cache_service import cache_service
+    from api.services.cache_service import cache_service
     cache_service.sync_invalidate(f"user_settings:{target.user_id}")
 
 @event.listens_for(NotificationPreference, 'after_update')
 def receive_after_update_notif_pref(mapper, connection, target):
-    from backend.fastapi.api.services.cache_service import cache_service
+    from api.services.cache_service import cache_service
     cache_service.sync_invalidate(f"notif_pref:{target.user_id}")
 
