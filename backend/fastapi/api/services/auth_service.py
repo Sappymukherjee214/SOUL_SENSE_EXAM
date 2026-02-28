@@ -139,8 +139,9 @@ class AuthService:
         return user
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
-        """Create a new JWT access token."""
+        """Create a new JWT access token with JTI for blacklist support."""
         from jose import jwt
+        import secrets
 
         to_encode = data.copy()
         if expires_delta:
@@ -148,7 +149,11 @@ class AuthService:
         else:
             expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
             
-        to_encode.update({"exp": expire})
+        to_encode.update({
+            "exp": expire,
+            "jti": secrets.token_urlsafe(16)  # JWT ID for blacklist support
+        })
+        # Use correct settings attributes as seen in router
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.jwt_algorithm)
         return encoded_jwt
 
@@ -494,20 +499,44 @@ class AuthService:
             db_token.is_revoked = True
             await self.db.commit()
 
-    async def revoke_access_token(self, token: str) -> None:
-        """Revoke an access token."""
-        from jose import jwt
-        from ..root_models import TokenRevocation
+    def revoke_access_token(self, token: str) -> None:
+        """Revoke an access token by adding it to the Redis blacklist."""
         try:
+            # Use Redis blacklist for fast lookups
+            from ..utils.jwt_blacklist import get_jwt_blacklist
+            blacklist = get_jwt_blacklist()
+
+            # Blacklist in Redis (async operation, but we'll make it sync for now)
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            success = loop.run_until_complete(blacklist.blacklist_token(token))
+            loop.close()
+
+            if success:
+                logger.info(f"Access token blacklisted in Redis")
+            else:
+                logger.warning("Failed to blacklist token in Redis, falling back to database")
+
+            # Also store in database as backup (for tokens without JTI)
+            from jose import jwt
+            from ..root_models import TokenRevocation
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.jwt_algorithm])
             exp = payload.get("exp")
             if exp:
                 expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
                 revocation = TokenRevocation(token_str=token, expires_at=expires_at)
                 self.db.add(revocation)
-                await self.db.commit()
+                self.db.commit()
+                logger.info(f"Access token also revoked in database for user: {payload.get('sub')}")
+
         except Exception as e:
             logger.error(f"Failed to revoke access token: {e}")
+            # Don't raise exception - logout should succeed even if revocation fails
+    
+
+
+
 
     async def initiate_password_reset(self, email: str, background_tasks: BackgroundTasks) -> tuple[bool, str]:
         """Initiate password reset flow."""
