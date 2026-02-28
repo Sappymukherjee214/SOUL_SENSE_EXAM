@@ -12,6 +12,11 @@ from typing import List, Optional, Any, Dict, Tuple, Union
 from datetime import datetime, timedelta, UTC
 import logging
 
+try:
+    from ..services.encryption_service import EncryptedString
+except ImportError:
+    pass
+
 # Define Base
 Base = declarative_base()
 
@@ -70,6 +75,14 @@ class User(Base):
     # Notifications
     notification_preferences = relationship("NotificationPreference", uselist=False, back_populates="user", cascade="all, delete-orphan")
     notification_logs = relationship("NotificationLog", back_populates="user", cascade="all, delete-orphan")
+
+class UserEncryptionKey(Base):
+    """Stores the Master-Key-wrapped Data Encryption Key for Envelope AEAD (#1105)."""
+    __tablename__ = 'user_encryption_keys'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), unique=True, index=True, nullable=False)
+    wrapped_dek = Column(String, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
 class NotificationPreference(Base):
     """User preferences for notification channels."""
@@ -498,7 +511,7 @@ class JournalEntry(Base):
     username = Column(String, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
     title = Column(String, nullable=True)
-    content = Column(Text, nullable=False)
+    content = Column(EncryptedString, nullable=False)
     sentiment_score = Column(Float, default=0.0)
     emotional_patterns = Column(Text, nullable=True) # JSON list
     timestamp = Column(String, default=lambda: datetime.now(UTC).isoformat(), index=True)
