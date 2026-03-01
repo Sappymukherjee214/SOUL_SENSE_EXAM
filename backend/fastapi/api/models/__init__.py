@@ -76,6 +76,18 @@ class User(Base):
     notification_preferences = relationship("NotificationPreference", uselist=False, back_populates="user", cascade="all, delete-orphan")
     notification_logs = relationship("NotificationLog", back_populates="user", cascade="all, delete-orphan")
 
+    # PR 1134: GDPR Purge Cascades
+    journal_entries = relationship("JournalEntry", back_populates="user", cascade="all, delete-orphan")
+    export_records = relationship("ExportRecord", back_populates="user", cascade="all, delete-orphan")
+    encryption_key = relationship("UserEncryptionKey", uselist=False, back_populates="user", cascade="all, delete-orphan")
+    assessment_results = relationship("AssessmentResult", back_populates="user", cascade="all, delete-orphan")
+    satisfaction_records = relationship("SatisfactionRecord", back_populates="user", cascade="all, delete-orphan")
+    analytics_events = relationship("AnalyticsEvent", back_populates="user", cascade="all, delete-orphan")
+    otps = relationship("OTP", back_populates="user", cascade="all, delete-orphan")
+    scores = relationship("Score", back_populates="user", cascade="all, delete-orphan")
+    responses = relationship("Response", back_populates="user", cascade="all, delete-orphan")
+    user_challenges = relationship("UserChallenge", back_populates="user", cascade="all, delete-orphan")
+
 class UserEncryptionKey(Base):
     """Stores the Master-Key-wrapped Data Encryption Key for Envelope AEAD (#1105)."""
     __tablename__ = 'user_encryption_keys'
@@ -83,6 +95,7 @@ class UserEncryptionKey(Base):
     user_id = Column(Integer, ForeignKey('users.id'), unique=True, index=True, nullable=False)
     wrapped_dek = Column(String, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    user = relationship("User", back_populates="encryption_key")
 
 class NotificationPreference(Base):
     """User preferences for notification channels."""
@@ -280,14 +293,7 @@ class AnalyticsEvent(Base):
     event_data = Column(Text, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
     ip_address = Column(String, nullable=True)
-    # Environment separation: development, staging, production
-    environment = Column(String, default="development", nullable=False, index=True)
-    user = relationship("User")
-    
-    __table_args__ = (
-        Index('idx_analytics_env_timestamp', 'environment', 'timestamp'),
-        Index('idx_analytics_env_event', 'environment', 'event_name'),
-    )
+    user = relationship("User", back_populates="analytics_events")
 
 # ==========================================
 # CQRS READ MODELS (ISSUE-1124)
@@ -351,7 +357,7 @@ class OTP(Base):
     attempts = Column(Integer, default=0)
     is_locked = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
-    user = relationship("User")
+    user = relationship("User", back_populates="otps")
 
 class PasswordHistory(Base):
     """Stores hashed previous passwords to prevent reuse.
@@ -518,8 +524,7 @@ class Score(Base):
     timestamp = Column(String, default=lambda: datetime.utcnow().isoformat(), index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
     session_id = Column(String, nullable=True, index=True)
-    # Environment separation: development, staging, production
-    environment = Column(String, default="development", nullable=False, index=True)
+    user = relationship("User", back_populates="scores")
     
     __table_args__ = (
         Index('idx_score_age_score', 'age', 'total_score'),
@@ -538,6 +543,7 @@ class Response(Base):
     detailed_age_group = Column(String, nullable=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
     session_id = Column(String, nullable=True, index=True)
+    user = relationship("User", back_populates="responses")
     
     __table_args__ = (
         CheckConstraint('response_value >= 1 AND response_value <= 5', name='ck_response_value_range'),
@@ -590,7 +596,7 @@ class JournalEntry(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     privacy_level = Column(String, default="private", index=True)
     word_count = Column(Integer, default=0)
-    archive_pointer = Column(String, nullable=True, index=True) # S3/Blob URI (#1125)
+    user = relationship("User", back_populates="journal_entries")
 
 class SatisfactionRecord(Base):
     __tablename__ = 'satisfaction_records'
@@ -602,6 +608,7 @@ class SatisfactionRecord(Base):
     satisfaction_score = Column(Integer, nullable=False) # 1-5
     context = Column(Text, nullable=True)
     timestamp = Column(String, default=lambda: datetime.now(UTC).isoformat())
+    user = relationship("User", back_populates="satisfaction_records")
     
     __table_args__ = (
         Index('idx_satisfaction_user_time', 'user_id', 'timestamp'),
@@ -637,7 +644,7 @@ class AssessmentResult(Base):
     journal_entry_id = Column(Integer, ForeignKey('journal_entries.id'), nullable=True, index=True)
     is_deleted = Column(Boolean, default=False, nullable=False, index=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
-    user = relationship("User")
+    user = relationship("User", back_populates="assessment_results")
     __table_args__ = (
         Index('idx_assessment_user_type', 'user_id', 'assessment_type'),
     )
@@ -690,30 +697,47 @@ def capture_audit_events(session, flush_context):
         session._audit_buffer = []
 
     for obj in session.new:
-        if isinstance(obj, Base):
+        if isinstance(obj, Base) and obj.__class__.__name__ not in ('OutboxEvent', 'AuditLog', 'AuditSnapshot'):
+            # PR 1134: Avoid recursive infrastructure auditing.
+            payload = {}
+            for c in obj.__table__.columns:
+                if not c.primary_key and c.name in obj.__dict__:
+                    val = obj.__dict__.get(c.name)
+                    if isinstance(val, (datetime, timedelta)):
+                        val = str(val)
+                    payload[c.name] = val
+                    
             session._audit_buffer.append({
                 'type': 'CREATED',
                 'entity': obj.__class__.__name__,
-                'payload': {c.name: getattr(obj, c.name) for c in obj.__table__.columns},
-                'timestamp': datetime.utcnow().isoformat()
+                'payload': payload,
+                'timestamp': datetime.now(UTC).isoformat()
             })
     
     for obj in session.dirty:
-        if isinstance(obj, Base):
+        if isinstance(obj, Base) and obj.__class__.__name__ not in ('OutboxEvent', 'AuditLog', 'AuditSnapshot'):
+            payload = {}
+            for c in obj.__table__.columns:
+                if not c.primary_key and c.name in obj.__dict__:
+                    val = obj.__dict__.get(c.name)
+                    if isinstance(val, (datetime, timedelta)):
+                        val = str(val)
+                    payload[c.name] = val
+
             session._audit_buffer.append({
                 'type': 'UPDATED',
                 'entity': obj.__class__.__name__,
-                'payload': {c.name: getattr(obj, c.name) for c in obj.__table__.columns},
-                'timestamp': datetime.utcnow().isoformat()
+                'payload': payload,
+                'timestamp': datetime.now(UTC).isoformat()
             })
 
     for obj in session.deleted:
-        if isinstance(obj, Base):
+        if isinstance(obj, Base) and obj.__class__.__name__ not in ('OutboxEvent', 'AuditLog', 'AuditSnapshot'):
              session._audit_buffer.append({
                 'type': 'DELETED',
-                 'entity': obj.__class__.__name__,
-                 'entity_id': getattr(obj, 'id', None),
-                 'timestamp': datetime.utcnow().isoformat()
+                'entity': obj.__class__.__name__,
+                'entity_id': obj.__dict__.get('id'), # Safe access
+                'timestamp': datetime.now(UTC).isoformat()
              })
 
 @event.listens_for(Session, 'before_commit')
@@ -721,19 +745,20 @@ def flush_audit_to_outbox(session):
     """Transactional Outbox: Write collected audit events to the outbox table inside the same transaction."""
     if hasattr(session, '_audit_buffer') and session._audit_buffer:
         try:
-            from sqlalchemy import insert
-            stmt = OutboxEvent.__table__.insert().values([
-                {
-                    "topic": "audit_trail",
-                    "payload": event_data,
-                    "status": "pending",
-                    "created_at": datetime.utcnow()
-                }
+            # Fix #1134: Use session.add to avoid sync execute in async session
+            events = [
+                OutboxEvent(
+                    topic="audit_trail",
+                    payload=event_data,
+                    status="pending",
+                    created_at=datetime.now(UTC)
+                )
                 for event_data in session._audit_buffer
-            ])
-            session.execute(stmt)
+            ]
+            session.add_all(events)
+            # No need to manual execute; SQLAlchemy will flush these as part of the commit
         except Exception as e:
-            logger.error(f"Failed to insert audit outbox events: {e}")
+            logger.error(f"Failed to queue audit outbox events: {e}")
 
 @event.listens_for(Session, 'after_commit')
 def cleanup_audit_buffer(session):
@@ -978,6 +1003,7 @@ class ExportRecord(Base):
     status = Column(String, default='completed', nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     expires_at = Column(DateTime, nullable=True)
+    user = relationship("User", back_populates="export_records")
 
     user = relationship("User")
 
@@ -1060,7 +1086,7 @@ class UserChallenge(Base):
     progress = Column(Text) # JSON string
     completed_at = Column(DateTime, nullable=True)
     
-    user = relationship("User")
+    user = relationship("User", back_populates="user_challenges")
     challenge = relationship("Challenge")
 
 
@@ -1209,22 +1235,34 @@ from sqlalchemy import event
 @event.listens_for(User, 'after_update')
 def receive_after_update_user(mapper, connection, target):
     from api.services.cache_service import cache_service
-    cache_service.sync_invalidate(f"user_rbac:{target.username}")
-    cache_service.sync_invalidate(f"user_rbac_id:{target.id}")
+    username = target.__dict__.get('username')
+    user_id = target.__dict__.get('id')
+    if username:
+        cache_service.sync_invalidate(f"user_rbac:{username}")
+    if user_id:
+        cache_service.sync_invalidate(f"user_rbac_id:{user_id}")
 
 @event.listens_for(User, 'after_delete')
 def receive_after_delete_user(mapper, connection, target):
     from api.services.cache_service import cache_service
-    cache_service.sync_invalidate(f"user_rbac:{target.username}")
-    cache_service.sync_invalidate(f"user_rbac_id:{target.id}")
+    username = target.__dict__.get('username')
+    user_id = target.__dict__.get('id')
+    if username:
+        cache_service.sync_invalidate(f"user_rbac:{username}")
+    if user_id:
+        cache_service.sync_invalidate(f"user_rbac_id:{user_id}")
 
 @event.listens_for(UserSettings, 'after_update')
 def receive_after_update_user_settings(mapper, connection, target):
     from api.services.cache_service import cache_service
-    cache_service.sync_invalidate(f"user_settings:{target.user_id}")
+    user_id = target.__dict__.get('user_id')
+    if user_id:
+        cache_service.sync_invalidate(f"user_settings:{user_id}")
 
 @event.listens_for(NotificationPreference, 'after_update')
 def receive_after_update_notif_pref(mapper, connection, target):
     from api.services.cache_service import cache_service
-    cache_service.sync_invalidate(f"notif_pref:{target.user_id}")
+    user_id = target.__dict__.get('user_id')
+    if user_id:
+        cache_service.sync_invalidate(f"notif_pref:{user_id}")
 

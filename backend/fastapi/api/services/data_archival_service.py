@@ -21,6 +21,7 @@ from ..models import (
     AssessmentResult, Response, UserSession
 )
 from ..utils.file_validation import sanitize_filename
+from .scrubber_service import scrubber_service
 
 logger = logging.getLogger("api.archival")
 
@@ -171,34 +172,24 @@ class DataArchivalService:
         Returns the number of users purged.
         """
         threshold_date = datetime.now(UTC) - timedelta(days=30)
-        
-        stmt = select(User).where(
+        stmt = select(User.id).where(
             User.is_deleted == True,
             User.deleted_at <= threshold_date
         )
         result = await db.execute(stmt)
-        users_to_purge = result.scalars().all()
+        user_ids_to_purge = result.scalars().all()
         
         count = 0
-        for user in users_to_purge:
-            # SQLAlchemy will handle cascade="all, delete-orphan" for related objects
-            # defined in the relationships. For any unmapped/manual orphaned blobs
-            # (e.g. S3 objects, local files) we would add cleanup code here.
+        for user_id in user_ids_to_purge:
+            try:
+                # Use Distributed Scrubber to purge all stores (Storage, SQL, Vector)
+                await scrubber_service.scrub_user(db, user_id)
+                count += 1
+                logger.info(f"GDPR: Hard purge completed for user {user_id}")
+            except Exception as e:
+                logger.error(f"Failed to hard purge user {user_id}: {e}")
+                continue
             
-            # Example: Clean up pending exports on disk
-            export_stmt = select(ExportRecord).where(ExportRecord.user_id == user.id)
-            exp_res = await db.execute(export_stmt)
-            exports = exp_res.scalars().all()
-            for exp in exports:
-                if os.path.exists(exp.file_path):
-                    try:
-                        os.remove(exp.file_path)
-                    except: pass
-            
-            await db.delete(user)
-            count += 1
-            
-        await db.commit()
         return count
 
     @staticmethod
