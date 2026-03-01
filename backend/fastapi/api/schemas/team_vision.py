@@ -1,9 +1,10 @@
 """
 Pydantic schemas for Team Vision collaborative document management.
-File: api/schemas/team_vision.py  (matches PR description references)
+Isolated in team_vision.py to match PR references and router imports.
 """
 from pydantic import BaseModel, Field
 from typing import Optional
+from datetime import datetime
 
 
 class TeamVisionBase(BaseModel):
@@ -18,13 +19,13 @@ class TeamVisionCreate(TeamVisionBase):
 class TeamVisionUpdate(TeamVisionBase):
     version: int = Field(
         ...,
-        description="Fencing token — the current document version. Must match the DB version exactly."
+        description="Fencing token (current version) to prevent stale/lost updates"
     )
     lock_value: str = Field(
         ...,
         description=(
-            "Exact lock token returned by POST /lock. "
-            "Validated against the active Redis lease value before the write is accepted."
+            "The exact lock token returned by /lock endpoint. "
+            "Must match the active lease value in Redis for the write to proceed."
         )
     )
 
@@ -35,25 +36,27 @@ class TeamVisionResponse(TeamVisionBase):
     version: int
     updated_at: str
     last_modified_by_id: Optional[int] = None
-    lock_status: Optional[dict] = None  # Tells the UI who holds the lock (for read-only mode)
+    lock_status: Optional[dict] = None  # Populated at read-time with current lock holder info
 
 
 class LockAcquireResponse(BaseModel):
     success: bool
-    lock_value: Optional[str] = None  # Client must store and re-send on every PUT and /renew
+    lock_value: Optional[str] = None  # Token the client must store and re-send on update
     message: str
-    expires_in: int = 30  # TTL in seconds
+    expires_in: int = 30  # Seconds until lock TTL expires
 
 
 class LockReleaseRequest(BaseModel):
-    lock_value: str = Field(..., description="Exact token to verify ownership before releasing")
+    lock_value: str = Field(..., description="The exact lock token to verify ownership before releasing")
 
 
 class LockRenewRequest(BaseModel):
-    lock_value: str = Field(..., description="Exact token to verify ownership before renewing TTL")
+    lock_value: str = Field(..., description="The exact lock token to verify ownership before renewing")
     extend_by_seconds: int = Field(
-        default=30, ge=5, le=300,
-        description="Seconds to extend the lock TTL. Client should call every ~20s when TTL=30s."
+        default=30,
+        ge=5,
+        le=300,
+        description="Number of seconds to extend the lock TTL (watchdog/heartbeat)"
     )
 
 

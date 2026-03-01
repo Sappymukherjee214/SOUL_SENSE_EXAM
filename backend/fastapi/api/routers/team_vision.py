@@ -1,6 +1,6 @@
 """API router for Team Vision collaborative document management (#1178)."""
 import logging
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Annotated
@@ -26,23 +26,28 @@ async def get_team_vision(
     current_user: Annotated[User, Depends(get_current_user)] = None
 ):
     """
-    Fetches a Team Vision document.
-    Response includes lock_status so the UI can switch to Read-Only mode
-    when the document is held by another user.
+    Fetches a document and its current lock status.
+    The UI uses lock_status to switch between Edit and Read-Only modes.
     """
     stmt = select(TeamVisionDocument).filter(TeamVisionDocument.id == document_id)
     res = await db.execute(stmt)
     doc = res.scalar_one_or_none()
+
     if not doc:
         raise HTTPException(status_code=404, detail="Team Vision Document not found")
 
     lock_info = await redlock_service.get_lock_info(str(document_id))
+
     response_dict = doc.to_dict()
-    # Expose only user_id + expires_in publicly — do NOT expose lock_value in GET
-    response_dict["lock_status"] = (
-        {"user_id": lock_info["user_id"], "expires_in": lock_info["expires_in"]}
-        if lock_info else None
-    )
+    # Strip the internal lock_value from public response (only expose user_id + expires_in)
+    if lock_info:
+        response_dict["lock_status"] = {
+            "user_id": lock_info["user_id"],
+            "expires_in": lock_info["expires_in"]
+        }
+    else:
+        response_dict["lock_status"] = None
+
     return TeamVisionResponse(**response_dict)
 
 
@@ -53,31 +58,27 @@ async def acquire_vision_lock(
     current_user: Annotated[User, Depends(get_current_user)] = None
 ):
     """
-    Acquires an exclusive edit lock using single-instance Redis locking
-    (SET NX EX). Returns a `lock_value` token that the client must:
-      1. Store locally.
-      2. Send with every PUT /update call.
-      3. Send with every POST /renew heartbeat call.
-      4. Send with the POST /unlock call when done.
+    Acquires an exclusive edit lock for the document using single-instance
+    Redis locking (SET NX EX). Returns a `lock_value` token the client MUST
+    store and present on every subsequent PUT or /renew call.
 
-    Returns success=False (200) if another user currently holds the lock.
+    Returns 200 with success=False if another user currently holds the lock.
     """
     success, lock_val = await redlock_service.acquire_lock(
         str(document_id), current_user.id, ttl_seconds
     )
+
     if not success:
         return LockAcquireResponse(
             success=False,
-            message="Document is currently locked by another user.",
+            message="Document is currently being edited by another user.",
             expires_in=0
         )
+
     return LockAcquireResponse(
         success=True,
         lock_value=lock_val,
-        message=(
-            "Lock acquired. Store lock_value — send it with every PUT update "
-            "and POST /renew (heartbeat) call to keep the lease alive."
-        ),
+        message="Lock acquired. Store the lock_value — you must send it with every update and /renew call.",
         expires_in=ttl_seconds
     )
 
@@ -89,23 +90,25 @@ async def renew_vision_lock(
     current_user: Annotated[User, Depends(get_current_user)] = None
 ):
     """
-    Watchdog / Heartbeat endpoint — extends the TTL of an active lock.
+    Watchdog / Heartbeat endpoint.
+    Extends the TTL of an active lock so long editing sessions do not
+    silently lose their lock mid-edit. The client should call this every
+    ~20 seconds (when the default TTL is 30 seconds).
 
-    Client contract:
-      - Call this every ~20s when the default lock TTL is 30s.
-      - If this returns 403, your lock has expired — re-acquire before continuing.
-
-    Validates the exact lock_value token atomically via Lua script before
-    extending the TTL (TOCTOU-safe). Returns 403 on token mismatch or expiry.
+    The lock_value token is validated atomically via a Lua script before
+    the TTL is extended, preventing any other user from hijacking the lease.
+    Returns 403 if the token is invalid or the lock already expired.
     """
     success = await redlock_service.renew_lock(
         str(document_id), req.lock_value, req.extend_by_seconds
     )
+
     if not success:
         raise HTTPException(
             status_code=403,
-            detail="Lock renewal failed: invalid token or lock already expired. Re-acquire the lock."
+            detail="Lock renewal failed: invalid token or lock has already expired."
         )
+
     return LockRenewResponse(
         success=True,
         message=f"Lock extended by {req.extend_by_seconds}s.",
@@ -120,15 +123,14 @@ async def release_vision_lock(
     current_user: Annotated[User, Depends(get_current_user)] = None
 ):
     """
-    Releases the lock using the exact lock_value token.
-    Lua-atomic compare-and-delete ensures only the owner can release.
-    Returns 403 on token mismatch or if the lock already expired.
+    Releases the lock using the exact lock_value token (Lua-script-atomic,
+    TOCTOU-safe). Returns 403 if the token is invalid or the lock expired.
     """
     success = await redlock_service.release_lock(str(document_id), req.lock_value)
     if not success:
         raise HTTPException(
             status_code=403,
-            detail="Release failed: invalid token or lock already expired."
+            detail="Failed to release lock: invalid token or lock already expired."
         )
     return {"message": "Lock released successfully."}
 
@@ -144,68 +146,66 @@ async def update_team_vision(
     Saves changes to a Team Vision document.
     Enforces TWO independent safety layers:
 
-    Layer 1 — Exact Lock Token Check:
-        update_data.lock_value must match the active Redis lease value exactly.
-        This is stricter than a user-id check: it proves the caller holds this
-        specific lease instance (not just any lock for that user).
+    Layer 1 — Lock Token Check (Exact lease-value equality):
+        The `lock_value` in the request must match the active Redis lease value
+        exactly. This is stricter than user-id-only checks and proves the caller
+        still holds the specific lease they acquired.
 
-    Layer 2 — Fencing Token (version):
-        update_data.version must match doc.version in the database.
-        Even if a lock expires and a race occurs, the version mismatch prevents
-        any stale write from landing. Returns 409 Conflict on mismatch.
+    Layer 2 — Fencing Token (Monotonic version check):
+        The `version` in the request must match the current DB version.
+        Even if a lock expires and is acquired by someone else, the version
+        mismatch catches any stale write attempt (final safety net).
     """
-    # --- LAYER 1: Exact lock_value token equality (reviewer gap #2 fix) ---
+    # --- LAYER 1: Exact lock_value equality (not just user_id) ---
     lock_info = await redlock_service.get_lock_info(str(document_id))
 
     if not lock_info:
         raise HTTPException(
-            status_code=423,
-            detail="No active lock found for this document. Acquire a lock before editing."
+            status_code=423,  # Locked
+            detail="No active lock found. Acquire the lock before editing."
         )
 
-    # Exact token equality — not just user_id comparison
+    # Validate exact token match (reviewer gap #2 fix)
     if lock_info["lock_value"] != update_data.lock_value:
         raise HTTPException(
             status_code=403,
-            detail=(
-                "Lock token mismatch. Your lease may have expired or been "
-                "superseded by another session. Re-acquire the lock."
-            )
+            detail="Lock token mismatch. Your lease may have expired or been acquired by another session."
         )
 
-    # Defence-in-depth: embedded user_id in token must also match
+    # Sanity-check: the token's embedded user_id must also match (defence-in-depth)
     if lock_info["user_id"] != current_user.id:
         raise HTTPException(
             status_code=403,
             detail="You do not own the current lock on this document."
         )
 
-    # --- Fetch record ---
+    # --- Fetch current record ---
     stmt = select(TeamVisionDocument).filter(TeamVisionDocument.id == document_id)
     res = await db.execute(stmt)
     doc = res.scalar_one_or_none()
+
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")
 
-    # --- LAYER 2: Fencing Token / version check ---
+    # --- LAYER 2: Fencing Token (version must match exactly) ---
     if doc.version != update_data.version:
         raise HTTPException(
-            status_code=409,
+            status_code=409,  # Conflict
             detail=(
-                f"Stale update rejected. Server version={doc.version}, "
-                f"you sent version={update_data.version}. "
-                "Refresh the document and retry."
+                f"Stale update rejected. Server version is {doc.version}, "
+                f"you sent {update_data.version}. Refresh the document and retry."
             )
         )
 
-    # --- Perform update and increment fencing token monotonically ---
+    # --- Perform update and increment fencing token ---
     doc.title = update_data.title
     doc.content = update_data.content
-    doc.version += 1           # Next writer must present this new value
+    doc.version += 1  # Monotonic increment — next writer must present this new value
     doc.last_modified_by_id = current_user.id
 
     await db.commit()
     await db.refresh(doc)
+
     return TeamVisionResponse(**doc.to_dict())
 
 
