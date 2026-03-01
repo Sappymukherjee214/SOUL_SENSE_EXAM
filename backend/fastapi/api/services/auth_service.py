@@ -20,6 +20,7 @@ from ..constants.errors import ErrorCode
 from ..constants.security_constants import BCRYPT_ROUNDS, REFRESH_TOKEN_EXPIRE_DAYS
 from ..exceptions import AuthException
 from .audit_service import AuditService
+from ..utils.db_transaction import transactional, retry_on_transient
 
 settings = get_settings()
 
@@ -454,34 +455,38 @@ class AuthService:
 
         try:
             hashed_pw = self.hash_password(user_data.password)
-            new_user = User(
-                username=username_lower,
-                password_hash=hashed_pw
-            )
-            self.db.add(new_user)
-            self.db.flush()
 
-            new_profile = PersonalProfile(
-                user_id=new_user.id,
-                email=email_lower,
-                first_name=user_data.first_name,
-                last_name=user_data.last_name,
-                age=user_data.age,
-                gender=user_data.gender
-            )
-            self.db.add(new_profile)
-            
-            self.db.commit()
+            # ── ATOMIC WRITE ─────────────────────────────────────────────────
+            # User + PersonalProfile must both succeed or neither persists.
+            # A failure mid-way (e.g. FK violation, DB crash) would otherwise
+            # leave an orphan User row with no associated PersonalProfile.
+            with transactional(self.db):
+                new_user = User(
+                    username=username_lower,
+                    password_hash=hashed_pw
+                )
+                self.db.add(new_user)
+                self.db.flush()  # Populate new_user.id before creating profile
+
+                new_profile = PersonalProfile(
+                    user_id=new_user.id,
+                    email=email_lower,
+                    first_name=user_data.first_name,
+                    last_name=user_data.last_name,
+                    age=user_data.age,
+                    gender=user_data.gender
+                )
+                self.db.add(new_profile)
+            # ─────────────────────────────────────────────────────────────────
+
             self.db.refresh(new_user)
-            
+
             # In a real app, send "Welcome/Verify" email here
             return True, new_user, "Registration successful. Please verify your email."
         except AttributeError as e:
-            self.db.rollback()
             logger.error(f"Registration Model Mismatch: {e}")
             return False, None, "A configuration error occurred on the server."
         except Exception as e:
-            self.db.rollback()
             import traceback
             logger.error(f"Registration failed error: {str(e)}")
             logger.error(f"Traceback: {traceback.format_exc()}")
@@ -547,21 +552,23 @@ class AuthService:
             )
         
         try:
-            # Token Rotation: Invalidate the current one
-            db_token.is_revoked = True
-            
-            # Create new tokens (added to session but not committed yet)
-            access_token = self.create_access_token(data={"sub": user.username})
-            new_refresh_token = self.create_refresh_token(user.id, commit=False)
-            
-            # Atomic commit: both revocation and new token creation
-            self.db.commit()
-            
+            # ── ATOMIC TOKEN ROTATION ────────────────────────────────────────
+            # Revocation of the old token and creation of the new one must be
+            # committed as a single unit.  If the commit fails after revocation
+            # but before the new token is stored, the user would be logged out
+            # with no valid refresh token to recover from.
+            with transactional(self.db):
+                # Revoke current token
+                db_token.is_revoked = True
+
+                # Create new tokens (added to session but not committed yet)
+                access_token = self.create_access_token(data={"sub": user.username})
+                new_refresh_token = self.create_refresh_token(user.id, commit=False)
+            # ─────────────────────────────────────────────────────────────────
+
             return access_token, new_refresh_token
-            
+
         except Exception as e:
-            # Rollback on any error to maintain data integrity
-            self.db.rollback()
             logger.error(f"Failed to rotate refresh token for user {db_token.user_id}: {str(e)}")
             raise AuthException(
                 code=ErrorCode.AUTH_TOKEN_ROTATION_FAILED,

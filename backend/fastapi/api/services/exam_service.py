@@ -7,6 +7,7 @@ from ..schemas import ExamResponseCreate, ExamResultCreate
 from ..models import User, Score, Response
 from .db_service import get_db
 from .gamification_service import GamificationService
+from ..utils.db_transaction import transactional, retry_on_transient
 try:
     from .crypto import EncryptionManager
     CRYPTO_AVAILABLE = True
@@ -58,48 +59,53 @@ class ExamService:
             raise e
 
     @staticmethod
+    @retry_on_transient(retries=3)
     def save_score(db: Session, user: User, session_id: str, data: ExamResultCreate):
         """
-        Saves the final exam score.
+        Saves the final exam score atomically together with gamification updates.
         Encrypts reflection_text if crypto is available.
+
+        The Score row and all GamificationService side-effects are committed in
+        a single transaction so that a partial failure cannot leave the database
+        in an inconsistent state (e.g. score saved but XP not awarded, or vice-versa).
         """
         try:
-            # Encrypt reflection text for privacy
+            # Encrypt reflection text for privacy (before the transaction)
             reflection = data.reflection_text
             if CRYPTO_AVAILABLE and reflection:
                 try:
                     reflection = EncryptionManager.encrypt(reflection)
                 except Exception as ce:
                     logger.error(f"Encryption failed for reflection: {ce}")
-                    # Fallback to plain text or empty depending on policy? 
-                    # For now, log error and save plain (or maybe fail safe)
-                    # Let's fallback to plain but log warning
-                    pass
+                    # Fall back to plain text – do not block submission
 
-            new_score = Score(
-                username=user.username,
-                user_id=user.id,
-                age=data.age,
-                total_score=data.total_score,
-                sentiment_score=data.sentiment_score,
-                reflection_text=reflection,
-                is_rushed=data.is_rushed,
-                is_inconsistent=data.is_inconsistent,
-                timestamp=datetime.now(UTC).isoformat(),
-                detailed_age_group=data.detailed_age_group,
-                session_id=session_id
-            )
-            db.add(new_score)
-            db.commit()
-            db.refresh(new_score)
-            
-            # Trigger Gamification
-            try:
+            # ── ATOMIC WRITE ─────────────────────────────────────────────────
+            # Score write + all GamificationService mutations must succeed
+            # atomically.  If gamification raises an exception the score row
+            # is also rolled back, preventing orphan/inconsistent records.
+            with transactional(db):
+                new_score = Score(
+                    username=user.username,
+                    user_id=user.id,
+                    age=data.age,
+                    total_score=data.total_score,
+                    sentiment_score=data.sentiment_score,
+                    reflection_text=reflection,
+                    is_rushed=data.is_rushed,
+                    is_inconsistent=data.is_inconsistent,
+                    timestamp=datetime.now(UTC).isoformat(),
+                    detailed_age_group=data.detailed_age_group,
+                    session_id=session_id
+                )
+                db.add(new_score)
+                db.flush()  # Assign new_score.id before gamification
+
                 GamificationService.award_xp(db, user.id, 100, "Assessment completion")
                 GamificationService.update_streak(db, user.id, "assessment")
                 GamificationService.check_achievements(db, user.id, "assessment")
-            except Exception as e:
-                logger.error(f"Gamification update failed for user_id={user.id}: {e}")
+            # ─────────────────────────────────────────────────────────────────
+
+            db.refresh(new_score)
 
             logger.info(f"Exam saved successfully", extra={
                 "user_id": user.id,
@@ -108,14 +114,13 @@ class ExamService:
                 "sentiment_score": data.sentiment_score
             })
             return new_score
-            
+
         except Exception as e:
             logger.error(f"Failed to save exam score", extra={
                 "user_id": user.id,
                 "session_id": session_id,
                 "error": str(e)
             }, exc_info=True)
-            db.rollback()
             raise e
 
     @staticmethod
