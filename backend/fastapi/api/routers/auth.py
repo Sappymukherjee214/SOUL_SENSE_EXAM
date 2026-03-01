@@ -247,6 +247,9 @@ async def verify_2fa(
     if old_refresh_token:
         auth_service.revoke_refresh_token(old_refresh_token)
     
+    # Verify 2FA and get user
+    user = auth_service.verify_2fa_login(login_request.pre_auth_token, login_request.code, ip_address=ip)
+    
     # Issue Tokens
     access_token = auth_service.create_access_token(
         data={"sub": user.username}
