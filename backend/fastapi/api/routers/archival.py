@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from ..services.db_service import get_db, AsyncSessionLocal
 from ..services.data_archival_service import DataArchivalService
 from ..schemas.archival import ArchiveRequest, ArchiveResponse, PurgeResponse, UndoPurgeResponse
-from .auth import get_current_user
+from .auth import get_current_user, require_admin
 from ..models import User, ExportRecord
 
 router = APIRouter(tags=["GDPR Archival & Purge"])
@@ -157,3 +157,15 @@ async def download_secure_archive(
         filename=os.path.basename(export.file_path),
         media_type="application/zip"
     )
+
+@router.post("/purge/scrub", dependencies=[Depends(require_admin)])
+async def trigger_scrub_worker(
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """
+    Manually triggers the GDPR hard-purge worker.
+    Purges all users whose 30-day grace period has expired across SQL, S3, and Vector stores.
+    Admin only.
+    """
+    count = await DataArchivalService.execute_hard_purges(db)
+    return {"message": f"Scrubbing complete. {count} users permanently purged.", "count": count}

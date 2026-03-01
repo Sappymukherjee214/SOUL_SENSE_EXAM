@@ -346,3 +346,17 @@ def reindex_all_entries_task(user_id: Optional[int] = None):
 
     return run_async(_do_reindex())
 
+@celery_app.task(name="api.celery_tasks.gdpr_scrub_worker_task")
+def gdpr_scrub_worker_task():
+    """
+    Periodic job to scrub all trace data for users marked as deleted > 30 days.
+    Fulfills the "Right to be Forgotten" (GDPR #1134).
+    """
+    async def _execute_purge():
+        from api.services.data_archival_service import DataArchivalService
+        async with AsyncSessionLocal() as db:
+            count = await DataArchivalService.execute_hard_purges(db)
+            return count
+
+    return run_async(_execute_purge())
+
