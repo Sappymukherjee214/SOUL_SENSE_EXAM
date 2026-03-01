@@ -63,8 +63,8 @@ celery_app.conf.beat_schedule = {
         'task': 'api.celery_tasks.process_outbox_events',
         'schedule': 5.0, # Execute every 5 seconds
     },
-    'archive-stale-journals-weekly': {
-        'task': 'api.celery_tasks.archive_stale_journals',
-        'schedule': crontab(hour=3, minute=0, day_of_week='sun'), # Sunday at 3 AM (#1125)
+    'morning-prewarming-task': {
+        'task': 'api.celery_tasks.morning_prewarming_orchestrator',
+        'schedule': 900.0, # Execute every 15 minutes to catch time zone windows
     },
 }

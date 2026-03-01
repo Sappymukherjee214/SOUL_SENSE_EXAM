@@ -489,6 +489,7 @@ class UserSettings(Base):
     sound_enabled = Column(Boolean, default=True)
     notifications_enabled = Column(Boolean, default=True)
     language = Column(String, default="en")
+    timezone = Column(String, default="UTC", nullable=False) # Supporting Issue #1177: Time-zone-aware pre-warming
     
     # Crisis support settings (Integration with emotional support features)
     crisis_support_preference = Column(Boolean, default=True)
@@ -719,6 +720,43 @@ class AssessmentResult(Base):
     __table_args__ = (
         Index('idx_assessment_user_type', 'user_id', 'assessment_type'),
     )
+
+
+class TeamVisionDocument(Base):
+    """
+    Shared document for 'Team Emotional Intelligence' feature (#1178).
+    Supports distributed locking and fencing tokens to prevent lost updates.
+    """
+    __tablename__ = 'team_vision_documents'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(String(100), index=True, nullable=False) # Simplified team grouping
+    title = Column(String(200), nullable=False)
+    content = Column(Text, nullable=False)
+    
+    # Fencing Token (monotonically increasing version)
+    version = Column(Integer, default=1, nullable=False)
+    
+    # Audit tracking
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    last_modified_by_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    
+    last_modified_by = relationship("User")
+
+    __table_args__ = (
+        Index('idx_team_vision_lookup', 'team_id', 'id'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "team_id": self.team_id,
+            "title": self.title,
+            "content": self.content,
+            "version": self.version,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "last_modified_by_id": self.last_modified_by_id
+        }
 
 
 # ==================== DATABASE PERFORMANCE OPTIMIZATIONS ====================

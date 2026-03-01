@@ -4,7 +4,7 @@ from ...routers import (
     auth, users, profiles, assessments, 
     questions, analytics, journal, health,
     settings_sync, community, contact, exams, export, deep_dive,
-    gamification, audit, tasks, consent, surveys, advanced_analytics, archival, notifications, flags, search
+    gamification, audit, tasks, consent, surveys, advanced_analytics, archival, notifications, flags, search, team_vision
 )
 
 api_router = APIRouter()
@@ -14,6 +14,7 @@ api_router.include_router(health.router, tags=["Health"])
 
 # Domain routers with explicit prefixes
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+api_router.include_router(team_vision.router, prefix="/team-vision", tags=["Team EI - Vision Documents"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 api_router.include_router(profiles.router, prefix="/profiles", tags=["Profiles"])
 api_router.include_router(assessments.router, prefix="/assessments", tags=["Assessments"])
