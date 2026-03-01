@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     # Generate a unique instance ID for this server session
     # All JWTs will include this ID; tokens from previous instances are rejected
     app.state.server_instance_id = str(uuid.uuid4())
-    print(f"[OK] Server instance ID: {app.state.server_instance_id}")
+    logger.info(f"Server instance ID: {app.state.server_instance_id}")
     
     # Initialize database tables
     try:
@@ -275,7 +275,7 @@ def create_app() -> FastAPI:
     
     # Host Header Validation
     from fastapi.middleware.trustedhost import TrustedHostMiddleware
-    print(f"[SECURITY] Loading TrustedHostMiddleware with allowed_hosts: {settings.ALLOWED_HOSTS}")
+    logger.info(f"Loading TrustedHostMiddleware with allowed_hosts: {settings.ALLOWED_HOSTS}")
     app.add_middleware(
         TrustedHostMiddleware, 
         allowed_hosts=settings.ALLOWED_HOSTS
