@@ -142,7 +142,6 @@ class FairReaderWriterLock:
             self._service_writer.notify_all()
 
     @contextmanager
-    @contextmanager
     def read_lock(self, timeout: Optional[float] = None):
         """Context manager for read lock."""
         acquired = self.acquire_read(timeout)

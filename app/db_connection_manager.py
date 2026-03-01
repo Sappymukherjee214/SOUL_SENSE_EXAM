@@ -12,6 +12,7 @@ import logging
 from typing import Optional, Dict, Any, List
 from contextlib import contextmanager
 import os
+from poison_resistant_lock import PoisonResistantRLock, register_lock
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,11 @@ class ConnectionPool:
         self.max_connections = max_connections
         self.timeout = timeout
         self._pool: List[sqlite3.Connection] = []
-        self._lock = threading.RLock()
+        self._lock = PoisonResistantRLock()
         self._closed = False
+
+        # Register lock for monitoring
+        register_lock(self._lock)
 
         # Connection health check
         self._last_health_check = time.time()
