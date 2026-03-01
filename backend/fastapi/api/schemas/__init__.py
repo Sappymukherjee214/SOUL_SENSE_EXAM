@@ -1159,6 +1159,7 @@ class JournalResponse(BaseModel):
     stress_level: Optional[int] = None
     stress_triggers: Optional[str] = None
     daily_schedule: Optional[str] = None
+    similarity: Optional[float] = Field(None, description="Cosine similarity score for semantic search")
 
     model_config = ConfigDict(from_attributes=True)
 
