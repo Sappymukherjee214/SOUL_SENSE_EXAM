@@ -183,13 +183,12 @@ async def lifespan(app: FastAPI):
             app.state.kafka_producer = producer
             print("[OK] Kafka Producer, Audit Consumer, and CQRS Worker initialized")
             
-            # ES Search initialization (#1087)
-            from .services.es_sync import register_es_listeners
+            # ES Search initialization (#1087) — Removed unreliable listener logic
+            # Search Indexing is now handled via Transactional Outbox Pattern (#1146)
             from .services.es_service import get_es_service
-            register_es_listeners()
             es = get_es_service()
             await es.create_index()
-            print("[OK] Elasticsearch Sync Listeners and Index ready")
+            print("[OK] Elasticsearch Index ready (Relay worker active)")
         except Exception as e:
             logger.warning(f"Kafka/Audit initialization failed: {e}")
             print(f"[WARNING] Event-sourced audit trail falling back to mock mode: {e}")
@@ -409,15 +408,13 @@ def create_app() -> FastAPI:
     from .middleware.feature_flags import feature_flag_middleware
     from .middleware.redaction_middleware import redaction_middleware
     
-    # --- Middleware Stack (Outer to Inner) ---
-    # In FastAPI, the LAST middleware added is the FIRST to receive the request.
-    # Logic: 1. RBAC (Auth) -> 2. Quota (Limits) -> 3. CircuitBreaker (Health)
-    
+    # Internal Middlewares (Inner to Outer)
+    # The last one added is the first one receiving the request.
+    # Order: App -> CircuitBreaker -> DynamicQuota -> RBAC
     from .middleware.circuit_breaker_middleware import CircuitBreakerMiddleware
-    app.add_middleware(CircuitBreakerMiddleware) # Executed 3rd
-    app.add_middleware(DynamicQuotaMiddleware)   # Executed 2nd
-    app.add_middleware(BaseHTTPMiddleware, dispatch=rbac_middleware) # Executed 1st
-    
+    app.add_middleware(CircuitBreakerMiddleware)
+    app.add_middleware(DynamicQuotaMiddleware)
+    app.add_middleware(BaseHTTPMiddleware, dispatch=rbac_middleware)
     app.add_middleware(BaseHTTPMiddleware, dispatch=feature_flag_middleware)
 
     # CORS middleware with security hardening

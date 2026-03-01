@@ -1,12 +1,29 @@
 import uuid
 import logging
-import asyncio
 from typing import Optional, Tuple
-from datetime import datetime, UTC
 from ..services.cache_service import cache_service
 from ....clock_skew_monitor import get_clock_monitor
 
 logger = logging.getLogger("api.utils.redlock")
+
+# Lua: atomically release ONLY if caller holds the exact lock token (TOCTOU-safe)
+_RELEASE_LUA = """
+if redis.call("get", KEYS[1]) == ARGV[1] then
+    return redis.call("del", KEYS[1])
+else
+    return 0
+end
+"""
+
+# Lua: atomically renew TTL ONLY if caller holds the exact lock token (watchdog/heartbeat)
+_RENEW_LUA = """
+if redis.call("get", KEYS[1]) == ARGV[1] then
+    return redis.call("expire", KEYS[1], ARGV[2])
+else
+    return 0
+end
+"""
+
 
 class RedlockService:
     """
@@ -21,7 +38,12 @@ class RedlockService:
         self._lock_prefix = "lock:team_vision:"
         self._clock_monitor = get_clock_monitor()
 
-    async def acquire_lock(self, resource_id: str, user_id: int, ttl_seconds: int = 30) -> Tuple[bool, Optional[str]]:
+    def _key(self, resource_id: str) -> str:
+        return f"{self._lock_prefix}{resource_id}"
+
+    async def acquire_lock(
+        self, resource_id: str, user_id: int, ttl_seconds: int = 30
+    ) -> Tuple[bool, Optional[str]]:
         """
         Acquires a lease on a resource with clock skew resistance.
         Returns (success_boolean, lock_value_or_none).
@@ -66,34 +88,52 @@ class RedlockService:
 
     async def release_lock(self, resource_id: str, lock_value: str) -> bool:
         """
-        Releases a lease only if the lock_value matches (proving ownership).
-        Uses Lua script for atomicity.
+        Releases the lease ONLY if the presented lock_value matches the stored token.
+        Uses a Lua script for atomic compare-and-delete (TOCTOU-safe).
+        Returns True on success, False if token mismatch or lock already expired.
         """
         await cache_service.connect()
-        lock_key = f"{self._lock_prefix}{resource_id}"
-        
-        # Lua script to release lock safely
-        lua_script = """
-        if redis.call("get", KEYS[1]) == ARGV[1] then
-            return redis.call("del", KEYS[1])
-        else
-            return 0
-        end
-        """
-        
-        result = await cache_service.redis.eval(lua_script, 1, lock_key, lock_value)
+        result = await cache_service.redis.eval(
+            _RELEASE_LUA, 1, self._key(resource_id), lock_value
+        )
         if result == 1:
-            logger.info(f"[Redlock] Lock RELEASED for resource={resource_id}")
+            logger.info(f"[Lock] RELEASED resource={resource_id}")
             return True
-            
-        logger.error(f"[Redlock] Release FAILED for resource={resource_id} - invalid value or expired")
+        logger.warning(
+            f"[Lock] Release FAILED resource={resource_id} — invalid token or expired"
+        )
+        return False
+
+    async def renew_lock(
+        self, resource_id: str, lock_value: str, extend_by_seconds: int = 30
+    ) -> bool:
+        """
+        Watchdog / Heartbeat: Extends the TTL of an active lease if the
+        caller presents the correct lock_value token.
+
+        Client contract:
+          - Call this endpoint every ~20s when the default TTL is 30s.
+          - If this returns False, the lock has expired — re-acquire before continuing.
+
+        Uses a Lua script for atomic compare-then-expire (TOCTOU-safe).
+        Returns True on success, False if token mismatch or lock already expired.
+        """
+        await cache_service.connect()
+        result = await cache_service.redis.eval(
+            _RENEW_LUA, 1, self._key(resource_id), lock_value, str(extend_by_seconds)
+        )
+        if result == 1:
+            logger.info(f"[Lock] RENEWED resource={resource_id} +{extend_by_seconds}s")
+            return True
+        logger.warning(
+            f"[Lock] Renew FAILED resource={resource_id} — invalid token or expired"
+        )
         return False
 
     async def get_lock_info(self, resource_id: str) -> Optional[dict]:
         """Returns details about who currently holds the lock with clock skew awareness."""
         await cache_service.connect()
-        lock_key = f"{self._lock_prefix}{resource_id}"
-        val = await cache_service.redis.get(lock_key)
+        val = await cache_service.redis.get(self._key(resource_id))
         if not val:
             return None
 
@@ -110,5 +150,6 @@ class RedlockService:
             "clock_state": clock_status,
             "drift_tolerance": self._clock_monitor.get_drift_tolerance_seconds()
         }
+
 
 redlock_service = RedlockService()
