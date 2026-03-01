@@ -190,30 +190,39 @@ class JournalService:
             stress_triggers=stress_triggers,
             daily_schedule=daily_schedule
         )
-        
-        # Transactional Outbox: Write indexing job within the same SQL transaction (#1146)
+
+        # Step 1: Add entry to the session and flush to the DB to obtain a real PK (id).
+        # This is required BEFORE writing the outbox payload, which references entry.id.
+        # Without flush(), entry.id is None and the payload would contain null. (#1176)
+        self.db.add(entry)
+        await self.db.flush()  # Assigns entry.id without committing
+
+        # Step 2: Write outbox event in the SAME transaction so they commit atomically.
+        import uuid as _uuid
         from ..models import OutboxEvent
         self.db.add(OutboxEvent(
             topic="search_indexing",
             payload={
-                "journal_id": entry.id,
+                "event_id": str(_uuid.uuid4()),  # Stable idempotency key for at-least-once delivery
+                "journal_id": entry.id,           # Safe: entry.id is real after flush
                 "action": "upsert",
+                "event_version": 1,               # Explicit version for ES upsert idempotency
                 "timestamp": datetime.now(UTC).isoformat()
             }
         ))
-        
-        # Commit everything atomically
+
+        # Step 3: Commit both entry + outbox atomically.
         try:
             await self.db.commit()
             await self.db.refresh(entry)
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Transaction failed: {e}")
+            logger.error(f"Transaction failed during journal create_entry: {e}")
             raise e
-        
+
         # Attach dynamic fields (non-SQL)
         entry.reading_time_mins = round(entry.word_count / 200, 2)
-        
+
         # Trigger Gamification Post-Commit
         try:
             await GamificationService.award_xp(self.db, u_id, 50, "Journal entry")
@@ -221,8 +230,6 @@ class JournalService:
             await GamificationService.check_achievements(self.db, u_id, "journal")
         except Exception as e:
             logger.debug(f"Post-commit gamification update failed: {e}")
-
-        return entry
 
         return entry
 
@@ -311,18 +318,21 @@ class JournalService:
             if value is not None and hasattr(entry, field):
                 setattr(entry, field, value)
         
-        # Outbox Pattern: Job for indexing if content changed (#1146)
-        # Add to outbox BEFORE committing
+        # Outbox Pattern: Write indexing event in same transaction as the update (#1176).
+        # entry.id is already set (entry was fetched from DB), so no flush needed here.
         if content is not None:
-             from ..models import OutboxEvent
-             self.db.add(OutboxEvent(
-                 topic="search_indexing",
-                 payload={
-                     "journal_id": entry.id,
-                     "action": "upsert",
-                     "timestamp": datetime.now(UTC).isoformat()
-                 }
-             ))
+            import uuid as _uuid
+            from ..models import OutboxEvent
+            self.db.add(OutboxEvent(
+                topic="search_indexing",
+                payload={
+                    "event_id": str(_uuid.uuid4()),  # Stable idempotency key
+                    "journal_id": entry.id,
+                    "action": "upsert",
+                    "event_version": 1,
+                    "timestamp": datetime.now(UTC).isoformat()
+                }
+            ))
 
         await self.db.commit()
         await self.db.refresh(entry)
@@ -339,14 +349,17 @@ class JournalService:
         entry.is_deleted = True
         entry.deleted_at = datetime.now(UTC)
         
-        # Outbox Pattern: Job for removal from search index (#1146)
-        # Added BEFORE committing the soft-delete
+        # Outbox Pattern: Write delete event in same transaction as the soft-delete (#1176).
+        # entry.id is set (fetched from DB), so no flush needed.
+        import uuid as _uuid
         from ..models import OutboxEvent
         self.db.add(OutboxEvent(
             topic="search_indexing",
             payload={
+                "event_id": str(_uuid.uuid4()),  # Stable idempotency key
                 "journal_id": entry.id,
                 "action": "delete",
+                "event_version": 1,
                 "timestamp": datetime.now(UTC).isoformat()
             }
         ))
