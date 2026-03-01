@@ -8,10 +8,12 @@ from api.services.export_service_v2 import ExportServiceV2
 from api.services.background_task_service import BackgroundTaskService, TaskStatus
 from api.services.db_service import AsyncSessionLocal
 from sqlalchemy import select
-from api.models import User, NotificationLog
+from api.config import get_settings_instance
+from api.models import User, NotificationLog, JournalEntry
+from api.services.embedding_service import embedding_service
 from api.services.data_archival_service import DataArchivalService
 import redis
-from api.config import get_settings_instance
+import json
 from api.utils.distributed_lock import require_lock
 
 logger = logging.getLogger(__name__)
@@ -282,4 +284,57 @@ def process_outbox_events(self):
             return processed_count
             
     return run_async(_async_process())
+
+@celery_app.task(bind=True, max_retries=3, acks_late=True)
+def generate_journal_embedding_task(self, journal_entry_id: int):
+    """
+    Celery task to generate a vector embedding for a journal entry.
+    """
+    try:
+        run_async(_execute_journal_embedding(journal_entry_id))
+    except Exception as exc:
+        logger.error(f"Journal Embedding Task Failed for entry {journal_entry_id}: {exc}")
+        backoff_delay = 5 ** (self.request.retries + 1)
+        self.retry(exc=exc, countdown=backoff_delay)
+
+async def _execute_journal_embedding(journal_entry_id: int):
+    from datetime import datetime
+    async with AsyncSessionLocal() as db:
+        stmt = select(JournalEntry).where(JournalEntry.id == journal_entry_id)
+        res = await db.execute(stmt)
+        entry = res.scalar_one_or_none()
+        
+        if not entry:
+            return
+            
+        try:
+            # Generate the embedding
+            # Combine title and content if title exists
+            text_to_embed = f"{entry.title}: {entry.content}" if entry.title else entry.content
+            embedding = await embedding_service.generate_embedding(text_to_embed)
+            
+            if embedding:
+                entry.embedding = embedding
+                entry.embedding_model = embedding_service.model_name
+                entry.last_indexed_at = datetime.utcnow()
+                await db.commit()
+                logger.info(f"Successfully generated embedding for journal entry {journal_entry_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to generate embedding for entry {journal_entry_id}: {e}")
+            raise e
+
+@celery_app.task(name="api.celery_tasks.reindex_all_entries_task")
+def reindex_all_entries_task(user_id: Optional[int] = None):
+    """
+    Background job to re-index all journals for a user or all users.
+    Useful for system-wide migration or model updates.
+    """
+    async def _do_reindex():
+        async with AsyncSessionLocal() as db:
+            from api.services.semantic_search_service import SemanticSearchService
+            count = await SemanticSearchService.reindex_journal_entries(db, user_id)
+            return count
+
+    return run_async(_do_reindex())
 

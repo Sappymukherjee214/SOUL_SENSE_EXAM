@@ -21,6 +21,10 @@ from fastapi import HTTPException, status
 # Import models from models module
 from ..models import JournalEntry, User
 from .gamification_service import GamificationService
+try:
+    from ..celery_tasks import generate_journal_embedding_task
+except ImportError:
+    generate_journal_embedding_task = None
 
 
 # ============================================================================
@@ -202,6 +206,13 @@ class JournalService:
         except Exception as e:
             logger.error(f"Gamification update failed: {e}")
             
+        # Trigger Semantic Vector Embedding
+        if generate_journal_embedding_task:
+            try:
+                generate_journal_embedding_task.delay(entry.id)
+            except Exception as e:
+                logger.error(f"Failed to queue embedding task: {e}")
+
         return entry
 
     async def get_entries(
@@ -295,6 +306,13 @@ class JournalService:
         # Attach dynamic fields
         entry.reading_time_mins = round(entry.word_count / 200, 2)
         
+        # Trigger Semantic Vector Embedding Re-calculation if content changed
+        if content is not None and generate_journal_embedding_task:
+            try:
+                generate_journal_embedding_task.delay(entry.id)
+            except Exception as e:
+                logger.error(f"Failed to queue embedding task: {e}")
+
         return entry
 
     async def delete_entry(self, entry_id: int, current_user: User) -> bool:
