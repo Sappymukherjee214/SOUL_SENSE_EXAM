@@ -128,6 +128,12 @@ async def submit_exam(
         },
     )
 
+    # ------------------------------------------------------------------
+    # Mark session as SUBMITTED if not a draft
+    # ------------------------------------------------------------------
+    if not payload.is_draft:
+        ExamService.mark_as_submitted(db, current_user.id, payload.session_id)
+
     return {
         "status": "accepted",
         "session_id": payload.session_id,
