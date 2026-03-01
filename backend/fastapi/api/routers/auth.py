@@ -198,6 +198,21 @@ async def login(
         response.status_code = status.HTTP_202_ACCEPTED
         return TwoFactorAuthRequiredResponse(pre_auth_token=pre_auth_token)
 
+    # PR 10: Session Fixation Protection - Revoke any existing session cookie
+    old_refresh_token = request.cookies.get("refresh_token")
+    if old_refresh_token:
+        auth_service.revoke_refresh_token(old_refresh_token)
+
+    # Standard Login
+    access_token = auth_service.create_access_token(
+        data={"sub": user.username}
+    )
+    
+    refresh_token = auth_service.create_refresh_token(user.id)
+    has_multiple_sessions = auth_service.has_multiple_active_sessions(user.id)
+
+    
+    # Set refresh token in HttpOnly cookie with security flags from settings
     access_token = auth_service.create_access_token(data={"sub": user.username, "tid": str(user.tenant_id) if user.tenant_id else None})
     refresh_token = await auth_service.create_refresh_token(user.id)
     has_multiple_sessions = await auth_service.has_multiple_active_sessions(user.id)
@@ -206,8 +221,8 @@ async def login(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=settings.is_production, 
-        samesite="lax",
+        secure=settings.cookie_secure, 
+        samesite=settings.cookie_samesite,
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
     
@@ -255,6 +270,18 @@ async def verify_2fa(
 ):
     """Verify 2FA code and issue tokens."""
     ip = get_real_ip(request)
+    # PR 10: Session Fixation Protection - Revoke any existing session cookie
+    old_refresh_token = request.cookies.get("refresh_token")
+    if old_refresh_token:
+        auth_service.revoke_refresh_token(old_refresh_token)
+    
+    # Verify 2FA and get user
+    user = auth_service.verify_2fa_login(login_request.pre_auth_token, login_request.code, ip_address=ip)
+    
+    # Issue Tokens
+    access_token = auth_service.create_access_token(
+        data={"sub": user.username}
+    )
     user = await auth_service.verify_2fa_login(login_request.pre_auth_token, login_request.code, ip_address=ip)
     
     access_token = auth_service.create_access_token(data={"sub": user.username, "tid": str(user.tenant_id) if user.tenant_id else None})
@@ -265,8 +292,8 @@ async def verify_2fa(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=settings.is_production,
-        samesite="lax",
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
     
@@ -316,6 +343,19 @@ async def refresh(
             samesite="lax",
             max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
         )
+        
+    access_token, new_refresh_token = auth_service.refresh_access_token(refresh_token)
+    
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+    )
+    
+    return Token(access_token=access_token, token_type="bearer", refresh_token=new_refresh_token)
 
         token_response = Token(access_token=access_token, token_type="bearer", refresh_token=new_refresh_token)
 

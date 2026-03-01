@@ -115,6 +115,7 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
   const makeRequest = async (): Promise<T> => {
     try {
       const response = await fetch(url, {
+        credentials: 'include',
         cache: options.cache || (endpoint.includes('/captcha') ? 'no-store' : undefined),
         ...fetchOptions,
         headers,
