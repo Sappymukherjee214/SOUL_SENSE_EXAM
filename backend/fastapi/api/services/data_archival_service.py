@@ -63,77 +63,82 @@ class DataArchivalService:
 
         # 3. Create the password-protected ZIP using pyzipper
         zip_buffer = io.BytesIO()
-        with pyzipper.AESZipFile(
-            zip_buffer, 
-            'w', 
-            compression=pyzipper.ZIP_DEFLATED, 
-            encryption=pyzipper.WZ_AES
-        ) as zf:
-            zf.setpassword(password.encode('utf-8'))
-
-            # --- Add JSON ---
-            if include_json:
-                json_str = json.dumps(data, indent=2, ensure_ascii=False, default=str)
-                zf.writestr(f"{user.username}_data.json", json_str.encode('utf-8'))
-
-            # --- Add PDF ---
-            if include_pdf:
-                # We need to temporarily write PDF to disk or buffer
-                import tempfile
-                # Setup temp file securely
-                tmp_fd, tmp_pdf_path = tempfile.mkstemp(suffix=".pdf")
-                os.close(tmp_fd) # Close the FD returned by mkstemp, we'll open it with 'with'
-                
-                try:
-                    ExportServiceV2._write_pdf(tmp_pdf_path, data, user)
-                    with open(tmp_pdf_path, 'rb') as pdf_f:
-                        zf.writestr(f"{user.username}_report.pdf", pdf_f.read())
-                    # Monitor FD usage after reading
-                    from ..utils.fd_guard import FDGuard
-                    FDGuard.check_fd_usage("archive_pdf_read")
-                except Exception as e:
-                    logger.error(f"Failed to include PDF in archive for user {user.id}: {e}")
-                finally:
-                    if os.path.exists(tmp_pdf_path):
-                        try:
-                            os.remove(tmp_pdf_path)
-                        except Exception as e:
-                            logger.warning(f"Failed to remove temp PDF '{tmp_pdf_path}': {e}")
-
-            # --- Add CSV Bundle ---
-            if include_csv:
-                from .export_service_v2 import csv
-                def _add_csv(filename: str, rows: list):
-                    if not rows: return
-                    with io.StringIO() as buffer:
-                        fieldnames = set()
-                        for row in rows: fieldnames.update(row.keys())
-                        writer = csv.DictWriter(buffer, fieldnames=sorted(list(fieldnames)))
-                        writer.writeheader()
-                        for row in rows:
-                            safe = {k: ExportServiceV2._sanitize_csv_field(v) for k, v in row.items()}
-                            writer.writerow(safe)
-                        zf.writestr(f"csv_data/{filename}", buffer.getvalue().encode('utf-8-sig'))
-
-                for key, value in data.items():
-                    if key == '_export_metadata': continue
-                    if isinstance(value, list):
-                        _add_csv(f'{key}.csv', value)
-                    elif isinstance(value, dict):
-                        _add_csv(f'{key}.csv', [value])
-
-        # Write to disk with proper handle management
         try:
-            with open(filepath, 'wb') as f:
-                f.write(zip_buffer.getvalue())
-            # Monitor FD usage after write
+            with pyzipper.AESZipFile(
+                zip_buffer, 
+                'w', 
+                compression=pyzipper.ZIP_DEFLATED, 
+                encryption=pyzipper.WZ_AES
+            ) as zf:
+                zf.setpassword(password.encode('utf-8'))
+
+                # --- Add JSON ---
+                if include_json:
+                    json_str = json.dumps(data, indent=2, ensure_ascii=False, default=str)
+                    zf.writestr(f"{user.username}_data.json", json_str.encode('utf-8'))
+
+                # --- Add PDF ---
+                if include_pdf:
+                    import tempfile
+                    import aiofiles
+                    tmp_fd, tmp_pdf_path = tempfile.mkstemp(suffix=".pdf")
+                    os.close(tmp_fd)
+                    
+                    try:
+                        # Note: _write_pdf is currently sync, but we read it back async
+                        ExportServiceV2._write_pdf(tmp_pdf_path, data, user)
+                        
+                        # Requirement #1233: Use Async Context Manager for file reading
+                        async with aiofiles.open(tmp_pdf_path, mode='rb') as pdf_f:
+                            pdf_content = await pdf_f.read()
+                            zf.writestr(f"{user.username}_report.pdf", pdf_content)
+                        
+                        from ..utils.fd_guard import FDGuard
+                        FDGuard.check_fd_usage("archive_pdf_read_async")
+                    except Exception as e:
+                        logger.error(f"Failed to include PDF in archive for user {user.id}: {e}")
+                    finally:
+                        if os.path.exists(tmp_pdf_path):
+                            try:
+                                os.remove(tmp_pdf_path)
+                            except Exception as e:
+                                logger.warning(f"Failed to remove temp PDF '{tmp_pdf_path}': {e}")
+
+                # --- Add CSV Bundle ---
+                if include_csv:
+                    from .export_service_v2 import csv
+                    def _add_csv(filename: str, rows: list):
+                        if not rows: return
+                        with io.StringIO() as buffer:
+                            fieldnames = set()
+                            for row in rows: fieldnames.update(row.keys())
+                            writer = csv.DictWriter(buffer, fieldnames=sorted(list(fieldnames)))
+                            writer.writeheader()
+                            for row in rows:
+                                safe = {k: ExportServiceV2._sanitize_csv_field(v) for k, v in row.items()}
+                                writer.writerow(safe)
+                            zf.writestr(f"csv_data/{filename}", buffer.getvalue().encode('utf-8-sig'))
+
+                    for key, value in data.items():
+                        if key == '_export_metadata': continue
+                        if isinstance(value, list):
+                            _add_csv(f'{key}.csv', value)
+                        elif isinstance(value, dict):
+                            _add_csv(f'{key}.csv', [value])
+
+            # Requirement #1233: Use Async Context Manager for final storage write
+            import aiofiles
+            async with aiofiles.open(filepath, mode='wb') as f:
+                await f.write(zip_buffer.getvalue())
+            
             from ..utils.fd_guard import FDGuard
-            FDGuard.check_fd_usage("archive_zip_write")
+            FDGuard.check_fd_usage("archive_zip_write_async")
+
         except Exception as e:
-            logger.error(f"Failed to write ZIP archive to disk: {e}")
+            logger.error(f"Failed to generate or write ZIP archive: {e}")
             raise RuntimeError(f"Storage write failure: {e}")
         finally:
-            zip_buffer.close() # Ensure BytesIO is closed
+            zip_buffer.close()
 
         # 4. Record Export in DB
         record = ExportRecord(
