@@ -40,7 +40,6 @@ class BaseAppSettings(BaseSettings):
 
     # Application settings
     app_env: str = Field(default="development", description="Application environment")
-    ENVIRONMENT: str = Field(default="development", description="Environment alias")
     host: str = Field(default="127.0.0.1", description="Server host")
     port: int = Field(default=8000, ge=1, le=65535, description="Server port")
     debug: bool = Field(default=True, description="Debug mode")
@@ -104,7 +103,7 @@ class BaseAppSettings(BaseSettings):
     redis_port: int = Field(default=6379, ge=1, le=65535, description="Redis port")
     redis_password: Optional[str] = Field(default=None, description="Redis password")
     redis_db: int = Field(default=0, description="Redis database index")
-    redis_url: Optional[str] = Field(default=None, description="Redis URL (if set, overrides individual host/port)")
+    redis_connection_url: Optional[str] = Field(default=None, description="Redis URL (if set, overrides individual host/port)")
     redis_ttl_seconds: int = Field(default=60, description="Default lock TTL in seconds")
 
     # Deletion Grace Period
@@ -152,12 +151,6 @@ class BaseAppSettings(BaseSettings):
         default=["X-API-Version", "X-Request-ID", "X-Process-Time"],
         description="Headers to expose via CORS"
     )
-    # Redis Configuration (for rate limiting and caching)
-    redis_host: str = Field(default="localhost", description="Redis host")
-    redis_port: int = Field(default=6379, ge=1, le=65535, description="Redis port")
-    redis_db: int = Field(default=0, ge=0, description="Redis database number")
-    redis_password: Optional[str] = Field(default=None, description="Redis password")
-
     # Storage Configuration (S3 / Blob) (#1125)
     storage_type: str = Field(default="s3", description="Cloud storage provider (s3, azure, local)")
     s3_bucket_name: str = Field(default="soulsense-archival", description="S3 bucket for cold storage")
@@ -169,6 +162,8 @@ class BaseAppSettings(BaseSettings):
     @property
     def redis_url(self) -> str:
         """Construct Redis URL from configuration."""
+        if self.redis_connection_url:
+            return self.redis_connection_url
         if self.redis_password:
             return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
@@ -265,16 +260,6 @@ class BaseAppSettings(BaseSettings):
     @property
     def is_production(self) -> bool:
         """Alias for checking if environment is production."""
-        return self.app_env == "production"
-
-    @property
-    def ENVIRONMENT(self) -> str:
-        """Alias for app_env to match issue requirements."""
-        return self.app_env
-
-    @property
-    def is_production(self) -> bool:
-        """Check if the current environment is production."""
         return self.app_env == "production"
 
     @field_validator('app_env')

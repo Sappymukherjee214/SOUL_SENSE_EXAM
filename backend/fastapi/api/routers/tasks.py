@@ -17,10 +17,11 @@ from ..services.background_task_service import (
     TaskType
 )
 from ..models import User, BackgroundJob
-from .auth import get_current_user
+from .auth import get_current_user, require_admin
 from ..utils.timestamps import normalize_utc_iso
 from app.core import NotFoundError, ValidationError
 from pydantic import BaseModel, Field
+from ..services.outbox_relay_service import OutboxRelayService
 
 router = APIRouter()
 logger = logging.getLogger("api.tasks")
@@ -194,3 +195,25 @@ async def cancel_task(
     
     logger.info(f"Task {job_id} cancelled by user {current_user.id}")
     return {"status": "cancelled", "job_id": job_id}
+
+
+# ============================================================================
+# Admin Outbox Management
+# ============================================================================
+
+@router.post("/admin/outbox/retry", tags=["Admin", "Outbox"])
+async def retry_failed_outbox(
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    [Admin Only] Reset all 'failed' or 'dead_letter' outbox events to 'pending'.
+    Useful for recovering from broad service outages (e.g. Elasticsearch down).
+    """
+    count = await OutboxRelayService.retry_all_failed_events(db)
+    return {
+        "message": f"Successfully reset {count} outbox events to pending for retry.",
+        "retried_count": count,
+        "triggered_by": admin_user.username,
+        "timestamp": datetime.now().isoformat()
+    }
