@@ -13,11 +13,37 @@ from ..config import get_settings
 
 settings = get_settings()
 
-# Create engine
-engine = create_engine(
-    settings.database_url,
-    connect_args={"check_same_thread": False} if settings.database_type == "sqlite" else {}
-)
+# Configure connect_args based on DB type
+connect_args = {}
+if settings.database_type == "sqlite":
+    connect_args["check_same_thread"] = False
+    # SQLite connection timeout (waits if DB is locked)
+    connect_args["timeout"] = settings.database_pool_timeout
+elif "postgresql" in settings.database_url:
+    # Postgres-specific statement timeout (milliseconds)
+    connect_args["options"] = f"-c statement_timeout={settings.database_statement_timeout}"
+
+# Create engine with production-ready pooling
+engine_args = {
+    "connect_args": connect_args,
+}
+
+if settings.database_type == "sqlite":
+    # For SQLite, use StaticPool to avoid issues with multiple threads 
+    # and connection management, as single-file DBs have their own locking.
+    from sqlalchemy.pool import StaticPool
+    engine_args["poolclass"] = StaticPool
+else:
+    # Production pooling options for Postgres/MySQL
+    engine_args.update({
+        "pool_size": settings.database_pool_size,
+        "max_overflow": settings.database_max_overflow,
+        "pool_timeout": settings.database_pool_timeout,
+        "pool_recycle": settings.database_pool_recycle,
+        "pool_pre_ping": settings.database_pool_pre_ping,
+    })
+
+engine = create_engine(settings.database_url, **engine_args)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 logger = logging.getLogger("api.db")
@@ -29,6 +55,7 @@ def get_db():
     try:
         yield db
     except Exception as e:
+        db.rollback()
         logger.error(f"Database session error: {e}", extra={
             "error_type": type(e).__name__,
             "traceback": traceback.format_exc()
@@ -36,6 +63,25 @@ def get_db():
         raise
     finally:
         db.close()
+
+
+def get_pool_status():
+    """
+    Get metrics about the connection pool status to monitor for exhaustion.
+    """
+    from sqlalchemy.pool import QueuePool
+    
+    if isinstance(engine.pool, QueuePool):
+        return {
+            "pool_size": engine.pool.size(),
+            "checkedin": engine.pool.checkedin(),
+            "checkedout": engine.pool.checkedout(),
+            "overflow": engine.pool.overflow(),
+            "pool_timeout": engine.pool.timeout(),
+            "pool_recycle": engine.pool.recycle,
+            "can_spawn_more": engine.pool.overflow() < engine.pool.max_overflow() if hasattr(engine.pool, 'max_overflow') else False
+        }
+    return {"pool_type": type(engine.pool).__name__, "message": "Metrics not supported for this pool type"}
 
 
 class AssessmentService:
