@@ -80,33 +80,40 @@ class DataArchivalService:
             if include_pdf:
                 # We need to temporarily write PDF to disk or buffer
                 import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
-                    tmp_pdf_path = tmp_pdf.name
+                # Setup temp file securely
+                tmp_fd, tmp_pdf_path = tempfile.mkstemp(suffix=".pdf")
+                os.close(tmp_fd) # Close the FD returned by mkstemp, we'll open it with 'with'
                 
                 try:
                     ExportServiceV2._write_pdf(tmp_pdf_path, data, user)
                     with open(tmp_pdf_path, 'rb') as pdf_f:
                         zf.writestr(f"{user.username}_report.pdf", pdf_f.read())
+                    # Monitor FD usage after reading
+                    from ..utils.fd_guard import FDGuard
+                    FDGuard.check_fd_usage("archive_pdf_read")
                 except Exception as e:
-                    logger.error(f"Failed to include PDF in archive: {e}")
+                    logger.error(f"Failed to include PDF in archive for user {user.id}: {e}")
                 finally:
                     if os.path.exists(tmp_pdf_path):
-                        os.remove(tmp_pdf_path)
+                        try:
+                            os.remove(tmp_pdf_path)
+                        except Exception as e:
+                            logger.warning(f"Failed to remove temp PDF '{tmp_pdf_path}': {e}")
 
             # --- Add CSV Bundle ---
             if include_csv:
                 from .export_service_v2 import csv
                 def _add_csv(filename: str, rows: list):
                     if not rows: return
-                    buffer = io.StringIO()
-                    fieldnames = set()
-                    for row in rows: fieldnames.update(row.keys())
-                    writer = csv.DictWriter(buffer, fieldnames=sorted(list(fieldnames)))
-                    writer.writeheader()
-                    for row in rows:
-                        safe = {k: ExportServiceV2._sanitize_csv_field(v) for k, v in row.items()}
-                        writer.writerow(safe)
-                    zf.writestr(f"csv_data/{filename}", buffer.getvalue().encode('utf-8-sig'))
+                    with io.StringIO() as buffer:
+                        fieldnames = set()
+                        for row in rows: fieldnames.update(row.keys())
+                        writer = csv.DictWriter(buffer, fieldnames=sorted(list(fieldnames)))
+                        writer.writeheader()
+                        for row in rows:
+                            safe = {k: ExportServiceV2._sanitize_csv_field(v) for k, v in row.items()}
+                            writer.writerow(safe)
+                        zf.writestr(f"csv_data/{filename}", buffer.getvalue().encode('utf-8-sig'))
 
                 for key, value in data.items():
                     if key == '_export_metadata': continue
@@ -115,9 +122,18 @@ class DataArchivalService:
                     elif isinstance(value, dict):
                         _add_csv(f'{key}.csv', [value])
 
-        # Write to disk
-        with open(filepath, 'wb') as f:
-            f.write(zip_buffer.getvalue())
+        # Write to disk with proper handle management
+        try:
+            with open(filepath, 'wb') as f:
+                f.write(zip_buffer.getvalue())
+            # Monitor FD usage after write
+            from ..utils.fd_guard import FDGuard
+            FDGuard.check_fd_usage("archive_zip_write")
+        except Exception as e:
+            logger.error(f"Failed to write ZIP archive to disk: {e}")
+            raise RuntimeError(f"Storage write failure: {e}")
+        finally:
+            zip_buffer.close() # Ensure BytesIO is closed
 
         # 4. Record Export in DB
         record = ExportRecord(

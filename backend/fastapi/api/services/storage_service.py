@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from typing import Optional, List
 from datetime import datetime, UTC
+from ..utils.fd_guard import FDGuard
 
 logger = logging.getLogger("api.storage")
 
@@ -11,6 +12,7 @@ class StorageService:
     Handles file storage operations for SoulSense.
     Supports local filesystem and stubs for S3 integration.
     Enhanced with hard-deletion and URL invalidation for GDPR compliance (#1134).
+    Merged with FD leak protection (#1233).
     """
     
     BASE_DIR = Path("exports")
@@ -21,7 +23,7 @@ class StorageService:
 
     @staticmethod
     async def delete_file(file_path: str) -> bool:
-        """Permanently deletes a file from local storage or S3."""
+        """Permanently deletes a file from local storage or S3 with FD monitoring."""
         if not file_path:
             return False
             
@@ -30,17 +32,31 @@ class StorageService:
             if path.exists():
                 os.remove(path)
                 logger.info(f"Successfully scrubbed local file: {file_path}")
+                # Monitor FD usage after deletion
+                FDGuard.check_fd_usage("local_file_delete")
                 return True
             
             # --- S3 Hard Delete Stub ---
             # if settings.use_s3:
-            #     s3_client.delete_object(Bucket=settings.S3_BUCKET, Key=file_path)
-            #     logger.info(f"Successfully scrubbed S3 object: {file_path}")
+            #     # FIX #1233: Ensure client is closed or used via context manager
+            #     # async with get_s3_client() as s3:
+            #     #     await s3.delete_object(Bucket=settings.S3_BUCKET, Key=file_path)
+            #     #     logger.info(f"Successfully scrubbed S3 object: {file_path}")
+            #     pass
             
             return False
         except Exception as e:
             logger.error(f"Failed to scrub file {file_path}: {e}")
             return False
+
+    @staticmethod
+    async def storage_health_check():
+        """Returns storage performance and health metrics (#1233)."""
+        return {
+            "open_fds": FDGuard.get_open_fd_count(),
+            "base_dir_exists": Path(StorageService.BASE_DIR).exists(),
+            "timestamp": datetime.now(UTC).isoformat()
+        }
 
     @staticmethod
     async def invalidate_signed_url(url: str):
