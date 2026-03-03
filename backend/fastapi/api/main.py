@@ -276,21 +276,30 @@ async def lifespan(app: FastAPI):
         try:
             from .services.outbox_relay_service import OutboxRelayService
             from .services.db_service import AsyncSessionLocal
-            if worker_manager:
-                # Register with AsyncWorkerManager for memory leak prevention
-                await worker_manager.register_worker(
-                    name="outbox_relay",
-                    worker_func=lambda: OutboxRelayService.start_relay_worker(AsyncSessionLocal),
-                    restart_on_failure=True,
-                    memory_threshold_mb=75.0,
-                    cleanup_interval_seconds=600
-                )
-                print("[OK] Search Index Outbox Relay worker registered with AsyncWorkerManager")
-            else:
-                # Fallback to direct task creation
-                relay_task = asyncio.create_task(OutboxRelayService.start_relay_worker(AsyncSessionLocal))
-                app.state.outbox_relay_task = relay_task
-                print("[OK] Search Index Outbox Relay worker started")
+            relay_task = asyncio.create_task(OutboxRelayService.start_relay_worker(AsyncSessionLocal))
+            app.state.outbox_relay_task = relay_task
+            print("[OK] Search Index Outbox Relay worker started")
+
+            # Outbox Purgatory Monitoring Job (#1235)
+            async def outbox_purgatory_cleanup_loop():
+                while True:
+                    try:
+                        async with AsyncSessionLocal() as db:
+                            stats = await OutboxRelayService.cleanup_purgatory(db, threshold=10000)
+                            if stats["is_critical"]:
+                                logger.critical(f"[PURGATORY] CRITICAL! {stats['total_pending']} events pending. Intervention required!")
+                            else:
+                                logger.info(f"[PURGATORY] Status: {stats['total_pending']} pending, {stats['total_dead_letter']} dead-lettered.")
+                    except Exception as e:
+                        logger.error(f"Outbox purgatory monitor failed: {e}")
+                    
+                    # Check every 10 minutes
+                    await asyncio.sleep(600)
+            
+            purgatory_task = asyncio.create_task(outbox_purgatory_cleanup_loop())
+            app.state.outbox_purgatory_task = purgatory_task
+            print("[OK] Outbox Purgatory Monitoring job scheduled (10m interval)")
+
         except Exception as e:
             logger.warning(f"Failed to start Search Index Outbox Relay: {e}")
             print(f"[WARNING] Search indexing might drift without outbox relay: {e}")

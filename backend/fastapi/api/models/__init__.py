@@ -333,11 +333,12 @@ class OutboxEvent(Base):
     topic = Column(String, default="audit_trail", nullable=False)
     payload = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=utc_now, index=True)
-    status = Column(String, default='pending', index=True) # pending, processed, failed
+    status = Column(String, default='pending', index=True) # pending, processed, failed, dead_letter
     processed_at = Column(DateTime, nullable=True)
     retry_count = Column(Integer, default=0)
     next_retry_at = Column(DateTime, nullable=True, index=True)
-    error_message = Column(Text, nullable=True)
+    error_message = Column(Text, nullable=True) # Legacy field
+    last_error = Column(Text, nullable=True)
 
 class GDPRScrubLog(Base):
     """
@@ -658,7 +659,6 @@ class Score(Base):
     __table_args__ = (
         Index('idx_score_age_score', 'age', 'total_score'),
         Index('idx_score_agegroup_score', 'detailed_age_group', 'total_score'),
-        Index('idx_score_env_timestamp', 'environment', 'timestamp'),
     )
 
 class Response(Base):
