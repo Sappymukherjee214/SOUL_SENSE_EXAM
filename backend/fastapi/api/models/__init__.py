@@ -358,6 +358,11 @@ class JournalEntry(Base):
     is_deleted = Column(Boolean, default=False)
     privacy_level = Column(String, default="private")
     word_count = Column(Integer, default=0)
+    
+    __table_args__ = (
+        Index('idx_journal_user_timestamp', 'user_id', 'timestamp'),
+        Index('idx_journal_is_deleted', 'is_deleted'),
+    )
 
 class SatisfactionRecord(Base):
     __tablename__ = 'satisfaction_records'
