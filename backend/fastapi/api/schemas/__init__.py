@@ -508,6 +508,7 @@ class UserSettingsCreate(BaseModel):
     data_usage_consent: bool = False
     emergency_disclaimer_accepted: bool = False
     crisis_support_preference: bool = True
+    onboarding_completed: bool = False
 
 
 class UserSettingsUpdate(BaseModel):
@@ -530,6 +531,7 @@ class UserSettingsUpdate(BaseModel):
     data_usage_consent: Optional[bool] = None
     emergency_disclaimer_accepted: Optional[bool] = None
     crisis_support_preference: Optional[bool] = None
+    onboarding_completed: Optional[bool] = None
 
 
 class UserSettingsResponse(BaseModel):
@@ -554,6 +556,7 @@ class UserSettingsResponse(BaseModel):
     data_usage_consent: bool
     emergency_disclaimer_accepted: bool
     crisis_support_preference: bool
+    onboarding_completed: bool
     
     updated_at: str
 

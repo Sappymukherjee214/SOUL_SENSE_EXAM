@@ -3,10 +3,13 @@
 import * as React from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Sidebar, Header } from '@/components/app';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { OnboardingTutorial } from '@/components/onboarding/OnboardingTutorial';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Authentication checks are handled by Edge middleware; this hook is used only for UI state
   const { isAuthenticated, isLoading } = useAuth();
+  const { showTutorial, completeOnboarding, skipOnboarding } = useOnboarding();
 
   return (
     <div className="flex h-screen bg-background text-foreground relative">
@@ -20,6 +23,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {showTutorial && (
+        <OnboardingTutorial
+          onComplete={completeOnboarding}
+          onSkip={skipOnboarding}
+        />
+      )}
     </div>
   );
 }

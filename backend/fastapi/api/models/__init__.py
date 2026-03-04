@@ -186,6 +186,7 @@ class UserSettings(Base):
     
     # Crisis support settings (Integration with emotional support features)
     crisis_support_preference = Column(Boolean, default=True)
+    onboarding_completed = Column(Boolean, default=False)
     updated_at = Column(String, default=lambda: datetime.utcnow().isoformat())
     user = relationship("User", back_populates="settings")
 
