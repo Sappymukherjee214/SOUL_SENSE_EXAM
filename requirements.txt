@@ -55,4 +55,5 @@ alembic==1.14.0
 
 # Configuration
 python-dotenv==1.0.0
+keyring==24.3.0
 # reportlab (Removed duplicate)
