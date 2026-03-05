@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func, and_, case
 from fastapi import HTTPException, status
 
+from api.root_models import Goal, User
 from ..models import Goal, User
 from ..schemas import GoalCreate, GoalUpdate
 

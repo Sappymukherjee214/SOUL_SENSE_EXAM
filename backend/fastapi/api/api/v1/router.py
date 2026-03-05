@@ -2,6 +2,8 @@ from fastapi import APIRouter
 
 from ...routers import (
     auth, users, profiles, assessments, 
+    settings_sync, community, contact, exams, export, deep_dive,
+    goals
     questions, analytics, journal, health,
     settings_sync, community, contact, exams, export, deep_dive,
     gamification, goals
@@ -32,6 +34,7 @@ api_router.include_router(community.router, prefix="/community", tags=["Communit
 api_router.include_router(contact.router, prefix="/contact", tags=["Contact"])
 api_router.include_router(export.router, prefix="/reports/export", tags=["Exports"])
 api_router.include_router(deep_dive.router, prefix="/deep-dive", tags=["Deep Dive"])
+api_router.include_router(goals.router, prefix="/goals", tags=["Goals"])
 api_router.include_router(gamification.router, prefix="/gamification", tags=["Gamification"])
 api_router.include_router(goals.router, prefix="/goals", tags=["Goals"])
 api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])

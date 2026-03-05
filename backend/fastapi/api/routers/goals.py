@@ -18,6 +18,7 @@ from ..schemas import (
 from ..services.goal_service import GoalService
 from ..routers.auth import get_current_user
 from ..services.db_service import get_db
+from api.root_models import User
 from ..models import User
 
 router = APIRouter(tags=["Goals"])
