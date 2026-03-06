@@ -7,7 +7,9 @@ on:
       - 'backend/fastapi/tests/integration/__snapshots__/**'
 
 permissions:
+  contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   snapshot-approval:
