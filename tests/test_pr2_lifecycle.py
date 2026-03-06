@@ -1,9 +1,12 @@
 import pytest
 from unittest.mock import MagicMock, patch, call
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
+
+# Python 3.10 compatibility
+UTC = timezone.utc
 from app.auth.idle_watcher import IdleWatcher
 from app.services.lifecycle import deactivate_dormant_accounts
-from app.models import User
+from backend.fastapi.api.root_models import User
 from app.auth.auth import AuthManager
 
 # --- IDLE WATCHER TESTS ---
