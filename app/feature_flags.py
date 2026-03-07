@@ -47,6 +47,13 @@ class FeatureFlag:
 
 # Pre-defined experimental feature flags
 EXPERIMENTAL_FLAGS: Dict[str, FeatureFlag] = {
+    "tcp_tuning_validation": FeatureFlag(
+        name="tcp_tuning_validation",
+        default=False,
+        description="Enables kernel TCP parameter tuning validation at startup",
+        experimental=True,
+        category="infrastructure"
+    ),
     "ai_journal_suggestions": FeatureFlag(
         name="ai_journal_suggestions",
         default=False,
