@@ -1709,6 +1709,12 @@ class GoalResponse(GoalBase):
     model_config = ConfigDict(from_attributes=True)
 
 class GoalListResponse(BaseModel):
+    """Response schema for listing goals."""
+    goals: List[GoalResponse]
+    total: int
+    page: int
+    page_size: int
+    
     """Schema for listing goals."""
     goals: list[GoalResponse]
     total: int
