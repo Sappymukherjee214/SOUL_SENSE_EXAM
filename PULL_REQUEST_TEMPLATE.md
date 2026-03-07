@@ -163,7 +163,26 @@ python demo_session_tracking.py
 - [x] Changelog updated
 - [x] No breaking changes
 
-## 🔗 Related Issues
+## � Security Checklist (required for security-related PRs)
+
+> **Reference:** [docs/SECURITY_HARDENING_CHECKLIST.md](docs/SECURITY_HARDENING_CHECKLIST.md)
+
+- [ ] `python scripts/check_security_hardening.py` passes — all required checks ✅
+- [ ] Relevant rows in the [Security Hardening Checklist](docs/SECURITY_HARDENING_CHECKLIST.md) are updated
+- [ ] No new secrets committed to the repository
+- [ ] New endpoints have rate limiting and input validation
+- [ ] Security-focused review requested from at least one maintainer
+
+<details>
+<summary>Paste hardening status output here</summary>
+
+```
+# Run: python scripts/check_security_hardening.py
+```
+
+</details>
+
+## �🔗 Related Issues
 
 Closes: Session tracking feature request
 
