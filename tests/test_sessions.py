@@ -15,13 +15,16 @@ Tests cover:
 import pytest
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
+
+# Python 3.10 compatibility
+UTC = timezone.utc
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.auth import AuthManager
-from app.models import User, UserSession
+from backend.fastapi.api.root_models import User, UserSession
 from app.db import get_session
 
 
